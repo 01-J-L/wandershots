@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact | WanderShots</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@400;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+      // Set theme instantly to avoid FOUC
+      (function() {
+        const theme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else if (theme === 'dark' || prefersDark) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+</head>
+<body>
+
+    <header>
+        <div class="container">
+            <!-- Mobile Menu Toggle (Hamburger) -->
+            <button class="mobile-menu-toggle" aria-label="Open navigation menu" aria-expanded="false">
+                <svg class="hamburger-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                <svg class="close-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+
+            <a href="index.html" class="logo">
+                <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.125 7.5H18.75V5.25H16.125V7.5Z" fill="currentColor"/>
+                    <path d="M12 12C13.2426 12 14.25 11.0335 14.25 9.75C14.25 8.4665 13.2426 7.5 12 7.5C10.7574 7.5 9.75 8.4665 9.75 9.75C9.75 11.0335 10.7574 12 12 12Z" fill="currentColor"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M3.75 3H20.25C21.2165 3 22 3.7835 22 4.75V19.25C22 20.2165 21.2165 21 20.25 21H3.75C2.7835 21 2 20.2165 2 19.25V4.75C2 3.7835 2.7835 3 3.75 3ZM15 7.5C15.4142 7.5 15.75 7.16421 15.75 6.75V4.5H19.5V8.25H15V7.5ZM5.75971 18L9.40971 13.5L12.4097 15.75L18.4097 8.25L20.25 10.5V19.25H3.75L5.75971 18Z" fill="currentColor"/>
+                </svg>                    
+                <span>WanderShots</span>
+            </a>
+
+            <!-- Navigation Links (Desktop and Mobile Dropdown Content) -->
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                        <span>Home</span>
+                    </a></li>
+                    <li><a href="about.html">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        <span>About</span>
+                    </a></li>
+                    <li><a href="works.html">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <span>Works</span>
+                    </a></li>
+                    <li><a href="contact.html" class="active">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                        <span>Contact</span>
+                    </a></li>
+                </ul>
+            </nav>
+            
+            <!-- Theme Toggle -->
+            <button id="theme-toggle" title="Toggle light/dark mode">
+                <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="page-main">
+        <section id="contact-hero">
+            <div class="container">
+                <p class="section-subtitle">Say Hello</p>
+                <h2 class="section-title">Get In Touch</h2>
+                <div class="contact-section">
+                    <div class="contact-form">
+                        <h3>Send a Message</h3>
+                        <form action="#">
+                            <div class="form-grid">
+                                <input type="text" name="name" placeholder="Your Name" required>
+                                <input type="email" name="email" placeholder="Your Email" required>
+                            </div>
+                            <textarea name="message" rows="6" placeholder="Your Message" required></textarea>
+                            <button type="submit" class="btn-dark">Send Message →</button>
+                        </form>
+                    </div>
+                    <div class="contact-info">
+                        <h3>Our Location & Info</h3>
+                        <p>Feel free to reach out for collaborations, bookings, or any inquiries. I look forward to hearing from you!</p>
+                        <ul>
+                            <li><strong>Location:</strong> 1340 Atwater St, Detroit, MI 48207</li>
+                            <li><strong>Phone:</strong> +1 (240) 480-9600</li>
+                            <li><strong>Email:</strong> contact@wandershots.com</li>
+                        </ul>
+                        <div class="map-container">
+                            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2948.835921019688!2d-83.029214084544!3d42.34651697918764!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x883b2d2f7f1837b5%3A0x6a0a4b7a4b0d0c3c!2s1340%20Atwater%20St%2C%20Detroit%2C%20MI%2048207%2C%20USA!5e0!3m2!1sen!2sca!4v1672251315571!5m2!1sen!2sca" width="100%" height="250" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="main-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h4>Where to find me</h4>
+                    <p>📍 1340 Atwater St, Detroit, MI 48207</p>
+                    <div class="social-icons">
+                        <a href="#">f</a>
+                        <a href="#">t</a>
+                        <a href="#">w</a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact</h4>
+                    <p>Phone: +1 (240) 480-9600</p>
+                    <p>Email: contact@wandershots.com</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Availability</h4>
+                    <ul class="availability-list">
+                        <li><span>Mon - Fri</span> <span>9:00 - 18:00</span></li>
+                        <li><span>Saturday</span> <span>10:00 - 16:00</span></li>
+                        <li><span>Sunday</span> <span>By Appointment</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                <a href="index.html" class="logo">WANDERSHOTS</a>
+                <p>© 2025. All Rights Reserved.</p>
+            </div>
+        </div>
+    </footer>
+    <script src="js/script.js"></script>
+</body>
+</html>
