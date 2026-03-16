@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Leaflet Map CSS & JS (Free Map Library) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<style>
+    /* Fix for map z-index overlapping the navbar */
+    .leaflet-container { z-index: 10 !important; font-family: 'Inter', sans-serif; }
+    .leaflet-control-geocoder-form input { color: black !important; }
+</style>
+
+<section class="pt-32 pb-24 bg-gray-50 min-h-screen">
+    <div class="max-w-5xl mx-auto px-6 lg:px-8">
+        
+        <!-- Header -->
+        <div class="text-center mb-16 fade-in">
+            <h1 class="text-4xl lg:text-5xl font-light text-primary mb-4">Book a Session</h1>
+            <div class="w-12 h-0.5 bg-primary mx-auto mb-6"></div>
+            <p class="text-gray-500 text-lg font-light leading-relaxed">Follow the steps below to reserve your date with Wandershots Studios.</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('views.book') }}">
+            
+            <!-- STEP 1: Personal Details -->
+            <div class="bg-white p-8 md:p-12 rounded-2xl border border-gray-100 shadow-sm hover-lift fade-in mb-8">
+                <h2 class="text-2xl font-light text-primary mb-8 flex items-center border-b border-gray-100 pb-4">
+                    <span class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold mr-4">1</span>
+                    Your Details
+                </h2>
+                
+                <div class="grid md:grid-cols-2 gap-8 mb-6">
+                    <div>
+                        <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Full Name</label>
+                        <input type="text" name="name" class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-5 py-4 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-light" placeholder="e.g., John Doe" required>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Email Address</label>
+                        <input type="email" name="email" class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-5 py-4 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-light" placeholder="e.g., john@example.com" required>
+                    </div>
+                </div>
+                
+                <!-- NEW PHONE NUMBER FIELD -->
+                <div>
+                    <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Contact Number</label>
+                    <input type="tel" name="phone" class="w-full md:w-1/2 bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-5 py-4 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-light" placeholder="e.g., 0912 345 6789" required>
+                </div>
+            </div>
+
+            <!-- STEP 2: Service Selection -->
+            <div class="bg-white p-8 md:p-12 rounded-2xl border border-gray-100 shadow-sm hover-lift fade-in mb-8">
+                <h2 class="text-2xl font-light text-primary mb-8 flex items-center border-b border-gray-100 pb-4">
+                    <span class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold mr-4">2</span>
+                    Select Service Type
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <label class="cursor-pointer service-option group">
+                        <input type="radio" name="service_type" value="On-site Studio Booth" class="peer sr-only" required>
+                        <div class="p-6 rounded-xl border-2 border-gray-100 bg-white group-hover:border-primary/50 peer-checked:border-primary peer-checked:bg-gray-50 transition-all h-full flex flex-col items-center text-center">
+                            <div class="w-14 h-14 bg-gray-50 group-hover:bg-primary group-hover:text-white peer-checked:bg-primary peer-checked:text-white rounded-full flex items-center justify-center text-primary mb-4 transition-colors"><i class="ri-camera-lens-fill text-2xl"></i></div>
+                            <h3 class="text-primary font-medium">On-site Studio Booth</h3>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer service-option group">
+                        <input type="radio" name="service_type" value="Photobooth" class="peer sr-only">
+                        <div class="p-6 rounded-xl border-2 border-gray-100 bg-white group-hover:border-primary/50 peer-checked:border-primary peer-checked:bg-gray-50 transition-all h-full flex flex-col items-center text-center">
+                            <div class="w-14 h-14 bg-gray-50 group-hover:bg-primary group-hover:text-white peer-checked:bg-primary peer-checked:text-white rounded-full flex items-center justify-center text-primary mb-4 transition-colors"><i class="ri-printer-line text-2xl"></i></div>
+                            <h3 class="text-primary font-medium">Photobooth</h3>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer service-option group">
+                        <input type="radio" name="service_type" value="Photoman" class="peer sr-only">
+                        <div class="p-6 rounded-xl border-2 border-gray-100 bg-white group-hover:border-primary/50 peer-checked:border-primary peer-checked:bg-gray-50 transition-all h-full flex flex-col items-center text-center">
+                            <div class="w-14 h-14 bg-gray-50 group-hover:bg-primary group-hover:text-white peer-checked:bg-primary peer-checked:text-white rounded-full flex items-center justify-center text-primary mb-4 transition-colors"><i class="ri-user-star-line text-2xl"></i></div>
+                            <h3 class="text-primary font-medium">Photoman</h3>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer service-option group">
+                        <input type="radio" name="service_type" value="Events Photography" class="peer sr-only">
+                        <div class="p-6 rounded-xl border-2 border-gray-100 bg-white group-hover:border-primary/50 peer-checked:border-primary peer-checked:bg-gray-50 transition-all h-full flex flex-col items-center text-center">
+                            <div class="w-14 h-14 bg-gray-50 group-hover:bg-primary group-hover:text-white peer-checked:bg-primary peer-checked:text-white rounded-full flex items-center justify-center text-primary mb-4 transition-colors"><i class="ri-heart-line text-2xl"></i></div>
+                            <h3 class="text-primary font-medium">Events Photography</h3>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer service-option group">
+                        <input type="radio" name="service_type" value="Studio Photoshoot" class="peer sr-only">
+                        <div class="p-6 rounded-xl border-2 border-gray-100 bg-white group-hover:border-primary/50 peer-checked:border-primary peer-checked:bg-gray-50 transition-all h-full flex flex-col items-center text-center">
+                            <div class="w-14 h-14 bg-gray-50 group-hover:bg-primary group-hover:text-white peer-checked:bg-primary peer-checked:text-white rounded-full flex items-center justify-center text-primary mb-4 transition-colors"><i class="ri-building-4-line text-2xl"></i></div>
+                            <h3 class="text-primary font-medium">Studio Photoshoot</h3>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- DYNAMIC PACKAGES & PRICING -->
+            <div id="packages-container" class="hidden bg-white p-8 md:p-12 rounded-2xl border border-gray-100 shadow-sm hover-lift mb-8 animate-fade-in-down">
+                <h2 class="text-2xl font-light text-primary mb-8 flex items-center border-b border-gray-100 pb-4">
+                    <span class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold mr-4"><i class="ri-layout-grid-line"></i></span>
+                    Choose Your Package
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="dynamic-packages-grid">
+                    {% if packages %}
+                        {% for pkg in packages %}
+                        <label class="cursor-pointer group package-card hidden" data-service-type="{{ pkg.package_type }}">
+                            <input type="radio" name="package_selected" value="{{ pkg.name }} ({{ pkg.price }})" class="peer sr-only package-radio">
+                            <div class="p-5 rounded-xl border-2 border-gray-100 bg-white group-hover:border-primary/50 peer-checked:border-primary peer-checked:bg-gray-50 transition-all flex flex-col h-full overflow-hidden">
+                                
+                                {% if pkg.image_filename %}
+                                <div class="w-full h-36 bg-gray-100 rounded-lg mb-4 overflow-hidden border border-gray-200">
+                                    <img src="{{ url_for('static', filename='images/' + pkg.image_filename) }}" class="w-full h-full object-cover">
+                                </div>
+                                {% endif %}
+
+                                <h4 class="text-primary font-bold tracking-wide">{{ pkg.name }}</h4>
+                                <p class="text-gray-500 text-sm mt-2 font-light flex-grow whitespace-pre-wrap">{{ pkg.description }}</p>
+                                
+                                <div class="mt-4 pt-4 border-t border-gray-100">
+                                    <span class="inline-block bg-primary text-white px-3 py-1.5 rounded-md text-sm font-bold tracking-wider">{{ pkg.price }}</span>
+                                </div>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-gray-500 col-span-3 text-center py-4">No packages available. Please contact us for custom pricing.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- STEP 3: INTERACTIVE MAP LOCATION -->
+            <div id="location-container" class="hidden bg-white p-8 md:p-12 rounded-2xl border border-gray-100 shadow-sm hover-lift mb-8 animate-fade-in-down">
+                <h2 class="text-2xl font-light text-primary mb-8 flex items-center border-b border-gray-100 pb-4">
+                    <span class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold mr-4">3</span>
+                    Event Location Details
+                </h2>
+
+                <div class="grid grid-cols-1 gap-8">
+                    <!-- Interactive Map Section -->
+                    <div>
+                        <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Pin your Venue Location (Optional Helper)</label>
+                        <p class="text-xs text-gray-500 mb-3"><i class="ri-information-line text-indigo-500"></i> Use the map to automatically fill in the fields below, OR simply type them in manually yourself.</p>
+                        
+                        <div id="map" class="w-full h-[250px] md:h-[350px] rounded-xl border-2 border-gray-200 overflow-hidden relative shadow-inner"></div>
+                        
+                        <button type="button" id="locate-me-btn" class="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center">
+                            <i class="ri-gps-line mr-1 text-lg"></i> Use my current location
+                        </button>
+                    </div>
+
+                    <!-- Manual / Auto-filled Inputs -->
+                    <div class="grid md:grid-cols-2 gap-8 border-t border-gray-100 pt-6">
+                        <div>
+                            <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Venue Address & Description</label>
+                            <input type="text" id="location-input" name="location" class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-5 py-4 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-light" placeholder="e.g., Grand Hotel Ballroom, 2nd Floor">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Google Maps Link</label>
+                            <input type="url" id="map-url-input" name="map_url" class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-5 py-4 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-light" placeholder="https://maps.google.com/...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: Date & Notes -->
+            <div class="bg-white p-8 md:p-12 rounded-2xl border border-gray-100 shadow-sm hover-lift fade-in mb-10">
+                <h2 class="text-2xl font-light text-primary mb-8 flex items-center border-b border-gray-100 pb-4">
+                    <span class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold mr-4"><i class="ri-calendar-event-line"></i></span>
+                    Date & Details
+                </h2>
+                <div class="grid md:grid-cols-2 gap-8 mb-8">
+                    <div>
+                        <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Preferred Date</label>
+                        <input type="date" name="date" class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-5 py-4 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-light [color-scheme:light]" required>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Preferred Time</label>
+                        <input type="time" name="time" class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-5 py-4 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-light [color-scheme:light]" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 text-xs font-semibold mb-2 uppercase tracking-wide">Additional Notes / Extra Hours</label>
+                    <textarea name="notes" rows="4" placeholder="Add-ons usually cost ₱500 - ₱1000 per additional hour. Tell us your requirements..." class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg px-5 py-4 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-light"></textarea>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary text-white w-full py-5 !rounded-button font-medium text-lg tracking-wide shadow-xl flex items-center justify-center fade-in stagger-3">
+                SUBMIT BOOKING REQUEST <i class="ri-arrow-right-line ml-3"></i>
+            </button>
+        </form>
+    </div>
+</section>
+
+<!-- JavaScript for Interactive Map and Dynamic Toggles -->
+<script>
+    // --- MAP LOGIC ---
+    let map;
+    let marker;
+    
+    // Default location (Manila, PH - change lat/lng if you want it to default elsewhere)
+    let currentLat = 14.5995;
+    let currentLng = 120.9842;
+
+    function initMap() {
+        if (map) return; // Don't initialize twice
+
+        map = L.map('map').setView([currentLat, currentLng], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        // Make marker draggable
+        marker = L.marker([currentLat, currentLng], {draggable: true}).addTo(map);
+
+        // Add Search bar (Geocoder)
+        const geocoder = L.Control.geocoder({
+            defaultMarkGeocode: false,
+            placeholder: "Search for a location...",
+        })
+        .on('markgeocode', function(e) {
+            const latlng = e.geocode.center;
+            marker.setLatLng(latlng);
+            map.setView(latlng, 16);
+            updateLocationFields(latlng.lat, latlng.lng, e.geocode.name);
+        })
+        .addTo(map);
+
+        // Update when marker is dragged
+        marker.on('dragend', function(e) {
+            const position = marker.getLatLng();
+            updateLocationFields(position.lat, position.lng);
+            reverseGeocode(position.lat, position.lng);
+        });
+
+        // Update when user clicks anywhere on map
+        map.on('click', function(e) {
+            marker.setLatLng(e.latlng);
+            updateLocationFields(e.latlng.lat, e.latlng.lng);
+            reverseGeocode(e.latlng.lat, e.latlng.lng);
+        });
+
+        // DO NOT set the URL input field automatically on map load 
+        // to keep it empty until the user actively searches/clicks.
+    }
+
+    // Convert Lat/Lng to Address Name
+    function reverseGeocode(lat, lng) {
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.display_name) {
+                    document.getElementById('location-input').value = data.display_name;
+                }
+            })
+            .catch(err => console.log("Geocoding error:", err));
+    }
+
+    // Updates the visible URL and Address inputs
+    function updateLocationFields(lat, lng, addressName = null) {
+        // Generates the Google Maps link
+        const gmapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+        document.getElementById('map-url-input').value = gmapsUrl;
+        
+        if (addressName) {
+            document.getElementById('location-input').value = addressName;
+        }
+    }
+
+    // Geolocation API (Find My Location Button)
+    document.getElementById('locate-me-btn').addEventListener('click', function() {
+        if (navigator.geolocation) {
+            this.innerHTML = '<i class="ri-loader-4-line ri-spin mr-1 text-lg"></i> Locating...';
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                marker.setLatLng([lat, lng]);
+                map.setView([lat, lng], 16);
+                updateLocationFields(lat, lng);
+                reverseGeocode(lat, lng);
+                document.getElementById('locate-me-btn').innerHTML = '<i class="ri-check-line mr-1 text-lg text-green-600"></i> Location Found';
+            }, function() {
+                alert("Could not get your location. Please ensure location permissions are enabled.");
+                document.getElementById('locate-me-btn').innerHTML = '<i class="ri-gps-line mr-1 text-lg"></i> Use my current location';
+            });
+        } else {
+            alert("Geolocation is not supported by your browser.");
+        }
+    });
+
+
+    // --- DYNAMIC FORM TOGGLES LOGIC ---
+    document.addEventListener('DOMContentLoaded', function() {
+        const serviceRadios = document.querySelectorAll('input[name="service_type"]');
+        
+        const locationContainer = document.getElementById('location-container');
+        const locationInput = document.getElementById('location-input');
+        const mapUrlInput = document.getElementById('map-url-input'); 
+        
+        const packagesContainer = document.getElementById('packages-container');
+        const packageCards = document.querySelectorAll('.package-card');
+
+        const locationServices = ['Photobooth', 'Photoman', 'Events Photography', 'On-site Studio Booth'];
+
+        serviceRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const selectedService = this.value;
+
+                // 1. Toggle Location requirements & Map
+                if (locationServices.includes(selectedService)) {
+                    locationContainer.classList.remove('hidden');
+                    
+                    // Make both visible fields required
+                    locationInput.required = true;
+                    mapUrlInput.required = true;
+
+                    // Initialize Map when container becomes visible
+                    initMap();
+                    // Fix Map size bug when unhiding
+                    setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+                    
+                } else {
+                    locationContainer.classList.add('hidden');
+                    
+                    // Remove required when hidden
+                    locationInput.required = false;
+                    mapUrlInput.required = false;
+                    
+                    locationInput.value = '';
+                    mapUrlInput.value = '';
+                }
+
+                // 2. Filter and Show Packages matching the selected service
+                let visiblePackagesCount = 0;
+                
+                packageCards.forEach(card => {
+                    const packageType = card.getAttribute('data-service-type');
+                    const radioInside = card.querySelector('.package-radio');
+                    
+                    radioInside.checked = false;
+                    radioInside.required = false;
+
+                    if (packageType === selectedService) {
+                        card.classList.remove('hidden');
+                        visiblePackagesCount++;
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+
+                if (visiblePackagesCount > 0) {
+                    packagesContainer.classList.remove('hidden');
+                    const firstVisibleCard = document.querySelector('.package-card:not(.hidden) .package-radio');
+                    if(firstVisibleCard) firstVisibleCard.required = true;
+                } else {
+                    packagesContainer.classList.add('hidden');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

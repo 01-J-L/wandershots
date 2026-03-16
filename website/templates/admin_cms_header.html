@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Edit Header & Logo{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-8 overflow-y-auto bg-gray-50">
+        <div class="mb-6 flex justify-between items-center max-w-4xl">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Header & Logo Settings</h1>
+                <p class="text-gray-500">Customize the top navigation bar, logo, and call-to-action button.</p>
+            </div>
+            <a href="{{ url_for('views.admin_cms') }}"
+                class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors">
+                <i class="ri-arrow-left-line mr-2"></i> Back
+            </a>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="max-w-4xl space-y-8 pb-24">
+
+            <!-- 1. LOGO SETTINGS -->
+            <div class="bg-white p-8 rounded-xl border border-gray-200 shadow-sm space-y-6">
+                <h2 class="text-xl font-bold text-indigo-900 border-b pb-2 flex items-center">
+                    <i class="ri-image-line mr-2"></i> Brand Logo
+                </h2>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Logo Type</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="header_logo_type" value="text" {% if settings.header_logo_type
+                                !='image' %}checked{% endif %} class="text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                            <span class="text-gray-700 font-medium">Text Logo</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="header_logo_type" value="image" {% if
+                                settings.header_logo_type=='image' %}checked{% endif %}
+                                class="text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                            <span class="text-gray-700 font-medium">Image Logo (Upload)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 bg-gray-50 p-6 rounded-lg border border-gray-100">
+                    <!-- Text Options -->
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-700 mb-3 border-b border-gray-200 pb-1">If "Text Logo" is
+                            selected:</h3>
+                        <label class="block text-gray-700 text-xs font-bold mb-1">Brand Name</label>
+                        <input type="text" name="header_logo_text" value="{{ settings.header_logo_text }}"
+                            placeholder="Wandershots"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none bg-white">
+                        <p class="text-xs text-gray-500 mt-2">The first letter will automatically be used for the
+                            circular monogram.</p>
+                    </div>
+
+                    <!-- Image Options -->
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-700 mb-3 border-b border-gray-200 pb-1">If "Image Logo"
+                            is selected:</h3>
+                        <label class="block text-gray-700 text-xs font-bold mb-1">Upload Logo File</label>
+                        <input type="file" name="header_logo_image" accept="image/*"
+                            class="w-full text-xs text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-2 bg-white border border-gray-300 rounded-lg">
+
+                        <p class="text-xs text-gray-500 text-center mb-1">OR</p>
+
+                        <label class="block text-gray-700 text-xs font-bold mb-1">Paste Image URL</label>
+                        <input type="text" name="header_logo_image_url" value="{{ settings.header_logo_image }}"
+                            placeholder="https://..."
+                            class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none bg-white">
+
+                        <label class="block text-gray-700 text-xs font-bold mb-1">Brand Name</label>
+                        <input type="text" name="header_logo_text" value="{{ settings.header_logo_text }}"
+                            placeholder="Wandershots"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none bg-white">
+                        <p class="text-xs text-gray-500 mt-2">The first letter will automatically be used for the
+                            circular monogram.</p>
+
+                        {% if settings.header_logo_image %}
+                        <div class="mt-4 p-2 bg-white border border-gray-200 rounded text-center">
+                            <p class="text-xs font-bold text-gray-400 mb-1 uppercase">Current Image</p>
+                            <img src="{{ settings.header_logo_image }}" class="h-12 mx-auto object-contain">
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. CTA BUTTON SETTINGS -->
+            <div class="bg-white p-8 rounded-xl border border-gray-200 shadow-sm space-y-6">
+                <h2 class="text-xl font-bold text-indigo-900 border-b pb-2 flex items-center">
+                    <i class="ri-cursor-fill mr-2"></i> Top Action Button
+                </h2>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-1">Button Text</label>
+                        <input type="text" name="header_cta_text" value="{{ settings.header_cta_text }}"
+                            placeholder="BOOK SESSION"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:border-indigo-500 focus:outline-none bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-1">Button Link / URL</label>
+                        <input type="text" name="header_cta_link" value="{{ settings.header_cta_link }}"
+                            placeholder="/book"
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:border-indigo-500 focus:outline-none bg-gray-50">
+                        <p class="text-xs text-gray-500 mt-1">Use <code>/book</code> for the booking page, or
+                            <code>/contact</code> for the contact page.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sticky Save Button -->
+            <div
+                class="fixed bottom-0 left-64 right-0 bg-white p-4 border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex justify-between items-center z-50">
+                <p class="text-sm text-gray-500 ml-8"><i class="ri-information-line text-indigo-500 mr-1"></i> Changes
+                    will immediately appear on all pages.</p>
+                <button type="submit"
+                    class="bg-indigo-600 text-white font-bold px-10 py-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-md mr-8">
+                    Save Header Content
+                </button>
+            </div>
+
+        </form>
+    </main>
+</div>
+{% endblock %}

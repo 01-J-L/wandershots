@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Booking Master Records{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50">
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-2 md:mt-0">Booking Master Records</h1>
+                <p class="text-sm md:text-base text-gray-500">View and manage your filtered booking history.</p>
+            </div>
+            <a href="{{ url_for('views.dashboard') }}" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors">
+                <i class="ri-arrow-left-line mr-2"></i> Back
+            </a>
+        </div>
+
+        <!-- FILTER & EXPORT TOOLBAR -->
+        <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm mb-6">
+            <form method="GET" action="{{ url_for('views.booking_records') }}" id="filterForm" class="flex flex-wrap items-end gap-4">
+                
+                <div class="w-full sm:w-auto">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">From Date</label>
+                    <input type="date" name="start_date" value="{{ filters.start_date }}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none text-gray-700">
+                </div>
+                
+                <div class="w-full sm:w-auto">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">To Date</label>
+                    <input type="date" name="end_date" value="{{ filters.end_date }}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none text-gray-700">
+                </div>
+
+                <div class="w-full sm:w-auto">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
+                    <select name="status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none text-gray-700 bg-white">
+                        <option value="all">All Statuses</option>
+                        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="scheduled" {% if filters.status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                        <option value="finished" {% if filters.status == 'finished' %}selected{% endif %}>Finished</option>
+                        <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                    </select>
+                </div>
+
+                <div class="w-full sm:w-auto">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Service</label>
+                    <select name="service" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none text-gray-700 bg-white">
+                        <option value="all">All Services</option>
+                        <option value="On-site Studio Booth" {% if filters.service == 'On-site Studio Booth' %}selected{% endif %}>On-site Studio Booth</option>
+                        <option value="Photobooth" {% if filters.service == 'Photobooth' %}selected{% endif %}>Photobooth</option>
+                        <option value="Photoman" {% if filters.service == 'Photoman' %}selected{% endif %}>Photoman</option>
+                        <option value="Events Photography" {% if filters.service == 'Events Photography' %}selected{% endif %}>Events Photography</option>
+                        <option value="Studio Photoshoot" {% if filters.service == 'Studio Photoshoot' %}selected{% endif %}>Studio Photoshoot</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-2 w-full lg:w-auto">
+                    <!-- Button to apply filter to the screen -->
+                    <button type="submit" class="flex-1 lg:flex-none bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors h-[38px]">
+                        Apply Filter
+                    </button>
+                    
+                    <!-- Button to trigger Excel Export based on current filters -->
+                    <button type="button" onclick="exportToExcel()" class="flex-1 lg:flex-none bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors h-[38px] flex items-center justify-center">
+                        <i class="ri-file-excel-2-line mr-2"></i> Export
+                    </button>
+
+                    <!-- Reset Filter -->
+                    <a href="{{ url_for('views.booking_records') }}" class="flex-1 lg:flex-none bg-gray-100 text-gray-600 px-5 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors h-[38px] flex items-center justify-center">
+                        Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Master Records Table -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-12 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-gray-600 min-w-[800px]">
+                    <thead class="bg-gray-50 text-gray-700 uppercase text-[11px] font-bold tracking-wider">
+                        <tr>
+                            <th class="px-6 py-4">Created</th>
+                            <th class="px-6 py-4">Customer</th>
+                            <th class="px-6 py-4">Service</th>
+                            <th class="px-6 py-4">Event Date</th>
+                            <th class="px-6 py-4">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for booking in bookings %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 text-xs text-gray-500">
+                                {{ booking.created_at.strftime('%b %d, %Y') if booking.created_at else 'N/A' }}
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                <div class="font-bold text-gray-900">{{ booking.customer_name }}</div>
+                                <div class="text-xs text-indigo-600">{{ booking.customer_email }}</div>
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                <span class="font-medium text-gray-800">{{ booking.service_type }}</span>
+                                <div class="text-[10px] text-gray-400">{{ booking.package_selected or 'Custom' }}</div>
+                            </td>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-700">
+                                {{ booking.date }} <span class="text-xs font-normal text-gray-400">@ {{ booking.time }}</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-full text-[10px] font-bold border 
+                                    {% if booking.status == 'pending' %}bg-yellow-50 text-yellow-700 border-yellow-200
+                                    {% elif booking.status == 'scheduled' %}bg-blue-50 text-blue-700 border-blue-200
+                                    {% elif booking.status == 'finished' %}bg-green-50 text-green-700 border-green-200
+                                    {% elif booking.status == 'cancelled' %}bg-red-50 text-red-700 border-red-200
+                                    {% else %}bg-gray-50 text-gray-700 border-gray-200{% endif %}">
+                                    {{ booking.status.upper() }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="px-6 py-12 text-center text-gray-400 italic">No records match the current filters.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // This function takes all the values currently in your filter form
+    // and sends them to the Export URL instead of the Master Records URL
+    function exportToExcel() {
+        const form = document.getElementById('filterForm');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData).toString();
+        
+        // Redirect browser to the export route with the exact same filters
+        window.location.href = "{{ url_for('views.export_bookings') }}?" + params;
+    }
+</script>
+{% endblock %}

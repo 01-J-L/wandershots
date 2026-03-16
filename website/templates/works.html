@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="pt-32 pb-24 bg-gray-50 min-h-screen">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <div class="text-center mb-16 fade-in">
+            <h1 class="text-4xl lg:text-5xl font-light text-primary mb-6">Our Gallery</h1>
+            <p class="text-gray-500 text-lg font-light leading-relaxed max-w-2xl mx-auto mb-8">A curated collection of moments frozen in time, reflecting our signature artistic style and timeless elegance.</p>
+            
+            <!-- Filters matching your exact services -->
+            <div class="flex flex-wrap justify-center gap-3 mt-8" id="filters">
+                <button class="filter-btn btn-primary text-white px-6 py-2.5 !rounded-button font-medium text-sm tracking-wide transition-all shadow-md" data-filter="all">All</button>
+                <button class="filter-btn btn-secondary text-primary px-6 py-2.5 !rounded-button font-medium text-sm tracking-wide transition-all bg-white" data-filter="on-site studio booth">On-site Studio Booth</button>
+                <button class="filter-btn btn-secondary text-primary px-6 py-2.5 !rounded-button font-medium text-sm tracking-wide transition-all bg-white" data-filter="photobooth">Photobooth</button>
+                <button class="filter-btn btn-secondary text-primary px-6 py-2.5 !rounded-button font-medium text-sm tracking-wide transition-all bg-white" data-filter="photoman">Photoman</button>
+                <button class="filter-btn btn-secondary text-primary px-6 py-2.5 !rounded-button font-medium text-sm tracking-wide transition-all bg-white" data-filter="events photography">Events Photography</button>
+                <button class="filter-btn btn-secondary text-primary px-6 py-2.5 !rounded-button font-medium text-sm tracking-wide transition-all bg-white" data-filter="studio photoshoot">Studio Photoshoot</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 fade-in stagger-2">
+            
+            {% if portfolio_items %}
+                {% for item in portfolio_items %}
+                
+                <!-- FB ALBUM GRID LAYOUT (2x2 Grid) -->
+                {% if item.image_filename_2 and item.image_filename_3 and item.image_filename_4 %}
+                    <div class="portfolio-item gallery-item bg-white rounded-xl overflow-hidden shadow-xl hover-lift group border border-gray-100" data-category="{{ item.category|lower }}">
+                        
+                        <div class="block h-full flex flex-col">
+                            
+                            <!-- FB Header style -->
+                            <div class="p-4 flex items-center bg-white">
+                                <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-serif-logo font-bold mr-3">WS</div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900 text-sm">Wandershots Studios</h4>
+                                    <p class="text-xs text-gray-500">{{ item.created_at.strftime('%B %d, %Y') if item.created_at else 'Recent Event' }} &bull; <i class="ri-earth-fill"></i></p>
+                                </div>
+                            </div>
+                            
+                            <!-- Description -->
+                            {% if item.description %}
+                            <p class="px-4 pb-2 text-sm text-gray-800">{{ item.description }}</p>
+                            {% endif %}
+
+                            <!-- VISIBLE LINK -->
+                            {% if item.link %}
+                            <div class="px-4 pb-4">
+                                <a href="{{ item.link }}" target="_blank" class="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800 font-bold transition-colors">
+                                    <i class="ri-external-link-line mr-1"></i> View Full Album
+                                </a>
+                            </div>
+                            {% endif %}
+
+                            <!-- Collage Grid (2x2 Layout) -->
+                            <div class="grid grid-cols-2 gap-1 bg-white p-1 flex-grow aspect-square cursor-pointer" onclick='openFullLightbox("{{ item.image_filename or '' }}", "{{ item.image_filename_2 or '' }}", "{{ item.image_filename_3 or '' }}", {{ item.extra_media | safe if item.extra_media else "[]" }})'>
+                                
+                                <!-- 1. Top Left Image -->
+                                <div class="w-full h-full">
+                                    <img src="{{ url_for('static', filename='images/' + item.image_filename) }}" class="w-full h-full object-cover">
+                                </div>
+                                
+                                <!-- 2. Top Right Image -->
+                                <div class="w-full h-full">
+                                    <img src="{{ url_for('static', filename='images/' + item.image_filename_2) }}" class="w-full h-full object-cover">
+                                </div>
+                                
+                                <!-- 3. Bottom Left Image (Moved from Middle Right) -->
+                                <div class="w-full h-full">
+                                    <img src="{{ url_for('static', filename='images/' + item.image_filename_3) }}" class="w-full h-full object-cover">
+                                </div>
+
+                                <!-- 4. Bottom Right Image/Video + Counter -->
+                                <div class="w-full h-full relative">
+                                    <!-- Check if 4th file is a video -->
+                                    {% if item.image_filename_4.endswith('.mp4') or item.image_filename_4.endswith('.mov') or item.image_filename_4.endswith('.webm') %}
+                                        <video src="{{ url_for('static', filename='images/' + item.image_filename_4) }}" class="w-full h-full object-cover" muted></video>
+                                        <div class="absolute top-2 right-2 text-white bg-black/50 rounded-full px-2 py-0.5 text-xs"><i class="ri-play-fill"></i></div>
+                                    {% else %}
+                                        <img src="{{ url_for('static', filename='images/' + item.image_filename_4) }}" class="w-full h-full object-cover">
+                                    {% endif %}
+                                    
+                                    {% if item.extra_count %}
+                                    <div class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-3xl md:text-4xl font-bold tracking-wider hover:bg-black/60 transition-colors">
+                                        +{{ item.extra_count }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                            </div>
+                            
+                        </div>
+                    </div>
+
+                <!-- STANDARD SINGLE IMAGE -->
+                {% else %}
+                    <div class="portfolio-item gallery-item bg-white rounded-xl overflow-hidden shadow-lg hover-lift border border-gray-100" data-category="{{ item.category|lower }}">
+                        
+                        <div class="aspect-[4/5] relative">
+                            <img src="{{ url_for('static', filename='images/' + item.image_filename) }}" alt="{{ item.title }}" class="w-full h-full object-cover object-top">
+                            
+                            <div class="portfolio-overlay flex flex-col justify-center items-center">
+                                
+                                <!-- Clickable area for Lightbox -->
+                                <div class="text-center text-white px-6 cursor-pointer w-full" onclick='openFullLightbox("{{ item.image_filename or '' }}", "", "", [])'>
+                                    <h3 class="text-2xl font-light mb-2">{{ item.title }}</h3>
+                                    <p class="text-sm opacity-90 font-light uppercase tracking-widest">{{ item.category }}</p>
+                                    {% if item.description %}
+                                    <p class="text-xs opacity-75 mt-3 line-clamp-2">{{ item.description }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <!-- VISIBLE LINK -->
+                                {% if item.link %}
+                                <div class="mt-5 px-6 z-10">
+                                    <a href="{{ item.link }}" target="_blank" class="inline-flex items-center border-2 border-white text-white hover:bg-white hover:text-primary px-5 py-2 rounded-md text-xs font-bold uppercase tracking-widest transition-colors">
+                                        <i class="ri-external-link-line mr-2 text-lg"></i> View Full Album
+                                    </a>
+                                </div>
+                                {% endif %}
+                                
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                {% endfor %}
+            {% else %}
+                <p class="text-center w-full col-span-3 py-20 text-gray-500">No portfolio items available.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- FULLSCREEN LIGHTBOX FOR MULTIPLE MEDIA -->
+<div id="lightbox" class="fixed inset-0 bg-black/95 z-[999] hidden opacity-0 transition-opacity duration-300">
+    
+    <!-- Close Button -->
+    <button onclick="closeLightbox()" class="absolute top-4 right-4 md:top-6 md:right-6 text-white text-4xl hover:text-gray-300 transition-colors z-50">
+        <i class="ri-close-line"></i>
+    </button>
+    
+    <!-- Prev Button -->
+    <button onclick="changeMedia(-1)" class="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 transition-colors z-50">
+        <i class="ri-arrow-left-s-line"></i>
+    </button>
+
+    <!-- Next Button -->
+    <button onclick="changeMedia(1)" class="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 transition-colors z-50">
+        <i class="ri-arrow-right-s-line"></i>
+    </button>
+
+    <!-- Counter -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white text-lg tracking-widest font-light z-50">
+        <span id="lb-current">1</span> / <span id="lb-total">1</span>
+    </div>
+
+    <!-- Media Container -->
+    <div class="w-full h-full flex items-center justify-center p-4 md:p-24 pointer-events-none">
+        <img id="lb-image" src="" class="max-w-full max-h-full object-contain hidden shadow-2xl rounded pointer-events-auto transition-all duration-300 transform scale-90 opacity-0">
+        <video id="lb-video" src="" class="max-w-full max-h-full object-contain hidden shadow-2xl rounded pointer-events-auto transition-all duration-300 transform scale-90 opacity-0" controls autoplay></video>
+    </div>
+</div>
+
+<script>
+    // Filtering Logic
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.className = 'filter-btn btn-secondary text-primary px-6 py-2.5 !rounded-button font-medium text-sm tracking-wide transition-all bg-white';
+            });
+            this.className = 'filter-btn btn-primary text-white px-6 py-2.5 !rounded-button font-medium text-sm tracking-wide transition-all shadow-md';
+            const filter = this.dataset.filter;
+            document.querySelectorAll('.gallery-item').forEach(item => {
+                if(filter === 'all' || item.dataset.category === filter) {
+                    item.style.display = 'block';
+                    item.classList.remove('fade-in');
+                    void item.offsetWidth; 
+                    item.classList.add('fade-in');
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    });
+
+    // Lightbox Logic for viewing ALL Images/Videos
+    let currentMediaList = [];
+    let currentIndex = 0;
+    const lightbox = document.getElementById('lightbox');
+    const lbImage = document.getElementById('lb-image');
+    const lbVideo = document.getElementById('lb-video');
+    const lbCurrent = document.getElementById('lb-current');
+    const lbTotal = document.getElementById('lb-total');
+
+    function openFullLightbox(img1, img2, img3, extraMediaArray) {
+        let mediaArray = [];
+        
+        if (img1 && img1.trim() !== "") mediaArray.push(img1);
+        if (img2 && img2.trim() !== "") mediaArray.push(img2);
+        if (img3 && img3.trim() !== "") mediaArray.push(img3);
+        
+        if (Array.isArray(extraMediaArray)) {
+            mediaArray = mediaArray.concat(extraMediaArray);
+        }
+
+        if (mediaArray.length === 0) return;
+        
+        currentMediaList = mediaArray;
+        currentIndex = 0;
+        lbTotal.innerText = currentMediaList.length;
+        
+        lightbox.classList.remove('hidden');
+        lightbox.classList.add('flex');
+        setTimeout(() => lightbox.classList.remove('opacity-0'), 10);
+        document.body.style.overflow = 'hidden'; 
+        
+        renderMedia();
+    }
+
+    function closeLightbox() {
+        lightbox.classList.add('opacity-0');
+        setTimeout(() => {
+            lightbox.classList.add('hidden');
+            lightbox.classList.remove('flex');
+            
+            lbImage.classList.add('scale-90', 'opacity-0');
+            lbImage.classList.remove('scale-100', 'opacity-100');
+            lbVideo.classList.add('scale-90', 'opacity-0');
+            lbVideo.classList.remove('scale-100', 'opacity-100');
+            
+        }, 300);
+        document.body.style.overflow = 'auto';
+        lbVideo.pause(); 
+    }
+
+    function changeMedia(direction) {
+        currentIndex += direction;
+        if (currentIndex < 0) currentIndex = currentMediaList.length - 1;
+        if (currentIndex >= currentMediaList.length) currentIndex = 0;
+        renderMedia();
+    }
+
+    function renderMedia() {
+        lbCurrent.innerText = currentIndex + 1;
+        const filename = currentMediaList[currentIndex];
+        if (!filename) return;
+
+        const isVideo = filename.match(/\.(mp4|mov|webm)$/i);
+        const fileUrl = "{{ url_for('static', filename='images/') }}" + filename;
+
+        lbImage.classList.remove('scale-100', 'opacity-100');
+        lbImage.classList.add('scale-90', 'opacity-0');
+        lbVideo.classList.remove('scale-100', 'opacity-100');
+        lbVideo.classList.add('scale-90', 'opacity-0');
+
+        if (isVideo) {
+            lbImage.classList.add('hidden');
+            lbVideo.src = fileUrl;
+            lbVideo.classList.remove('hidden');
+            
+            setTimeout(() => {
+                lbVideo.classList.remove('scale-90', 'opacity-0');
+                lbVideo.classList.add('scale-100', 'opacity-100');
+            }, 50);
+
+            lbVideo.play();
+        } else {
+            lbVideo.pause();
+            lbVideo.classList.add('hidden');
+            lbImage.src = fileUrl;
+            lbImage.classList.remove('hidden');
+
+            setTimeout(() => {
+                lbImage.classList.remove('scale-90', 'opacity-0');
+                lbImage.classList.add('scale-100', 'opacity-100');
+            }, 50);
+        }
+    }
+</script>
+{% endblock %}
