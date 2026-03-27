@@ -4,20 +4,35 @@
 {% block content %}
 <div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
     {% include '_admin_sidebar.html' %}
+    
+    {% macro media_preview(filename) %}
+        {% if filename %}
+            <div class="mb-3 relative group w-24 h-24">
+                {% if filename.lower().endswith(('.mp4', '.mov', '.webm')) %}
+                    <video src="{{ url_for('static', filename='images/' + filename) }}" class="w-full h-full object-cover rounded-lg border shadow-sm" muted></video>
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg"><i class="ri-play-fill text-white"></i></div>
+                {% else %}
+                    <img src="{{ url_for('static', filename='images/' + filename) }}" class="w-full h-full object-cover rounded-lg border shadow-sm">
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endmacro %}
+
     <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 w-full relative">
-        <!-- Header -->
         <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-2 md:mt-0">{% if item %}Edit Item{% else %}Add New Portfolio Item{% endif %}</h1>
-                <p class="text-sm md:text-base text-gray-500">Upload photos and videos to create an elegant Facebook-style grid.</p>
+                <p class="text-sm md:text-base text-gray-500">Upload photos and videos. Changes will sync with your Facebook Page post.</p>
             </div>
             <a href="{{ url_for('views.admin_portfolio') }}" class="w-full md:w-auto text-center bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors">
                 <i class="ri-arrow-left-line mr-2"></i> Back to Portfolio
             </a>
         </div>
 
-        <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm max-w-4xl mx-auto">
-            <form method="POST" class="space-y-6" enctype="multipart/form-data">
+        <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm max-w-4xl mx-auto mb-20 relative">
+            
+            <!-- ADDED ID: portfolioForm -->
+            <form id="portfolioForm" method="POST" class="space-y-6" enctype="multipart/form-data">
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -38,66 +53,122 @@
                 </div>
 
                 <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Description</label>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Description / Facebook Caption</label>
                     <textarea name="description" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:border-indigo-500 focus:outline-none">{{ item.description or '' }}</textarea>
                 </div>
 
                 <!-- IMAGES & VIDEOS GRID SECTION -->
                 <div class="bg-indigo-50 p-4 md:p-6 rounded-xl border border-indigo-100">
                     <h3 class="font-bold text-indigo-900 mb-4 text-lg flex items-center">
-                        <i class="ri-grid-fill text-indigo-600 mr-2"></i> Facebook Album Grid Media
+                        <i class="ri-grid-fill text-indigo-600 mr-2"></i> Media Slots (Photo or Video)
                     </h3>
-                    <p class="text-xs text-gray-600 mb-6">Upload photos or videos. Upload all 4 slots to enable the "Facebook Grid" view in your portfolio.</p>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Slot 1 (Required for Add) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Slot 1 -->
                         <div class="bg-white p-4 rounded-lg border border-gray-200">
-                            <label class="block text-gray-800 text-xs font-bold mb-2 uppercase">1. Main Left Media</label>
-                            <input type="file" name="image_file" accept="image/*,video/*" class="w-full text-xs">
-                            {% if item and item.image_filename %}<p class="text-[10px] text-green-600 mt-2 font-bold">✓ File: {{ item.image_filename }}</p>{% endif %}
+                            <label class="block text-gray-800 text-[10px] font-bold mb-2 uppercase tracking-widest">1. Main Left Media</label>
+                            {{ media_preview(item.image_filename) if item }}
+                            <input type="file" name="image_file" accept="image/*,video/*" class="w-full text-xs" {% if not item %}required{% endif %}>
                         </div>
 
                         <!-- Slot 2 -->
                         <div class="bg-white p-4 rounded-lg border border-gray-200">
-                            <label class="block text-gray-800 text-xs font-bold mb-2 uppercase">2. Top Right Media</label>
+                            <label class="block text-gray-800 text-[10px] font-bold mb-2 uppercase tracking-widest">2. Top Right Media</label>
+                            {{ media_preview(item.image_filename_2) if item }}
                             <input type="file" name="image_file_2" accept="image/*,video/*" class="w-full text-xs">
-                            {% if item and item.image_filename_2 %}<p class="text-[10px] text-green-600 mt-2 font-bold">✓ File: {{ item.image_filename_2 }}</p>{% endif %}
                         </div>
 
                         <!-- Slot 3 -->
                         <div class="bg-white p-4 rounded-lg border border-gray-200">
-                            <label class="block text-gray-800 text-xs font-bold mb-2 uppercase">3. Bottom Left Media</label>
+                            <label class="block text-gray-800 text-[10px] font-bold mb-2 uppercase tracking-widest">3. Bottom Left Media</label>
+                            {{ media_preview(item.image_filename_3) if item }}
                             <input type="file" name="image_file_3" accept="image/*,video/*" class="w-full text-xs">
-                            {% if item and item.image_filename_3 %}<p class="text-[10px] text-green-600 mt-2 font-bold">✓ File: {{ item.image_filename_3 }}</p>{% endif %}
                         </div>
 
-                        <!-- Slot 4 (The +X Slot) -->
+                        <!-- Slot 4: Multi-select & Delete -->
                         <div class="bg-white p-4 rounded-lg border border-gray-200">
-                            <label class="block text-gray-800 text-xs font-bold mb-2 uppercase">4. Bottom Right Media (Multi-select)</label>
-                            <input type="file" name="extra_media" accept="image/*,video/*" multiple class="w-full text-xs">
-                            <p class="text-[10px] text-gray-400 mt-1">First file chosen will be the thumbnail.</p>
-                            {% if item and item.image_filename_4 %}
-                                <p class="text-[10px] text-green-600 mt-1 font-bold">✓ Thumbnail: {{ item.image_filename_4 }} {% if item.extra_count %}(+{{ item.extra_count }} hidden){% endif %}</p>
+                            <label class="block text-gray-800 text-[10px] font-bold mb-2 uppercase tracking-widest">4. Album Media (Multi-select)</label>
+                            
+                            {% if extra_media_list %}
+                            <div class="flex flex-wrap gap-2 mb-4 p-2 bg-gray-50 rounded border border-dashed">
+                                {% for media in extra_media_list %}
+                                <div class="relative group">
+                                    {% if media.lower().endswith(('.mp4', '.mov', '.webm')) %}
+                                        <video src="{{ url_for('static', filename='images/' + media) }}" class="w-12 h-12 object-cover rounded border" muted></video>
+                                    {% else %}
+                                        <img src="{{ url_for('static', filename='images/' + media) }}" class="w-12 h-12 object-cover rounded border">
+                                    {% endif %}
+                                    <div class="absolute -top-1 -right-1">
+                                        <input type="checkbox" name="delete_extra_media" value="{{ media }}" class="w-3 h-3 text-red-600 bg-white border-gray-300 rounded">
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
                             {% endif %}
+
+                            <input type="file" name="extra_media" accept="image/*,video/*" multiple class="w-full text-xs">
+                            <p class="text-[9px] text-gray-400 mt-2">New files will be added to the album. Use checkboxes to delete.</p>
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Album/Post Link (Optional)</label>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Album Link (Optional)</label>
                     <input type="url" name="link" value="{{ item.link or '' }}" placeholder="https://facebook.com/..." class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:border-indigo-500 focus:outline-none">
                 </div>
 
                 <div class="pt-4">
-                    <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg text-lg flex justify-center items-center">
-                        <i class="ri-upload-cloud-2-line mr-2"></i> {% if item %}Update Portfolio & FB Caption{% else %}Publish to Website & Facebook{% endif %}
+                    <!-- ADDED ID: submitBtn -->
+                    <button id="submitBtn" type="submit" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg text-lg flex justify-center items-center">
+                        <i class="ri-upload-cloud-2-line mr-2"></i> {% if item %}Update & Sync with Facebook{% else %}Publish to Website & Facebook{% endif %}
                     </button>
-                    {% if item and item.fb_post_id %}
-                        <p class="text-center text-[11px] text-gray-400 mt-3 italic"><i class="ri-information-line"></i> Note: Facebook does not allow changing images via API once posted. Editing here only updates the caption on Facebook.</p>
-                    {% endif %}
                 </div>
             </form>
         </div>
     </main>
 </div>
+
+<!-- FULL-SCREEN LOADING OVERLAY (Hidden by default) -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[9999] hidden flex-col items-center justify-center transition-opacity">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center animate-fade-in-down border border-gray-200">
+        <!-- Spinner -->
+        <div class="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-6"></div>
+        
+        <h3 class="text-2xl font-bold text-gray-900 mb-2">Uploading Media...</h3>
+        <p class="text-sm text-gray-500 mb-4">Please wait while your files are uploaded to the server.</p>
+        
+        <div class="bg-indigo-50 text-indigo-700 text-xs font-bold px-4 py-2 rounded-lg flex items-center">
+            <i class="ri-error-warning-fill mr-1.5 text-lg"></i> Do not close or refresh this page.
+        </div>
+    </div>
+</div>
+
+<!-- JAVASCRIPT TO TRIGGER LOADING SCREEN -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('portfolioForm');
+        const overlay = document.getElementById('loadingOverlay');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', function(e) {
+            // The submit event only fires if the required HTML fields are filled out.
+            
+            // 1. Show the loading overlay
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            
+            // 2. Change the button appearance so it looks active
+            submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-2"></i> Uploading...';
+            submitBtn.classList.replace('bg-indigo-600', 'bg-indigo-400');
+            submitBtn.classList.remove('hover:bg-indigo-700');
+            
+            // 3. Prevent double-clicking the submit button
+            // We use a tiny timeout to ensure the form submission actually triggers first
+            setTimeout(() => {
+                submitBtn.disabled = true;
+                submitBtn.style.cursor = 'not-allowed';
+            }, 50);
+        });
+    });
+</script>
 {% endblock %}

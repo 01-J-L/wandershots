@@ -5,7 +5,7 @@ import os
 from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, send_file
 import shutil
 from flask_login import login_required, current_user
-from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem
+from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem # (No change in import)
 from . import db
 from datetime import datetime
 from calendar import month_abbr
@@ -292,81 +292,140 @@ def async_send_email(*args):
     thread.start()
 
 def post_portfolio_to_facebook(app, portfolio_id):
+    """Creates Facebook Posts (Smartly Separates Videos and Photos to bypass FB restrictions)"""
     with app.app_context():
         item = PortfolioItem.query.get(portfolio_id)
         page_id = get_setting('fb_page_id')
         token = get_setting('fb_access_token')
         
-        if not item or not page_id or not token: return
+        if not item or not page_id or not token: 
+            return
 
-        # 1. Collect all media files
-        files_to_upload = [item.image_filename, item.image_filename_2, item.image_filename_3, item.image_filename_4]
-        media_ids = []
-        
-        caption = f"✨ {item.title}\n📂 Category: {item.category}\n\n{item.description}"
-
-        for filename in files_to_upload:
-            if not filename: continue
+        # Collect all media slots
+        files_to_upload = []
+        for attr in [item.image_filename, item.image_filename_2, item.image_filename_3, item.image_filename_4]:
+            if attr: files_to_upload.append(attr)
             
-            path = os.path.join(current_app.root_path, 'static/images', filename)
-            if not os.path.exists(path): continue
-
-            is_video = filename.lower().endswith(('.mp4', '.mov', '.webm'))
-            
+        if item.extra_media:
             try:
-                if is_video:
-                    # Upload Video (Unpublished)
-                    url = f"https://graph-video.facebook.com/v19.0/{page_id}/videos"
-                    with open(path, 'rb') as f:
-                        r = requests.post(url, data={'published': 'false', 'access_token': token}, files={'source': f})
-                else:
-                    # Upload Photo (Unpublished)
-                    url = f"https://graph.facebook.com/v19.0/{page_id}/photos"
-                    with open(path, 'rb') as f:
-                        r = requests.post(url, data={'published': 'false', 'access_token': token}, files={'source': f})
+                files_to_upload.extend(json.loads(item.extra_media))
+            except: pass
+
+        files_to_upload = list(dict.fromkeys(files_to_upload))
+        if not files_to_upload: return
+
+        # ----------------------------------------------------
+        # SEPARATE PHOTOS AND VIDEOS (To avoid FB Error #10)
+        # ----------------------------------------------------
+        photos = []
+        videos = []
+        for filename in files_to_upload:
+            if filename.lower().endswith(('.mp4', '.mov', '.webm')):
+                videos.append(filename)
+            else:
+                photos.append(filename)
+
+        caption = f"✨ {item.title}\n📂 Category: {item.category}\n\n{item.description}"
+        saved_post_ids = []
+
+        try:
+            # 1. PROCESS VIDEOS FIRST
+            for video in videos:
+                path = os.path.join(app.root_path, 'static/images', video)
+                if not os.path.exists(path): continue
                 
-                res = r.json()
-                if 'id' in res:
-                    # Add to the list for the final post
-                    media_ids.append(res['id'])
-            except Exception as e:
-                print(f"Media upload error: {e}")
+                with open(path, 'rb') as f:
+                    url = f"https://graph-video.facebook.com/v19.0/{page_id}/videos"
+                    payload = {'description': caption, 'access_token': token, 'published': 'true'}
+                    r = requests.post(url, data=payload, files={'source': f})
+                    res = r.json()
+                    
+                    if 'id' in res:
+                        saved_post_ids.append(str(res['id']))
+                        print(f"✅ FB Video Uploaded! ID: {res['id']}")
+                    else:
+                        print(f"❌ FB Video Error: {res}")
 
-        # 2. Create the final "Multi-Media" Feed Post
-        if media_ids:
-            feed_url = f"https://graph.facebook.com/v19.0/{page_id}/feed"
-            # Format media IDs for FB
-            attached_media = json.dumps([{'media_fbid': id} for id in media_ids])
+            # 2. PROCESS PHOTOS SECOND
+            if len(photos) == 1:
+                # Post Single Photo
+                path = os.path.join(app.root_path, 'static/images', photos[0])
+                if os.path.exists(path):
+                    with open(path, 'rb') as f:
+                        url = f"https://graph.facebook.com/v19.0/{page_id}/photos"
+                        payload = {'caption': caption, 'access_token': token, 'published': 'true'}
+                        r = requests.post(url, data=payload, files={'source': f})
+                        res = r.json()
+                        
+                        fb_post_id = res.get('post_id', res.get('id'))
+                        if fb_post_id:
+                            saved_post_ids.append(str(fb_post_id))
+                            print(f"✅ FB Single Photo Uploaded! ID: {fb_post_id}")
             
-            r = requests.post(feed_url, data={
-                'message': caption,
-                'attached_media': attached_media,
-                'access_token': token
-            })
-            
-            res = r.json()
-            if 'id' in res:
-                item.fb_post_id = res['id']
+            elif len(photos) > 1:
+                # Post Multi-Photo Album
+                media_ids = []
+                for photo in photos:
+                    path = os.path.join(app.root_path, 'static/images', photo)
+                    if not os.path.exists(path): continue
+                    
+                    with open(path, 'rb') as f:
+                        url = f"https://graph.facebook.com/v19.0/{page_id}/photos"
+                        r = requests.post(url, data={'published': 'false', 'access_token': token}, files={'source': f})
+                        res = r.json()
+                        if 'id' in res:
+                            media_ids.append(res['id'])
+                
+                if media_ids:
+                    feed_url = f"https://graph.facebook.com/v19.0/{page_id}/feed"
+                    attached_media = json.dumps([{'media_fbid': m_id} for m_id in media_ids])
+                    r = requests.post(feed_url, data={'message': caption, 'attached_media': attached_media, 'access_token': token, 'published': 'true'})
+                    res = r.json()
+                    
+                    if 'id' in res:
+                        saved_post_ids.append(str(res['id']))
+                        print(f"✅ FB Photo Album Uploaded! ID: {res['id']}")
+
+            # 3. LINK ALL POSTS TO THE WEBSITE PORTFOLIO ITEM
+            if saved_post_ids:
+                item.fb_post_id = ",".join(saved_post_ids)
                 db.session.commit()
-                print(f"✅ Full Multi-Media Post Created: {res['id']}")
 
-def delete_facebook_post(app, post_id):
-    """Deletes a post from FB Page - Context Aware"""
+        except Exception as e:
+            print(f"❌ FB Exception in Thread: {str(e)}")
+
+def delete_facebook_post(app, fb_post_ids):
+    """Deletes ALL linked posts from Facebook (Photos and Videos)"""
     with app.app_context():
         token = get_setting('fb_access_token')
-        if post_id and token:
+        if not fb_post_ids or not token: return
+        
+        # Split the IDs and delete every single post associated with this portfolio
+        for post_id in fb_post_ids.split(','):
             try:
-                url = f"https://graph.facebook.com/v19.0/{post_id}"
-                response = requests.delete(url, data={'access_token': token})
+                url = f"https://graph.facebook.com/v19.0/{post_id.strip()}"
+                response = requests.delete(url, params={'access_token': token})
                 if response.status_code == 200:
-                    print(f"✅ Successfully deleted FB post: {post_id}")
-                else:
-                    print(f"❌ FB Delete Error: {response.text}")
+                    print(f"✅ Deleted FB post: {post_id}")
             except Exception as e:
                 print(f"❌ FB Delete Exception: {e}")
 
-
-
+def update_facebook_post_text(app, fb_post_ids, caption):
+    """Updates the text on ALL linked Facebook posts"""
+    with app.app_context():
+        token = get_setting('fb_access_token')
+        if not fb_post_ids or not token: return
+        
+        for post_id in fb_post_ids.split(','):
+            try:
+                url = f"https://graph.facebook.com/v19.0/{post_id.strip()}"
+                # We send both 'message' and 'description' to ensure it updates both photos and videos
+                payload = {'message': caption, 'description': caption, 'access_token': token}
+                response = requests.post(url, data=payload)
+                if response.status_code == 200:
+                    print(f"✅ Updated text on FB post: {post_id}")
+            except Exception as e:
+                print(f"❌ FB Update Exception: {e}")
 
 @views.route('/')
 def home():
@@ -470,7 +529,191 @@ def admin_cms_home():
         settings[key] = get_setting(key, "") 
     
     counts = get_sidebar_counts()
-    return render_template("admin_cms_home.html", user=current_user, page='dashboard', settings=settings, **counts)
+    return render_template("admin_cms_home.html", user=current_user, page='dashboard', settings=settings, **counts) 
+
+@views.route('/admin/sales')
+@login_required
+def admin_sales():
+    import re
+    
+    def extract_price(package_str):
+        if not package_str: return 0.0
+        currency_match = re.search(r'(?:₱|Php|PHP|P)\s*([\d,]+(?:\.\d+)?)', package_str, re.IGNORECASE)
+        if currency_match:
+            try: return float(currency_match.group(1).replace(',', ''))
+            except: pass
+        all_matches = re.findall(r'[\d,]+(?:\.\d+)?', package_str)
+        if all_matches:
+            try: return float(all_matches[-1].replace(',', ''))
+            except: return 0.0
+        return 0.0
+
+    target_services = ['Photobooth', 'On-site Studio Booth', 'Photoman']
+    
+    # 1. AUTO-ARCHIVE LOGIC: Limit active records to 100
+    # Finds all active scheduled/finished bookings for these services
+    active_bookings = Booking.query.filter(
+        Booking.service_type.in_(target_services),
+        Booking.status.in_(['scheduled', 'finished']),
+        Booking.is_archived == False
+    ).order_by(Booking.date.desc()).all()
+
+    # If there are more than 100, automatically archive the older ones
+    if len(active_bookings) > 100:
+        for b in active_bookings[100:]:
+            b.is_archived = True
+        db.session.commit()
+
+    # 2. CAPTURE DATE FILTERS
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+
+    # 3. BUILD SALES QUERY 
+    # Notice: We REMOVED the is_archived == False filter. 
+    # Sales must calculate BOTH active and archived records so you don't lose money in your reports!
+    query = Booking.query.filter(
+        Booking.service_type.in_(target_services),
+        Booking.status.in_(['scheduled', 'finished'])
+    )
+
+    if start_date:
+        query = query.filter(Booking.date >= start_date)
+    if end_date:
+        query = query.filter(Booking.date <= end_date)
+
+    bookings = query.order_by(Booking.date.desc()).all()
+    all_packages = ServicePackage.query.all()
+    
+    package_sales = {}
+    for pkg in all_packages:
+        package_sales[pkg.name] = {
+            'name': pkg.name, 'type': pkg.package_type,
+            'base_price': pkg.price, 'count': 0, 'revenue': 0.0
+        }
+
+    sales_data = {
+        'Photobooth': {'count': 0, 'revenue': 0.0},
+        'On-site Studio Booth': {'count': 0, 'revenue': 0.0},
+        'Photoman': {'count': 0, 'revenue': 0.0},
+        'total_revenue': 0.0, 'total_count': 0
+    }
+
+    booking_list = []
+
+    # 4. CALCULATE REVENUES
+    for b in bookings:
+        price = extract_price(b.package_selected)
+        
+        if b.service_type in sales_data:
+            sales_data[b.service_type]['count'] += 1
+            sales_data[b.service_type]['revenue'] += price
+            sales_data['total_revenue'] += price
+            sales_data['total_count'] += 1
+            
+        matched_pkg = "Custom / Unmatched"
+        if b.package_selected:
+            for pkg in all_packages:
+                if pkg.name in b.package_selected:
+                    package_sales[pkg.name]['count'] += 1
+                    package_sales[pkg.name]['revenue'] += price
+                    matched_pkg = pkg.name
+                    break 
+            
+        booking_list.append({
+            'id': b.id, 'date': b.date, 'customer_name': b.customer_name,
+            'service_type': b.service_type, 'package_selected': b.package_selected,
+            'matched_package': matched_pkg, 'status': b.status, 'price': price
+        })
+
+    sorted_package_sales = sorted(package_sales.values(), key=lambda x: x['revenue'], reverse=True)
+    active_packages = [p for p in sorted_package_sales if p['count'] > 0]
+    
+    # 5. UI DISPLAY LIMITS (Limit the visual tables to 100 max)
+    total_packages_count = len(active_packages)
+    display_packages = active_packages[:100]
+    
+    total_bookings_count = len(booking_list)
+    display_bookings = booking_list[:100]
+
+    filters = {'start_date': start_date, 'end_date': end_date}
+
+    counts = get_sidebar_counts()
+    return render_template("admin_sales.html", 
+                           user=current_user, page='dashboard', 
+                           sales_data=sales_data, 
+                           display_packages=display_packages,
+                           total_packages_count=total_packages_count,
+                           display_bookings=display_bookings, 
+                           total_bookings_count=total_bookings_count,
+                           filters=filters, **counts)
+
+@views.route('/admin/export_sales')
+@login_required
+def export_sales():
+    import re, csv, io
+    from datetime import datetime
+    
+    def extract_price(package_str):
+        if not package_str: return 0.0
+        currency_match = re.search(r'(?:₱|Php|PHP|P)\s*([\d,]+(?:\.\d+)?)', package_str, re.IGNORECASE)
+        if currency_match:
+            try: return float(currency_match.group(1).replace(',', ''))
+            except: pass
+        all_matches = re.findall(r'[\d,]+(?:\.\d+)?', package_str)
+        if all_matches:
+            try: return float(all_matches[-1].replace(',', ''))
+            except: return 0.0
+        return 0.0
+
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+
+    # NOTE: is_archived filter is REMOVED here too so exports match the sales dashboard exactly.
+    query = Booking.query.filter(
+        Booking.service_type.in_(['Photobooth', 'On-site Studio Booth', 'Photoman']),
+        Booking.status.in_(['scheduled', 'finished'])
+    )
+
+    if start_date: query = query.filter(Booking.date >= start_date)
+    if end_date: query = query.filter(Booking.date <= end_date)
+
+    bookings = query.order_by(Booking.date.desc()).all()
+    all_packages = ServicePackage.query.all()
+
+    si = io.StringIO()
+    cw = csv.writer(si)
+    
+    cw.writerow(['Event Date', 'Customer Name', 'Service Category', 'Matched Package', 'Original Package String', 'Status', 'Extracted Revenue (PHP)'])
+    
+    total_revenue = 0.0
+    
+    for b in bookings:
+        price = extract_price(b.package_selected)
+        total_revenue += price
+        
+        matched_pkg = "Custom / Unmatched"
+        if b.package_selected:
+            for pkg in all_packages:
+                if pkg.name in b.package_selected:
+                    matched_pkg = pkg.name
+                    break
+                    
+        cw.writerow([
+            b.date, b.customer_name, b.service_type, matched_pkg, 
+            b.package_selected, b.status, price
+        ])
+        
+    cw.writerow([])
+    cw.writerow(['', '', '', '', 'TOTAL REVENUE:', total_revenue])
+
+    output = si.getvalue()
+    filename = f"sales_report_{datetime.now().strftime('%Y%m%d')}.csv"
+    
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment;filename={filename}"}
+    )
 
 @views.route('/admin/cms/about', methods=['GET', 'POST'])
 @login_required
@@ -562,6 +805,7 @@ def book():
         date = request.form.get('date')
         time = request.form.get('time')
         notes = request.form.get('notes')
+        consent_data_processing = request.form.get('consent_data_processing') # NEW: Capture consent
 
         if not name or not email or not phone:
             flash('Please provide your name, email, and contact number.', category='error')
@@ -571,6 +815,8 @@ def book():
             flash('Please select a Photobooth package.', category='error')
         elif not date or not time:
             flash('Please select a date and time.', category='error')
+        elif not consent_data_processing: # NEW: Check if consent was given
+            flash('You must agree to the data privacy terms to submit a booking.', category='error')
         else:
             new_booking = Booking(
                 customer_name=name,
@@ -1022,9 +1268,9 @@ def booking_records():
         query = query.filter(Booking.service_type == service_filter)
 
     # 3. Fetch results
-    bookings = query.order_by(Booking.created_at.desc()).all()
+    bookings = query.order_by(Booking.date.desc()).all()
     
-    # 4. Gather filters into a dictionary to send back to the HTML
+    # 4. Gather filters into a dictionary to send back to the HTML for the "Export" link
     active_filters = {
         'start_date': start_date,
         'end_date': end_date,
@@ -1037,7 +1283,7 @@ def booking_records():
                            user=current_user, 
                            page='dashboard', 
                            bookings=bookings, 
-                           filters=active_filters, # This tells the HTML what was picked
+                           filters=active_filters,
                            **counts)
 
 @views.route('/admin/inquiries')
@@ -1049,12 +1295,10 @@ def inquiries():
     return render_template("admin_inquiries.html", user=current_user, page='dashboard', messages=messages, **counts)
 
 
-# --- ARCHIVES TAB PAGE ---
-
 @views.route('/admin/archived_bookings')
 @login_required
 def archived_bookings():
-    tab = request.args.get('tab', 'records') # 'records', 'booked', 'cancelled', 'inquiries'
+    tab = request.args.get('tab', 'records') # 'records', 'booked', 'cancelled', 'finished', 'inquiries'
     counts = get_sidebar_counts()
     
     bookings = []
@@ -1063,11 +1307,15 @@ def archived_bookings():
     # Filter by the 'is_archived=True' flag, then split by category
     if tab == 'booked':
         bookings = Booking.query.filter_by(is_archived=True, status='scheduled').order_by(Booking.created_at.desc()).all()
+    elif tab == 'finished':
+        # NEW: Specifically fetches archived finished bookings (Old Sales)
+        bookings = Booking.query.filter_by(is_archived=True, status='finished').order_by(Booking.created_at.desc()).all()
     elif tab == 'cancelled':
         bookings = Booking.query.filter_by(is_archived=True, status='cancelled').order_by(Booking.created_at.desc()).all()
     elif tab == 'inquiries':
         messages = ContactMessage.query.filter_by(is_archived=True).order_by(ContactMessage.date.desc()).all()
-    else: # Default: all archived booking records
+    else: 
+        # Default: all archived booking records
         bookings = Booking.query.filter_by(is_archived=True).order_by(Booking.created_at.desc()).all()
         
     return render_template("admin_archived_bookings.html", user=current_user, page='dashboard', 
@@ -1215,6 +1463,50 @@ def unarchive_selected_messages():
         flash(f'{count} message(s) successfully restored!', category='success')
     return redirect(request.referrer or url_for('views.archived_bookings', tab='inquiries'))
 
+# NEW ROUTE: PERMANENTLY DELETE SELECTED ARCHIVED ITEMS
+@views.route('/admin/delete_selected_archived_items', methods=['POST'])
+@login_required
+def delete_selected_archived_items():
+    current_tab = request.args.get('tab', 'records') # Get the current tab to redirect correctly
+
+    selected_json_data = None
+    if current_tab == 'inquiries':
+        selected_json_data = request.form.get('selected_messages')
+    else: # Default for all booking-related tabs
+        selected_json_data = request.form.get('selected_bookings')
+    
+    if not selected_json_data:
+        flash('No items selected for permanent deletion.', category='error')
+        return redirect(url_for('views.archived_bookings', tab=current_tab))
+
+    try:
+        selected_ids = json.loads(selected_json_data)
+    except json.JSONDecodeError:
+        flash('Error processing selected items data.', category='error')
+        return redirect(url_for('views.archived_bookings', tab=current_tab))
+
+    deleted_count = 0
+    for item_id in selected_ids:
+        try:
+            if current_tab == 'inquiries':
+                item = ContactMessage.query.get(int(item_id))
+            else: # For 'records', 'booked', 'finished', 'cancelled' tabs (all Booking objects)
+                item = Booking.query.get(int(item_id))
+
+            if item:
+                db.session.delete(item)
+                deleted_count += 1
+        except ValueError:
+            continue
+    
+    db.session.commit()
+    if deleted_count > 0:
+        flash(f'{deleted_count} item(s) permanently deleted!', category='success')
+    else:
+        flash('No items were deleted.', category='warning')
+
+    return redirect(url_for('views.archived_bookings', tab=current_tab))
+
 
 @views.route('/admin/unarchive_booking/<int:booking_id>', methods=['POST'])
 @login_required
@@ -1258,65 +1550,41 @@ def delete_message(message_id):
 @views.route('/admin/export_bookings')
 @login_required
 def export_bookings():
-    # Get all filter parameters from the URL
+    # Capture the same filters as the records page
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     status_filter = request.args.get('status')
     service_filter = request.args.get('service')
 
-    # Start with base query
     query = Booking.query
-
-    # Apply Date Filters
     if start_date:
         query = query.filter(Booking.date >= start_date)
     if end_date:
         query = query.filter(Booking.date <= end_date)
-    
-    # Apply Status Filter (only if a specific status is chosen)
     if status_filter and status_filter != 'all':
         query = query.filter(Booking.status == status_filter)
-        
-    # Apply Service Filter (only if a specific service is chosen)
     if service_filter and service_filter != 'all':
         query = query.filter(Booking.service_type == service_filter)
         
     bookings = query.order_by(Booking.date.desc()).all()
 
-    # Generate CSV in memory
+    # Generate CSV
     si = io.StringIO()
     cw = csv.writer(si)
+    cw.writerow(['Created On', 'Event Date', 'Time', 'Customer', 'Email', 'Phone', 'Service', 'Package', 'Location', 'Status'])
     
-    # Write Headers (Added Phone Number to export as well)
-    cw.writerow([
-        'Created On', 'Event Date', 'Event Time', 'Customer Name', 
-        'Customer Email', 'Customer Phone', 'Service Type', 'Package Selected', 
-        'Location', 'Status', 'Archived' 
-    ])
-    
-    # Write Data Rows
     for b in bookings:
-        created = b.created_at.strftime('%Y-%m-%d %H:%M') if b.created_at else 'N/A'
         cw.writerow([
-            created,
-            b.date,
-            b.time,
-            b.customer_name,
-            b.customer_email,
-            b.customer_phone or 'N/A',
-            b.service_type,
-            b.package_selected or 'N/A',
-            b.location or 'In Studio',
-            b.status.upper(),
-            'YES' if b.is_archived else 'NO'
+            b.created_at.strftime('%Y-%m-%d') if b.created_at else '',
+            b.date, b.time, b.customer_name, b.customer_email, b.customer_phone,
+            b.service_type, b.package_selected, b.location, b.status
         ])
 
     output = si.getvalue()
-    
     return Response(
         output,
         mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment;filename=bookings_export_{datetime.now().strftime('%Y%m%d')}.csv"}
+        headers={"Content-Disposition": f"attachment;filename=bookings_report_{datetime.now().strftime('%Y%m%d')}.csv"}
     )
 # =========================================================
 # NEW ADMIN PAGES: MANAGE PORTFOLIO, PACKAGES, SETTINGS, ADD RECORD
@@ -1452,55 +1720,107 @@ def admin_edit_portfolio(item_id):
     item = PortfolioItem.query.get_or_404(item_id)
 
     if request.method == 'POST':
+        # 1. Track old values to see if text changed
+        old_title = item.title
+        old_description = item.description
+        old_category = item.category
+
         item.title = request.form.get('title')
         item.description = request.form.get('description')
         item.category = request.form.get('category')
         item.link = request.form.get('link')
         
-        # Simple update: Check for file replacements
-        def save_file(file):
-            if file and file.filename != '' and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-                file.save(os.path.join(UPLOAD_FOLDER, filename))
-                return filename
-            return None
+        text_changed = (old_title != item.title or old_description != item.description or old_category != item.category)
+        media_changed = False
 
-        f1 = save_file(request.files.get('image_file'))
-        if f1: item.image_filename = f1
-        # ... (Repeat for slots 2, 3, 4 if you want to allow individual replacement)
+        # --- Helper to save files ---
+        def update_slot(form_key, current_filename):
+            file = request.files.get(form_key)
+            if file and file.filename != '' and allowed_file(file.filename):
+                return save_portfolio_image(file), True
+            return current_filename, False
+
+        # Update standard slots 1, 2, 3
+        item.image_filename, c1 = update_slot('image_file', item.image_filename)
+        item.image_filename_2, c2 = update_slot('image_file_2', item.image_filename_2)
+        item.image_filename_3, c3 = update_slot('image_file_3', item.image_filename_3)
+        if c1 or c2 or c3: media_changed = True
+
+        # --- SLOT 4: MULTI-MEDIA LOGIC (ADD & DELETE) ---
+        current_extra = json.loads(item.extra_media) if item.extra_media else []
+        
+        delete_list = request.form.getlist('delete_extra_media')
+        if delete_list:
+            media_changed = True
+            current_extra = [f for f in current_extra if f not in delete_list]
+
+        new_extras = request.files.getlist('extra_media')
+        if new_extras and new_extras[0].filename != '':
+            media_changed = True
+            for file in new_extras:
+                fname = save_portfolio_image(file)
+                if fname: current_extra.append(fname)
+
+        # SYNC BACK TO DATABASE
+        if media_changed:
+            if not current_extra:
+                item.extra_media = None
+                item.image_filename_4 = None
+                item.extra_count = ""
+            else:
+                item.extra_media = json.dumps(current_extra)
+                item.image_filename_4 = current_extra[0]
+                item.extra_count = str(len(current_extra) - 1) if len(current_extra) > 1 else ""
 
         db.session.commit()
 
-        # Update Facebook Caption if post exists
-        if item.fb_post_id:
-            token = get_setting('fb_access_token')
-            if token:
-                new_caption = f"✨ {item.title}\n📂 Category: {item.category}\n\n{item.description}"
-                requests.post(f"https://graph.facebook.com/v19.0/{item.fb_post_id}", 
-                              data={'message': new_caption, 'access_token': token})
-
-        flash('Portfolio item updated successfully!', category='success')
+        # --- FACEBOOK SYNC ---
+        app = current_app._get_current_object()
+        
+        if media_changed:
+            # If pictures changed, we MUST delete the old FB post and make a new one
+            old_fb_id = item.fb_post_id
+            item.fb_post_id = None # Reset so the new thread can save the new ID
+            db.session.commit()
+            
+            if old_fb_id:
+                threading.Thread(target=delete_facebook_post, args=(app, old_fb_id)).start()
+            
+            threading.Thread(target=post_portfolio_to_facebook, args=(app, item.id)).start()
+            flash('Portfolio updated. Old Facebook post deleted and replaced with a new one!', 'success')
+            
+        elif text_changed and item.fb_post_id:
+            # If only text changed, we update the existing FB post directly
+            new_caption = f"✨ {item.title}\n📂 Category: {item.category}\n\n{item.description}"
+            threading.Thread(target=update_facebook_post_text, args=(app, item.fb_post_id, new_caption)).start()
+            flash('Portfolio text and Facebook post caption updated successfully!', 'success')
+            
+        else:
+            flash('Portfolio updated successfully!', 'success')
+        
         return redirect(url_for('views.admin_portfolio'))
 
-    return render_template("admin_add_edit_portfolio.html", user=current_user, item=item, **get_sidebar_counts())
+    extra_media_list = json.loads(item.extra_media) if item.extra_media else []
+    return render_template("admin_add_edit_portfolio.html", user=current_user, item=item, extra_media_list=extra_media_list, **get_sidebar_counts())
 
 @views.route('/admin/portfolio/delete/<int:item_id>', methods=['POST'])
 @login_required
 def admin_delete_portfolio(item_id):
     item = PortfolioItem.query.get_or_404(item_id)
     
-    # 1. Delete from Facebook first (if a post ID exists)
-    if item.fb_post_id:
-        # --- THE FIX: GET APP AND PASS IT ---
-        app = current_app._get_current_object()
-        threading.Thread(target=delete_facebook_post, args=(app, item.fb_post_id)).start()
+    # 1. Grab the post ID before we delete the item from the DB
+    fb_post_id = item.fb_post_id
         
     # 2. Delete from local Database
     db.session.delete(item)
     db.session.commit()
     
-    flash('Item deleted from website and Facebook queue.', category='success')
+    # 3. Trigger Facebook Deletion
+    if fb_post_id:
+        app = current_app._get_current_object()
+        threading.Thread(target=delete_facebook_post, args=(app, fb_post_id)).start()
+    
+    flash('Item deleted from website and removed from Facebook.', category='success')
     return redirect(url_for('views.admin_portfolio'))
 
 # --- PACKAGES & PRICING ---
@@ -1606,7 +1926,7 @@ def admin_add_record():
     if request.method == 'POST':
         customer_name = request.form.get('customer_name')
         customer_email = request.form.get('customer_email')
-        customer_phone = request.form.get('customer_phone') # <--- NEW PHONE FIELD
+        customer_phone = request.form.get('customer_phone')
         service_type = request.form.get('service_type')
         package_selected = request.form.get('package_selected')
         location = request.form.get('location')
@@ -1781,15 +2101,18 @@ def maintenance():
 
     return render_template('maintenance.html', user=current_user, page='maintenance')
 
+# NEW: Placeholder Privacy Policy Page
+@views.route('/privacy-policy')
+def privacy_policy():
+    return render_template('privacy_policy.html', user=current_user, page='privacy-policy')
+
+
 # ==========================================
 # SYSTEM: BACKUP & RESTORE 
 # ==========================================
 
 def get_actual_db_path():
     """Helper to find the database file in various possible locations"""
-    # 1. Try absolute path in root folder
-    # 2. Try 'website' folder
-    # 3. Try 'instance' folder
     base_dir = os.path.abspath(os.path.dirname(__file__)) # website/ folder
     root_dir = os.path.abspath(os.path.join(base_dir, '..')) # project root
     
@@ -1807,17 +2130,14 @@ def get_actual_db_path():
 @views.route('/admin/system/backup')
 @login_required
 def admin_backup_db():
-    if current_user.role != 'super_admin':
-        flash('Access denied.', 'error')
-        return redirect(url_for('views.dashboard'))
-
+    # REMOVED the 'super_admin' check. Now all logged-in admins can backup.
+    
     db_path = get_actual_db_path()
     
     if db_path:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
         return send_file(db_path, as_attachment=True, download_name=f"wandershots_backup_{timestamp}.db")
     else:
-        # Debugging info: print the directory to console
         print(f"DEBUG: Current directory is {os.getcwd()}")
         flash('Database file not found on the server. Please check file structure.', 'error')
         return redirect(url_for('views.admin_settings'))
@@ -1826,9 +2146,8 @@ def admin_backup_db():
 @views.route('/admin/system/restore', methods=['POST'])
 @login_required
 def admin_restore_db():
-    if current_user.role != 'super_admin':
-        return redirect(url_for('views.dashboard'))
-
+    # REMOVED the 'super_admin' check. Now all logged-in admins can restore.
+    
     file = request.files.get('backup_file')
     db_path = get_actual_db_path()
     

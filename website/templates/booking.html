@@ -11,6 +11,21 @@
     /* Fix for map z-index overlapping the navbar */
     .leaflet-container { z-index: 10 !important; font-family: 'Inter', sans-serif; }
     .leaflet-control-geocoder-form input { color: black !important; }
+
+    /* Style for disabled button (optional, but good for UX) */
+    .btn-disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        pointer-events: none; /* Prevents click events from firing */
+        background: linear-gradient(135deg, #a0aec0, #cbd5e0); /* Lighter gray gradient */
+        box-shadow: none;
+        transform: none;
+    }
+    .btn-disabled:hover { /* Override hover effects for disabled state */
+        background: linear-gradient(135deg, #a0aec0, #cbd5e0) !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
 </style>
 
 <section class="pt-32 pb-24 bg-gray-50 min-h-screen">
@@ -187,7 +202,32 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-primary text-white w-full py-5 !rounded-button font-medium text-lg tracking-wide shadow-xl flex items-center justify-center fade-in stagger-3">
+            <!-- NEW: STEP 5: Legal & Privacy Agreement -->
+            <div class="bg-white p-8 md:p-12 rounded-2xl border border-gray-100 shadow-sm hover-lift fade-in mb-10">
+                <h2 class="text-2xl font-light text-primary mb-8 flex items-center border-b border-gray-100 pb-4">
+                    <span class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold mr-4"><i class="ri-scales-3-line"></i></span>
+                    Legal & Privacy Agreement
+                </h2>
+                
+                <div class="space-y-4 text-gray-700 text-sm">
+                    <p class="font-bold">Data Privacy (Philippine Data Privacy Act of 2012):</p>
+                    <p>By submitting this booking request, you agree that Wandershots Studios will collect and process your personal data (name, email, phone, event details) for the purpose of fulfilling your booking, sending updates, and improving our services. Your data will be handled securely and will not be shared with unauthorized third parties.</p>
+                    
+                    <label class="flex items-start cursor-pointer pt-2">
+                        <input type="checkbox" name="consent_data_processing" id="consent_data_processing" class="mt-1 mr-3 rounded text-primary focus:ring-primary h-5 w-5">
+                        <span class="text-gray-800 font-medium">I have read and consent to the processing of my data as outlined above.</span>
+                    </label>
+
+                    <p class="text-xs text-gray-500 mt-2">
+                        For more details, please review our <a href="{{ url_for('views.privacy_policy') }}" target="_blank" class="text-indigo-600 hover:underline">Privacy Policy</a>.
+                    </p>
+
+                    <p class="font-bold pt-4">Intellectual Property (Copyright):</p>
+                    <p>By proceeding with a booking, you acknowledge that while Wandershots Studios retains copyright to the photographs taken, a separate client agreement will outline the usage rights for both parties. Promotional use of images on our public gallery will only occur with explicit client consent obtained outside of this system.</p>
+                </div>
+            </div>
+
+            <button type="submit" id="submit_booking_request_btn" class="btn-primary text-white w-full py-5 !rounded-button font-medium text-lg tracking-wide shadow-xl flex items-center justify-center fade-in stagger-3 btn-disabled">
                 SUBMIT BOOKING REQUEST <i class="ri-arrow-right-line ml-3"></i>
             </button>
         </form>
@@ -359,6 +399,26 @@
                     packagesContainer.classList.add('hidden');
                 }
             });
+        });
+    });
+
+    // --- CONSENT CHECKBOX & BUTTON TOGGLE LOGIC ---
+    document.addEventListener('DOMContentLoaded', function() {
+        const consentCheckbox = document.getElementById('consent_data_processing');
+        const submitButton = document.getElementById('submit_booking_request_btn');
+
+        // Initial state: button is disabled
+        submitButton.disabled = true;
+        submitButton.classList.add('btn-disabled');
+
+        consentCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                submitButton.disabled = false;
+                submitButton.classList.remove('btn-disabled');
+            } else {
+                submitButton.disabled = true;
+                submitButton.classList.add('btn-disabled');
+            }
         });
     });
 </script>

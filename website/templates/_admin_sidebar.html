@@ -86,6 +86,12 @@
                     {% if request.endpoint == 'views.booking_records' %}bg-indigo-50 text-indigo-700{% else %}text-gray-600 hover:bg-gray-50{% endif %} rounded-lg transition-colors">
                     <i class="ri-folder-open-line mr-3 text-green-600"></i> Booking Records
                 </a>
+                <!-- NEW SALES & REVENUE LINK ADDED HERE -->
+                <a href="{{ url_for('views.admin_sales') }}"
+                    class="flex items-center px-4 py-2 
+                    {% if request.endpoint == 'views.admin_sales' %}bg-indigo-50 text-indigo-700{% else %}text-gray-600 hover:bg-gray-50{% endif %} rounded-lg transition-colors">
+                    <i class="ri-line-chart-line mr-3 text-emerald-500"></i> Sales & Revenue
+                </a>
                 <a href="{{ url_for('views.inquiries') }}"
                     class="flex items-center px-4 py-2 
                     {% if request.endpoint == 'views.inquiries' %}bg-indigo-50 text-indigo-700{% else %}text-gray-600 hover:bg-gray-50{% endif %} rounded-lg transition-colors">
