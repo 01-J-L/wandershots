@@ -9,50 +9,97 @@
     <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 w-full relative">
         <div class="mb-6">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-2 md:mt-0">System Settings</h1>
-            <p class="text-sm md:text-base text-gray-500">Manage database backups and system maintenance.</p>
+            <p class="text-sm md:text-base text-gray-500">Manage integrations, notifications, and other system-wide configurations.</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl">
             
-            <!-- BACKUP CARD -->
+            <!-- Combined Settings Card -->
+            <div class="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm space-y-8">
+                <!-- Facebook Integration Section -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-600">
+                            <i class="ri-facebook-box-fill text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Facebook Integration</h2>
+                            <p class="text-sm text-gray-500">Enable automatic posting to your Facebook Page.</p>
+                        </div>
+                    </div>
+                    <form action="{{ url_for('views.save_fb_settings') }}" method="POST" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Facebook Page ID</label>
+                                <input type="text" name="fb_page_id" value="{{ settings.fb_page_id }}" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none bg-gray-50">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Page Access Token</label>
+                                <input type="password" name="fb_access_token" value="{{ settings.fb_access_token }}" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none bg-gray-50">
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <button type="submit" class="w-full md:w-auto bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm">
+                                Save Facebook Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- Notification & Automation Section -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center bg-indigo-50 text-indigo-600">
+                            <i class="ri-mail-settings-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Notification & Automation</h2>
+                            <p class="text-sm text-gray-500">Configure business contact and automated reminder timing.</p>
+                        </div>
+                    </div>
+                    <form action="{{ url_for('views.save_notification_settings') }}" method="POST" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Business Contact Email</label>
+                                <input type="email" name="notification_email" value="{{ settings.notification_email }}" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Send Reminder (Hours before)</label>
+                                <div class="relative">
+                                    <input type="number" name="reminder_hours" value="{{ settings.reminder_hours }}" min="1" max="168" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                                    <span class="absolute right-4 top-3.5 text-gray-400 text-sm">Hours</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Admin Alert Phone Number</label>
+                            <input type="text" name="admin_phone" value="{{ settings.admin_phone }}" placeholder="e.g., 09123456789" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                            <p class="text-[11px] text-gray-400 mt-1">For SMS alerts on new bookings and messages.</p>
+                        </div>
+                        <div class="pt-2">
+                            <button type="submit" class="w-full md:w-auto bg-indigo-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm">
+                                Save Notification Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Link to Backup/Restore Page -->
             <div class="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
-                <div class="w-14 h-14 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-6">
+                <div class="w-14 h-14 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-6">
                     <i class="ri-database-2-line text-3xl"></i>
                 </div>
-                <h2 class="text-xl font-bold text-gray-900 mb-2">Download Backup</h2>
-                <p class="text-gray-500 text-sm mb-6 flex-grow">Create a complete copy of your database, including all bookings, messages, portfolio items, and settings. Store this file safely.</p>
-                
-                <a href="{{ url_for('views.admin_backup_db') }}" class="w-full bg-green-600 text-white text-center font-bold py-3.5 rounded-xl hover:bg-green-700 transition-colors shadow-md">
-                    <i class="ri-download-cloud-2-line mr-2"></i> Generate Backup File
+                <h2 class="text-xl font-bold text-gray-900 mb-2">Backup & Restore</h2>
+                <p class="text-gray-500 text-sm mb-6 flex-grow">Create a complete copy of your database or restore from a previously saved backup file. This is a critical system operation.</p>
+                <a href="{{ url_for('views.admin_backup_restore') }}" class="w-full bg-orange-500 text-white text-center font-bold py-3.5 rounded-xl hover:bg-orange-600 transition-colors shadow-md">
+                    <i class="ri-shield-keyhole-line mr-2"></i> Go to Backup & Restore Page
                 </a>
             </div>
-
-            <!-- RESTORE CARD -->
-            <div class="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm">
-                <div class="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6">
-                    <i class="ri-history-line text-3xl"></i>
-                </div>
-                <h2 class="text-xl font-bold text-gray-900 mb-2">Restore Database</h2>
-                <p class="text-gray-500 text-sm mb-6">Upload a previously backed-up <code>.db</code> file. <span class="text-red-600 font-bold">This will overwrite all current data.</span></p>
-                
-                <form action="{{ url_for('views.admin_restore_db') }}" method="POST" enctype="multipart/form-data" onsubmit="return confirm('WARNING: This will delete all current data and replace it with the backup. Are you absolutely sure?');">
-                    <div class="mb-4">
-                        <input type="file" name="backup_file" accept=".db" required
-                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-gray-200 rounded-xl p-1 bg-gray-50">
-                    </div>
-                    <button type="submit" class="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors shadow-md">
-                        <i class="ri-upload-cloud-2-line mr-2"></i> Upload & Restore
-                    </button>
-                </form>
-            </div>
-
         </div>
 
-        <div class="mt-12 pt-6 border-t border-gray-200">
-            <a href="{{ url_for('views.dashboard') }}" class="text-gray-500 hover:text-indigo-600 font-medium transition-colors inline-flex items-center">
-                <i class="ri-arrow-left-line mr-2"></i> Back to Dashboard
-            </a>
-        </div>
     </main>
 </div>
 {% endblock %}

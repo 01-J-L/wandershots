@@ -1,3 +1,5 @@
+
+
 {% extends "base.html" %}
 {% block title %}Edit Homepage Content{% endblock %}
 
@@ -19,7 +21,7 @@
 
         <form method="POST" enctype="multipart/form-data" class="max-w-5xl space-y-8 pb-32 md:pb-24">
             
-            <!-- Rest of form content unchanged. Grids automatically scale due to md: prefixes -->
+            <!-- Hero Section -->
             <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm">
                 <h2 class="text-xl font-bold text-indigo-900 mb-6 border-b pb-2 flex items-center">
                     <i class="ri-layout-top-line mr-2"></i> Hero Section
@@ -57,6 +59,7 @@
                 </div>
             </div>
 
+            <!-- Expertise Section -->
             <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm">
                 <h2 class="text-xl font-bold text-indigo-900 mb-4 border-b pb-2 flex items-center">
                     <i class="ri-star-line mr-2"></i> Our Expertise Section
@@ -87,8 +90,8 @@
                     </div>
                 </div>
             </div>
-
-            <!-- About Section omitted for brevity to save token space - the structure maps cleanly with grid-cols-1 md:grid-cols-2 -->
+            
+            <!-- About Preview Section -->
             <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm">
                 <h2 class="text-xl font-bold text-indigo-900 mb-6 border-b pb-2 flex items-center">
                     <i class="ri-profile-line mr-2"></i> About Preview Section
@@ -122,6 +125,62 @@
                     </div>
                 </div>
             </div>
+
+            <!-- NEW: Featured Projects Section -->
+            <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm">
+                <h2 class="text-xl font-bold text-indigo-900 mb-4 border-b pb-2 flex items-center">
+                    <i class="ri-gallery-line mr-2"></i> Featured Projects Section
+                </h2>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-1">Section Title</label>
+                    <input type="text" name="home_portfolio_title" value="{{ settings.home_portfolio_title }}" class="w-full md:w-1/2 border border-gray-300 rounded-lg px-4 py-2 focus:border-indigo-500 focus:outline-none bg-gray-50">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {% for i in ['1', '2', '3'] %}
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
+                        <h3 class="text-sm font-bold text-gray-700">Project {{ i }}</h3>
+                        <!-- Image Upload -->
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Image</label>
+                            <input type="file" name="home_port{{i}}_img" accept="image/*" class="w-full text-xs">
+                            <input type="text" name="home_port{{i}}_img_url" value="{{ settings['home_port' ~ i ~ '_img'] }}" placeholder="Or URL..." class="w-full border rounded-lg px-3 py-1 text-xs mt-2">
+                        </div>
+                        <!-- Text Fields -->
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Title</label>
+                            <input type="text" name="home_port{{i}}_title" value="{{ settings['home_port' ~ i ~ '_title'] }}" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Subtitle</label>
+                            <input type="text" name="home_port{{i}}_sub" value="{{ settings['home_port' ~ i ~ '_sub'] }}" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-1">Link</label>
+                            <input type="url" name="home_port{{i}}_link" value="{{ settings['home_port' ~ i ~ '_link'] }}" placeholder="https://..." class="w-full border rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- NEW: Call to Action Section -->
+            <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm">
+                <h2 class="text-xl font-bold text-indigo-900 mb-4 border-b pb-2 flex items-center">
+                    <i class="ri-cursor-fill mr-2"></i> Call to Action Section
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-1">Title</label>
+                        <input type="text" name="home_cta_title" value="{{ settings.home_cta_title }}" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:border-indigo-500 focus:outline-none bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-1">Description</label>
+                        <textarea name="home_cta_desc" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:border-indigo-500 focus:outline-none bg-gray-50">{{ settings.home_cta_desc }}</textarea>
+                    </div>
+                </div>
+            </div>
+
 
             <!-- Sticky Save Button Adaptive Layout -->
             <div class="fixed bottom-0 left-0 md:left-64 right-0 bg-white p-4 border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex flex-col md:flex-row justify-between items-center gap-4 z-50">

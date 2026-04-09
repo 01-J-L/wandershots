@@ -1,24 +1,22 @@
-# --- fix_db.py ---
 import sqlite3
 import os
 
-db_path = 'website/database.db'
+# Check common database locations
+db_path = 'instance/database.db'
 if not os.path.exists(db_path):
-    db_path = 'instance/database.db'
+    db_path = 'website/database.db'
 
-if not os.path.exists(db_path):
-    print("❌ Could not find database.db.")
-else:
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+print(f"Connecting to {db_path}...")
+conn = sqlite3.connect(db_path)
+c = conn.cursor()
 
-    # ADD fb_post_id to portfolio_item table
-    try:
-        cursor.execute("ALTER TABLE portfolio_item ADD COLUMN fb_post_id VARCHAR(200)")
-        print("✅ SUCCESS: Added 'fb_post_id' column to PortfolioItem table")
-    except Exception as e:
-        print(f"ℹ️ PortfolioItem table already has 'fb_post_id' or error: {e}")
+try:
+    # Adding the new gallery_link column
+    c.execute("ALTER TABLE booking ADD COLUMN gallery_link VARCHAR(500)")
+    print("✅ Added 'gallery_link' to Booking table successfully.")
+except sqlite3.OperationalError as e:
+    print(f"⚠️ Column already exists or error: {e}")
 
-    conn.commit()
-    conn.close()
-    print("\n🎉 Update complete!")
+conn.commit()
+conn.close()
+print("🎉 Patch complete! You can now run your Flask app.")

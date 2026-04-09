@@ -1,3 +1,5 @@
+--- START OF FILE admin_inventory.html ---
+
 {% extends "base.html" %}
 {% block title %}Manage Inventory{% endblock %}
 
@@ -23,9 +25,9 @@
                         <tr>
                             <th class="px-6 py-4">Item Name</th>
                             <th class="px-6 py-4">Category</th>
-                            <th class="px-6 py-4 text-center">Current Stock</th>
+                            <th class="px-6 py-4 text-center">Current Stock & Actions</th>
                             <th class="px-6 py-4">Status</th>
-                            <th class="px-6 py-4 text-right">Actions</th>
+                            <th class="px-6 py-4 text-right">Settings</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -39,13 +41,19 @@
                                 <span class="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md text-xs font-medium">{{ item.category }}</span>
                             </td>
                             <td class="px-6 py-4">
-                                <div class="flex items-center justify-center space-x-3">
-                                    <form action="{{ url_for('views.admin_inventory_quick_update', item_id=item.id, action='sub') }}" method="POST">
-                                        <button class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm">-</button>
-                                    </form>
-                                    <span class="text-lg font-bold text-gray-800 w-12 text-center">{{ item.quantity }} <span class="text-xs font-normal text-gray-400">{{ item.unit }}</span></span>
-                                    <form action="{{ url_for('views.admin_inventory_quick_update', item_id=item.id, action='add') }}" method="POST">
-                                        <button class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-green-50 hover:text-green-600 transition-colors shadow-sm">+</button>
+                                <div class="flex items-center justify-center gap-6">
+                                    <!-- Current Stock Display -->
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-gray-800">{{ item.quantity }}</div>
+                                        <div class="text-xs font-medium text-gray-400">{{ item.unit }}</div>
+                                    </div>
+                                    
+                                    <!-- Action Form -->
+                                    <form action="{{ url_for('views.admin_inventory_update_stock', item_id=item.id) }}" method="POST" class="flex items-center space-x-2 bg-gray-50 border border-gray-200 p-2 rounded-xl">
+                                        <button type="submit" name="action" value="sub" class="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm font-bold text-xl">-</button>
+                                        <input type="number" name="amount" value="1" min="1" required 
+                                               class="w-16 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 py-1">
+                                        <button type="submit" name="action" value="add" class="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-green-50 hover:text-green-600 transition-colors shadow-sm font-bold text-xl">+</button>
                                     </form>
                                 </div>
                             </td>

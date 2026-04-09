@@ -109,6 +109,13 @@
                     <i class="ri-layout-masonry-line mr-3 text-blue-500"></i> Manage Content (CMS)
                 </a>
 
+                <a href="{{ url_for('views.admin_backup_restore') }}"
+                    class="flex items-center px-4 py-2 
+                    {% if request.endpoint == 'views.admin_backup_restore' %}bg-indigo-50 text-indigo-700{% else %}text-gray-600 hover:bg-gray-50{% endif %} rounded-lg transition-colors">
+                    <i class="ri-database-2-line mr-3 text-orange-500"></i> Backup & Restore
+                </a>
+
+
                 <a href="{{ url_for('views.admin_settings') }}"
                     class="flex items-center px-4 py-2 
                     {% if request.endpoint == 'views.admin_settings' %}bg-indigo-50 text-indigo-700{% else %}text-gray-600 hover:bg-gray-50{% endif %} rounded-lg transition-colors">

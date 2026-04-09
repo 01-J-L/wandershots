@@ -1,13 +1,22 @@
+
 import json
 import csv
 import io
 import os
-from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, send_file
+from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, send_file, session, jsonify
 import shutil
 from flask_login import login_required, current_user
-from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem # (No change in import)
+from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem, BlockedDate
+import json
+import csv
+import io
+import os
+from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, send_file, session, jsonify
+import shutil
+from flask_login import login_required, current_user
+from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem, BlockedDate # (No change in import)
 from . import db
-from datetime import datetime
+from datetime import datetime, timedelta # Keep timedelta
 from calendar import month_abbr
 from werkzeug.utils import secure_filename 
 from flask import current_app
@@ -16,8 +25,168 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import threading
 from werkzeug.security import generate_password_hash 
-from datetime import timedelta
 import requests
+
+import uuid
+import time
+# --- GOOGLE DRIVE IMPORTS ---
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+import mimetypes
+
+# --- 1. GOOGLE DRIVE API SETUP ---
+BASE_DIR = os.path.dirname(__file__)                  
+ROOT_DIR = os.path.dirname(BASE_DIR)                  
+
+# Point to the new token.json file
+TOKEN_FILE = os.path.join(ROOT_DIR, 'token.json')
+if not os.path.exists(TOKEN_FILE):
+    TOKEN_FILE = os.path.join(BASE_DIR, 'token.json')
+
+SCOPES = ['https://www.googleapis.com/auth/drive.file']
+ALLOWED_GALLERY_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+def allowed_gallery_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_GALLERY_EXTENSIONS
+
+def get_drive_service():
+    """Authenticates using your personal account token.json"""
+    creds = None
+    if os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        
+    # If token has expired, refresh it automatically
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        with open(TOKEN_FILE, 'w') as token:
+            token.write(creds.to_json())
+            
+    return build('drive', 'v3', credentials=creds)
+
+def create_drive_folder(service, folder_name):
+    """Creates a folder directly in your personal Google Drive"""
+    file_metadata = {
+        'name': folder_name,
+        'mimeType': 'application/vnd.google-apps.folder'
+        # Notice we removed the parents ID! It will now save straight to your My Drive.
+    }
+    folder = service.files().create(body=file_metadata, fields='id, webViewLink').execute()
+    folder_id = folder.get('id')
+    
+    # Set permissions so the customer can view it without logging into Google
+    permission = {'type': 'anyone', 'role': 'reader'}
+    service.permissions().create(fileId=folder_id, body=permission).execute()
+    
+    return folder_id, folder.get('webViewLink')
+
+def upload_to_drive_with_retry(service, file_path, folder_id, filename):
+    """Uploads file to GDrive, explicitly handling mimetypes and connection stability."""
+    file_metadata = {'name': filename, 'parents': [folder_id]}
+    
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type is None:
+        mime_type = 'application/octet-stream'
+        
+    media = MediaFileUpload(file_path, mimetype=mime_type, resumable=False) 
+    
+    for attempt in range(3):
+        try:
+            print(f"Uploading {filename}...")
+            file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+            print(f"✅ Successfully uploaded {filename}!")
+            return file.get('id')
+        except Exception as e:
+            print(f"⚠️ Upload failed for {filename}. Retrying... ({attempt+1}/3)")
+            print(f"🛑 EXACT ERROR: {str(e)}")
+            time.sleep(2 ** attempt)
+            
+    return None
+
+# --- 2. GALLERY EMAIL NOTIFICATION ---
+def send_gallery_email(app, booking, folder_link):
+    with app.app_context():
+        SMTP_USER = "enemyslayer0909@gmail.com" 
+        SMTP_PASS = "unma ljgl hmhl pvhv" 
+
+        subject = f"Your Photos are Ready! - {booking.service_type}"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <h2 style="color: #4f46e5;">Wandershots Studios</h2>
+            <p>Hi <b>{booking.customer_name}</b>,</p>
+            <p>Great news! The high-resolution photos from your <b>{booking.service_type}</b> session on {booking.date} are now ready to view and download.</p>
+            
+            <div style="margin: 30px 0;">
+                <a href="{folder_link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    View & Download Gallery
+                </a>
+            </div>
+            
+            <p><b>Instructions:</b></p>
+            <ul>
+                <li>Click the button above to access your secure Google Drive folder.</li>
+                <li>You can download individual images or the entire folder.</li>
+                <li>The link is active and does not require a Google account to view.</li>
+            </ul>
+            <p>Thank you for choosing Wandershots!</p>
+        </body>
+        </html>
+        """
+        
+        msg = MIMEMultipart('alternative')
+        msg['From'] = f"Wandershots Studios <{SMTP_USER}>"
+        msg['To'] = booking.customer_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText("Please enable HTML to view this email.", 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+        
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+            server.quit()
+        except Exception as e:
+            print(f"Email failed: {e}")
+
+# --- 3. BACKGROUND WORKER THREAD ---
+def process_gallery_upload(app, booking_id, saved_files):
+    """Handles the heavy lifting of uploading files and cleaning up."""
+    with app.app_context():
+        booking = Booking.query.get(booking_id)
+        if not booking: return
+
+        try:
+            service = get_drive_service()
+            # Unique folder name per user/booking
+            folder_name = f"Wandershots_Gallery_{booking.customer_name}_{uuid.uuid4().hex[:6]}"
+            folder_id, folder_link = create_drive_folder(service, folder_name)
+
+            for filepath, original_name in saved_files:
+                try:
+                    upload_to_drive_with_retry(service, filepath, folder_id, original_name)
+                except Exception as e:
+                    print(f"❌ Failed to upload {original_name}: {e}")
+                finally:
+                    # STRICT CLEANUP: Always delete the temporary file after upload attempt
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+            
+            # Update Database and Notify User
+            booking.gallery_link = folder_link
+            db.session.commit()
+            send_gallery_email(app, booking, folder_link)
+
+        except Exception as e:
+            print(f"❌ Critical Gallery Upload Error: {e}")
+            # Ensure local cleanup even if Drive fails completely
+            for filepath, _ in saved_files:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+
 
 # SMS CONFIGURATION
 TEXTBEE_API_KEY = "f8346679-4874-482d-8a90-179e1c918cfe"
@@ -161,6 +330,48 @@ def send_client_confirmation_email(app, recipient_email, recipient_phone, name, 
         # --- SMS CONTENT (Client) ---
         sms_text = f"Hi {name}, Great news! Your booking for {service} on {date} is officially confirmed and scheduled. See you soon!"
         send_sms(recipient_phone, sms_text)
+
+def send_client_cancellation_email(app, recipient_email, recipient_phone, name, service, date, time, reason):
+    with app.app_context():
+        SMTP_USER = "enemyslayer0909@gmail.com" 
+        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        business_email = get_setting('notification_recipient_email', SMTP_USER)
+
+        subject = f"Booking Cancelled - {service}"
+        body = f"""Hi {name},
+
+        We regret to inform you that your booking for {service} has been cancelled.
+
+        REASON FOR CANCELLATION:
+        {reason}
+
+        EVENT DETAILS:
+        Service: {service}
+        Date: {date}
+        Time: {time}
+
+        If you have any questions or would like to reschedule, please reply directly to this email.
+
+        Best regards,
+        Wandershots Studios Team
+        """
+        msg = MIMEMultipart(); msg['From'] = f"Wandershots Studios <{business_email}>"; msg['To'] = recipient_email
+        msg['Subject'] = subject; msg.add_header('reply-to', business_email); msg.attach(MIMEText(body, 'plain'))
+        
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
+            server.login(SMTP_USER, SMTP_PASS); server.send_message(msg); server.quit()
+        except Exception as e: 
+            print(f"Error sending cancellation email: {e}")
+
+        # --- SMS CONTENT (Client) ---
+        sms_text = f"Hi {name}, your booking for {service} on {date} was cancelled. Reason: {reason[:40]}... Please check your email."
+        send_sms(recipient_phone, sms_text)
+
+def async_send_cancellation_email(*args):
+    app = current_app._get_current_object()
+    thread = threading.Thread(target=send_client_cancellation_email, args=(app, *args))
+    thread.start()
 
 def send_event_reminder_email(app, booking):
     with app.app_context():
@@ -426,6 +637,48 @@ def update_facebook_post_text(app, fb_post_ids, caption):
                     print(f"✅ Updated text on FB post: {post_id}")
             except Exception as e:
                 print(f"❌ FB Update Exception: {e}")
+
+
+# --- 4. UPLOAD ROUTE ---
+@views.route('/admin/deliver_gallery/<int:booking_id>', methods=['GET', 'POST'])
+@login_required
+def admin_deliver_gallery(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    
+    if request.method == 'POST':
+        files = request.files.getlist('gallery_images')
+        
+        if not files or files[0].filename == '':
+            flash('No images selected.', 'error')
+            return redirect(request.url)
+
+        # Temporary structured storage
+        TEMP_FOLDER = os.path.join(current_app.root_path, 'static/temp_uploads')
+        os.makedirs(TEMP_FOLDER, exist_ok=True)
+        
+        saved_files = []
+        for file in files:
+            if file and allowed_gallery_file(file.filename):
+                filename = secure_filename(file.filename)
+                unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                filepath = os.path.join(TEMP_FOLDER, unique_filename)
+                
+                file.save(filepath) # Saves temporarily
+                saved_files.append((filepath, filename))
+                
+        if not saved_files:
+            flash('Invalid file types. Please upload JPG or PNG only.', 'error')
+            return redirect(request.url)
+
+        # Start asynchronous upload to avoid blocking the web server
+        app = current_app._get_current_object()
+        threading.Thread(target=process_gallery_upload, args=(app, booking.id, saved_files)).start()
+
+        flash(f'Upload started in the background! {booking.customer_name} will receive an email once the photos are ready.', 'success')
+        return redirect(url_for('views.booked_bookings'))
+
+    counts = get_sidebar_counts()
+    return render_template("admin_deliver_gallery.html", user=current_user, booking=booking, page='dashboard', **counts)
 
 @views.route('/')
 def home():
@@ -789,6 +1042,7 @@ def booking_success():
     return render_template("booking_success.html", user=current_user, page='book', name=name)
 
 @views.route('/book', methods=['GET', 'POST'])
+@login_required # <--- NEW: Forces login before booking
 def book():
     packages = ServicePackage.query.order_by(ServicePackage.price).all()
     
@@ -805,7 +1059,7 @@ def book():
         date = request.form.get('date')
         time = request.form.get('time')
         notes = request.form.get('notes')
-        consent_data_processing = request.form.get('consent_data_processing') # NEW: Capture consent
+        consent_data_processing = request.form.get('consent_data_processing')
 
         if not name or not email or not phone:
             flash('Please provide your name, email, and contact number.', category='error')
@@ -815,10 +1069,11 @@ def book():
             flash('Please select a Photobooth package.', category='error')
         elif not date or not time:
             flash('Please select a date and time.', category='error')
-        elif not consent_data_processing: # NEW: Check if consent was given
+        elif not consent_data_processing: 
             flash('You must agree to the data privacy terms to submit a booking.', category='error')
         else:
             new_booking = Booking(
+                user_id=current_user.id, # <--- NEW: Link to current user
                 customer_name=name,
                 customer_email=email,
                 customer_phone=phone, 
@@ -835,13 +1090,20 @@ def book():
             db.session.add(new_booking)
             db.session.commit()
             
-            # TRIGGER EMAIL NOTIFICATION IN BACKGROUND
             async_send_email(name, email, phone, service_type, package_selected, date, time, location, notes)
-            
-            # REDIRECT TO SUCCESS PAGE INSTEAD OF HOME
             return redirect(url_for('views.booking_success', name=name))
 
     return render_template("booking.html", user=current_user, page='book', packages=packages)
+
+@views.route('/my-bookings')
+@login_required
+def customer_dashboard():
+    # If admin tries to access this, redirect to admin dashboard
+    if current_user.role in ['admin', 'super_admin']:
+        return redirect(url_for('views.dashboard'))
+        
+    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.created_at.desc()).all()
+    return render_template("customer_dashboard.html", user=current_user, page='customer_dashboard', bookings=bookings)
 
 @views.route('/contact', methods=['GET', 'POST'])
 def contact():
@@ -1184,10 +1446,69 @@ def dashboard():
     return render_template("dashboard.html", user=current_user, messages=messages, 
                            page='dashboard', chart_data=chart_data, **counts)
 
+# Add this near your other imports at the top of views.py if missing:
+from datetime import datetime, timedelta
+
+@views.route('/api/blocked-dates')
+def api_blocked_dates():
+    blocked = BlockedDate.query.all()
+    # Create a dictionary mapping the date to the reason: {'2024-12-25': 'Christmas Holiday'}
+    blocked_dict = {b.date: (b.reason or "Unavailable") for b in blocked}
+    return {"blocked_dates": blocked_dict}
+
+@views.route('/admin/block_date', methods=['POST'])
+@login_required
+def admin_block_date():
+    start_date_str = request.form.get('start_date')
+    end_date_str = request.form.get('end_date')
+    reason = request.form.get('reason', 'Admin Blocked')
+    
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        # If no end date provided, just block the start date
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else start_date
+        
+        # Ensure start is always before end (just in case admin clicks backwards)
+        if start_date > end_date:
+            start_date, end_date = end_date, start_date
+            
+        delta = end_date - start_date
+        added_count = 0
+        
+        # Loop through every day in the range and add it to the database
+        for i in range(delta.days + 1):
+            current_date = start_date + timedelta(days=i)
+            date_str = current_date.strftime('%Y-%m-%d')
+            
+            existing = BlockedDate.query.filter_by(date=date_str).first()
+            if not existing:
+                new_block = BlockedDate(date=date_str, reason=reason)
+                db.session.add(new_block)
+                added_count += 1
+            else:
+                # Update the reason if the date was already blocked
+                existing.reason = reason
+                
+        db.session.commit()
+        if added_count > 0:
+            flash(f'Successfully blocked {added_count} day(s).', 'success')
+        else:
+            flash('Selected dates were already blocked.', 'success')
+            
+    return redirect(url_for('views.calendar'))
+
+@views.route('/admin/unblock_date/<int:block_id>', methods=['POST'])
+@login_required
+def admin_unblock_date(block_id):
+    block = BlockedDate.query.get_or_404(block_id)
+    db.session.delete(block)
+    db.session.commit()
+    flash('Date unblocked successfully.', 'success')
+    return redirect(url_for('views.calendar'))
+
 @views.route('/admin/calendar')
 @login_required
 def calendar():
-    # Only show active scheduled/finished events on the calendar
     bookings = Booking.query.filter(
         Booking.status.in_(['scheduled', 'finished'])
     ).filter_by(is_archived=False).all()
@@ -1219,8 +1540,23 @@ def calendar():
             }
         })
 
+    # Add Blocked Dates to the Calendar
+    blocked_dates = BlockedDate.query.order_by(BlockedDate.date.asc()).all()
+    for b in blocked_dates:
+        events.append({
+            'title': f"BLOCKED: {b.reason or 'Unavailable'}",
+            'start': b.date,
+            'backgroundColor': '#EF4444', # Red
+            'borderColor': '#B91C1C',
+            'allDay': True,
+            'extendedProps': {
+                'status': 'blocked',
+                'notes': b.reason
+            }
+        })
+
     counts = get_sidebar_counts()
-    return render_template("admin_calendar.html", user=current_user, page='dashboard', events=events, **counts)
+    return render_template("admin_calendar.html", user=current_user, page='dashboard', events=events, blocked_dates=blocked_dates, **counts)
 
 
 # --- ACTIVE BOOKING STATUS PAGES ---
@@ -1245,6 +1581,39 @@ def cancelled_bookings():
     bookings = Booking.query.filter_by(status='cancelled', is_archived=False).order_by(Booking.created_at.desc()).all()
     counts = get_sidebar_counts()
     return render_template("admin_cancelled_bookings.html", user=current_user, page='dashboard', bookings=bookings, **counts)
+
+@views.route('/customer/cancel_booking/<int:booking_id>', methods=['POST'])
+@login_required
+def customer_cancel_booking(booking_id):
+    if current_user.role in ['admin', 'super_admin']:
+        return redirect(url_for('views.dashboard'))
+
+    booking = Booking.query.get_or_404(booking_id)
+
+    if booking.user_id != current_user.id:
+        flash("You do not have permission to cancel this booking.", category="error")
+        return redirect(url_for('views.customer_dashboard'))
+
+    if booking.status in ['pending', 'scheduled']:
+        booking.status = 'cancelled'
+        booking.cancellation_reason = "Cancelled by Customer" # Automatically set reason
+        db.session.commit()
+
+        async_send_cancellation_email(
+            booking.customer_email, booking.customer_phone, booking.customer_name,
+            booking.service_type, booking.date, booking.time, "Cancelled by Customer"
+        )
+
+        admin_phone = get_setting('admin_phone_number', '')
+        if admin_phone:
+            sms_text = f"Admin Alert: {booking.customer_name} has CANCELLED their {booking.service_type} booking on {booking.date}."
+            send_sms(admin_phone, sms_text)
+
+        flash("Your booking has been successfully cancelled.", category="success")
+    else:
+        flash("This booking cannot be cancelled at this stage.", category="error")
+
+    return redirect(url_for('views.customer_dashboard'))
 
 @views.route('/admin/booking_records')
 @login_required
@@ -1355,23 +1724,29 @@ def update_booking_status(booking_id, status):
     
     if status in ['scheduled', 'cancelled', 'pending', 'finished']:
         booking.status = status
-        db.session.commit()
         
-        # TRIGGER NOTIFICATION: Only when moving TO scheduled
         if status == 'scheduled' and old_status != 'scheduled':
-            # We MUST pass the phone number here so the SMS logic works!
             async_send_client_email(
-                booking.customer_email, # 1
-                booking.customer_phone, # 2 (NEW)
-                booking.customer_name,  # 3
-                booking.service_type,   # 4
-                booking.date,           # 5
-                booking.time,           # 6
-                booking.location        # 7
+                booking.customer_email, booking.customer_phone, booking.customer_name,  
+                booking.service_type, booking.date, booking.time, booking.location        
             )
             flash(f'Booking confirmed! Alert sent to {booking.customer_name}.', category='success')
+            
+        elif status == 'cancelled' and old_status != 'cancelled':
+            # GET THE REASON FROM THE MODAL
+            reason = request.form.get('cancellation_reason', 'No reason provided by Admin.')
+            booking.cancellation_reason = reason
+            
+            async_send_cancellation_email(
+                booking.customer_email, booking.customer_phone, booking.customer_name,
+                booking.service_type, booking.date, booking.time, reason # PASSED REASON HERE
+            )
+            flash(f'Booking cancelled! Cancellation alert sent to {booking.customer_name}.', category='warning')
+            
         else:
             flash(f'Booking marked as {status.capitalize()}.', category='success')
+            
+        db.session.commit()
     
     return redirect(request.referrer or url_for('views.pending_bookings'))
 
@@ -1911,12 +2286,20 @@ def admin_delete_package(package_id):
     return redirect(url_for('views.admin_packages_pricing'))
 
 
-# --- SYSTEM SETTINGS (Placeholder) ---
+# --- SYSTEM SETTINGS ---
 @views.route('/admin/settings')
 @login_required
 def admin_settings():
     counts = get_sidebar_counts()
-    return render_template("admin_settings.html", user=current_user, page='dashboard', **counts)
+    # Fetch all settings to pass to the template
+    settings_data = {
+        'notification_email': get_setting('notification_recipient_email', 'enemyslayer0909@gmail.com'),
+        'reminder_hours': get_setting('reminder_hours_before', '24'),
+        'admin_phone': get_setting('admin_phone_number', ''),
+        'fb_page_id': get_setting('fb_page_id', ''),
+        'fb_access_token': get_setting('fb_access_token', '')
+    }
+    return render_template("admin_settings.html", user=current_user, page='dashboard', settings=settings_data, **counts)
 
 
 # --- ADD NEW RECORD (Booking) ---
@@ -1972,28 +2355,24 @@ def admin_cms():
 # ==========================================
 
 
-
-@views.route('/admin/super_admin/save_notification_settings', methods=['POST'])
+# MOVED TO SYSTEM SETTINGS - NO LONGER SUPER ADMIN EXCLUSIVE
+@views.route('/admin/system/save_notification_settings', methods=['POST'])
 @login_required
 def save_notification_settings():
-    if current_user.role != 'super_admin':
-        return redirect(url_for('views.dashboard'))
-    
     new_email = request.form.get('notification_email')
     new_hours = request.form.get('reminder_hours')
-    new_admin_phone = request.form.get('admin_phone') # ADD THIS
+    new_admin_phone = request.form.get('admin_phone') 
+    
+    if new_email:
+        set_setting('notification_recipient_email', new_email)
+    if new_hours:
+        set_setting('reminder_hours_before', new_hours)
     if new_admin_phone:
         set_setting('admin_phone_number', new_admin_phone)
 
-    if new_email:
-        set_setting('notification_recipient_email', new_email)
-    
-    if new_hours:
-        set_setting('reminder_hours_before', new_hours)
-        
     db.session.commit()
     flash('Notification settings updated successfully!', 'success')
-    return redirect(url_for('views.super_admin_dashboard'))
+    return redirect(url_for('views.admin_settings'))
 
 @views.route('/admin/super_admin')
 @login_required
@@ -2001,7 +2380,7 @@ def super_admin_dashboard():
     if current_user.role != 'super_admin': 
         return redirect(url_for('views.dashboard'))
         
-    users = User.query.all()
+    users = User.query.filter(User.username.isnot(None)).order_by(User.id).all()
     counts = get_sidebar_counts()
     
     return render_template("admin_super_admin.html", 
@@ -2009,9 +2388,42 @@ def super_admin_dashboard():
                            users=users, 
                            page='dashboard', 
                            maintenance_mode=get_setting('site_maintenance_mode', 'false'), 
-                           notification_email=get_setting('notification_recipient_email', 'enemyslayer0909@gmail.com'),
-                           reminder_hours=get_setting('reminder_hours_before', '24'),
                            **counts)
+
+@views.route('/admin/super_admin/add_admin', methods=['GET', 'POST'])
+@login_required
+def super_admin_add_admin():
+    if current_user.role != 'super_admin':
+        flash('Access denied.', category='error')
+        return redirect(url_for('views.dashboard'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        first_name = request.form.get('first_name')
+        role = request.form.get('role')
+        password = request.form.get('password')
+        
+        # Validation checks
+        if User.query.filter_by(username=username).first():
+            flash('That username already exists. Please choose a different one.', category='error')
+        elif not password or len(password) < 6:
+            flash('Password must be at least 6 characters long.', category='error')
+        else:
+            # Create new admin user
+            new_admin = User(
+                username=username,
+                first_name=first_name,
+                role=role,
+                password=generate_password_hash(password, method='scrypt')
+            )
+            db.session.add(new_admin)
+            db.session.commit()
+            
+            flash(f'New {role.replace("_", " ").title()} account created successfully!', category='success')
+            return redirect(url_for('views.super_admin_dashboard'))
+            
+    counts = get_sidebar_counts()
+    return render_template("admin_add_admin.html", user=current_user, page='dashboard', **counts)
 
 @views.route('/admin/super_admin/toggle_maintenance', methods=['POST'])
 @login_required
@@ -2127,40 +2539,38 @@ def get_actual_db_path():
             return p
     return None
 
+@views.route('/admin/system/backup_restore')
+@login_required
+def admin_backup_restore():
+    counts = get_sidebar_counts()
+    return render_template("admin_backup.html", user=current_user, page='dashboard', **counts)
+
 @views.route('/admin/system/backup')
 @login_required
 def admin_backup_db():
-    # REMOVED the 'super_admin' check. Now all logged-in admins can backup.
-    
     db_path = get_actual_db_path()
     
     if db_path:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
         return send_file(db_path, as_attachment=True, download_name=f"wandershots_backup_{timestamp}.db")
     else:
-        print(f"DEBUG: Current directory is {os.getcwd()}")
-        flash('Database file not found on the server. Please check file structure.', 'error')
-        return redirect(url_for('views.admin_settings'))
+        flash('Database file not found on the server.', 'error')
+        return redirect(url_for('views.admin_backup_restore'))
 
 
 @views.route('/admin/system/restore', methods=['POST'])
 @login_required
 def admin_restore_db():
-    # REMOVED the 'super_admin' check. Now all logged-in admins can restore.
-    
     file = request.files.get('backup_file')
     db_path = get_actual_db_path()
     
     if not db_path:
         flash('Cannot restore: Original database path not found.', 'error')
-        return redirect(url_for('views.admin_settings'))
+        return redirect(url_for('views.admin_backup_restore'))
 
     if file and file.filename.endswith('.db'):
-        # 1. Create safety backup
-        shutil.copy(db_path, db_path + ".bak")
-        
+        shutil.copy(db_path, db_path + ".bak") # Safety backup
         try:
-            # 2. Overwrite current DB
             file.save(db_path)
             flash('Database restored successfully! Logging out to refresh session.', 'success')
             return redirect(url_for('auth.logout')) 
@@ -2170,17 +2580,16 @@ def admin_restore_db():
     else:
         flash('Invalid file format. Please upload a .db file.', 'error')
         
-    return redirect(url_for('views.admin_settings'))
+    return redirect(url_for('views.admin_backup_restore'))
 
-@views.route('/admin/super_admin/save_fb_settings', methods=['POST'])
+@views.route('/admin/system/save_fb_settings', methods=['POST'])
 @login_required
 def save_fb_settings():
-    if current_user.role != 'super_admin': return redirect(url_for('views.dashboard'))
     set_setting('fb_page_id', request.form.get('fb_page_id'))
     set_setting('fb_access_token', request.form.get('fb_access_token'))
     db.session.commit()
     flash('Facebook settings updated!', 'success')
-    return redirect(url_for('views.super_admin_dashboard'))
+    return redirect(url_for('views.admin_settings'))
 
 def post_package_to_facebook(name, price, description, image_filename=None):
     page_id = get_setting('fb_page_id')
@@ -2259,9 +2668,26 @@ def admin_edit_inventory(item_id):
     
     return render_template("admin_add_edit_inventory.html", user=current_user, item=item, **get_sidebar_counts())
 
+@views.route('/admin/inventory/set_quantity/<int:item_id>', methods=['POST'])
+@login_required
+def admin_inventory_set_quantity(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    try:
+        new_quantity = int(request.form.get('quantity'))
+        if new_quantity >= 0:
+            item.quantity = new_quantity
+            db.session.commit()
+            flash(f"Quantity for '{item.name}' updated to {new_quantity}.", "success")
+        else:
+            flash("Quantity cannot be negative.", "error")
+    except (ValueError, TypeError):
+        flash("Invalid quantity entered.", "error")
+    return redirect(url_for('views.admin_inventory'))
+
 @views.route('/admin/inventory/quick-update/<int:item_id>/<string:action>', methods=['POST'])
 @login_required
 def admin_inventory_quick_update(item_id, action):
+    # (This existing function remains unchanged)
     item = InventoryItem.query.get_or_404(item_id)
     if action == 'add':
         item.quantity += 1
@@ -2277,4 +2703,36 @@ def admin_delete_inventory(item_id):
     db.session.delete(item)
     db.session.commit()
     flash('Item removed from inventory.', 'success')
+    return redirect(url_for('views.admin_inventory'))
+
+@views.route('/admin/inventory/update_stock/<int:item_id>', methods=['POST'])
+@login_required
+def admin_inventory_update_stock(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    
+    try:
+        # Get the amount from the form, default to 1 if not provided
+        amount = int(request.form.get('amount', 1))
+        if amount <= 0:
+            flash("Amount must be a positive number.", "error")
+            return redirect(url_for('views.admin_inventory'))
+
+        # Get the action ('add' or 'sub') from the clicked button
+        action = request.form.get('action')
+
+        if action == 'add':
+            item.quantity += amount
+            flash(f"Added {amount} {item.unit} to '{item.name}'.", "success")
+        elif action == 'sub':
+            # Ensure stock doesn't go below zero
+            original_quantity = item.quantity
+            item.quantity = max(0, original_quantity - amount)
+            subtracted_amount = original_quantity - item.quantity
+            flash(f"Subtracted {subtracted_amount} {item.unit} from '{item.name}'.", "success")
+        
+        db.session.commit()
+
+    except (ValueError, TypeError):
+        flash("Invalid amount entered. Please use whole numbers.", "error")
+        
     return redirect(url_for('views.admin_inventory'))

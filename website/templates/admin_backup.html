@@ -1,0 +1,57 @@
+v{% extends "base.html" %}
+{% block title %}Backup & Restore{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 w-full relative">
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-2 md:mt-0">Database Backup & Restore</h1>
+                <p class="text-sm md:text-base text-gray-500">Manage database backups and system recovery.</p>
+            </div>
+             <a href="{{ url_for('views.admin_settings') }}" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors">
+                <i class="ri-arrow-left-line mr-2"></i> Back to System Settings
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl">
+            
+            <!-- DOWNLOAD BACKUP CARD -->
+            <div class="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
+                <div class="w-14 h-14 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-6">
+                    <i class="ri-download-cloud-2-line text-3xl"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2">Download Backup</h2>
+                <p class="text-gray-500 text-sm mb-6 flex-grow">Create a complete copy of your database, including all bookings, messages, portfolio items, and settings. Store this file safely.</p>
+                
+                <a href="{{ url_for('views.admin_backup_db') }}" class="w-full bg-green-600 text-white text-center font-bold py-3.5 rounded-xl hover:bg-green-700 transition-colors shadow-md">
+                    <i class="ri-database-2-line mr-2"></i> Generate Backup File
+                </a>
+            </div>
+
+            <!-- RESTORE FROM BACKUP CARD -->
+            <div class="bg-white p-6 md:p-8 rounded-2xl border-2 border-red-200 shadow-sm">
+                <div class="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6">
+                    <i class="ri-history-line text-3xl"></i>
+                </div>
+                <h2 class="text-xl font-bold text-red-900 mb-2">Restore Database</h2>
+                <p class="text-red-700 text-sm mb-6">Upload a previously backed-up <code>.db</code> file. <span class="font-bold">This is a destructive action that will permanently overwrite all current data.</span></p>
+                
+                <form action="{{ url_for('views.admin_restore_db') }}" method="POST" enctype="multipart/form-data" onsubmit="return confirm('WARNING: This will delete all current data and replace it with the backup. This action cannot be undone. Are you absolutely sure?');">
+                    <div class="mb-4">
+                        <input type="file" name="backup_file" accept=".db" required
+                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-gray-200 rounded-xl p-1 bg-gray-50">
+                    </div>
+                    <button type="submit" class="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors shadow-md">
+                        <i class="ri-upload-cloud-2-line mr-2"></i> Upload & Restore Now
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </main>
+</div>
+{% endblock %}
