@@ -1,0 +1,142 @@
+
+{% extends "base.html" %}
+{% block title %}Manage Footer Links{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 w-full relative">
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-2 md:mt-0">Manage Footer Links</h1>
+                <p class="text-sm md:text-base text-gray-500">Add, edit, or remove social media and quick navigation links in your website footer.</p>
+            </div>
+            <a href="{{ url_for('views.admin_cms') }}" class="w-full md:w-auto text-center bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors">
+                <i class="ri-arrow-left-line mr-2"></i> Back to CMS
+            </a>
+        </div>
+
+        <!-- Social Links Management -->
+        <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm mb-8 max-w-2xl">
+            <h2 class="text-xl font-bold text-gray-900 mb-6 border-b pb-2 flex items-center">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center bg-pink-50 text-pink-600 mr-3">
+                    <i class="ri-share-line text-xl"></i>
+                </div>
+                Manage Social Links
+            </h2>
+
+            <!-- Existing Social Links -->
+            <div class="space-y-4 mb-8">
+                {% if social_links %}
+                    {% for link in social_links %}
+                    <div class="flex items-center bg-gray-50 p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="w-10 h-10 flex items-center justify-center text-gray-700 bg-white rounded-full mr-4 shrink-0">
+                            <i class="{{ link.icon_class or 'ri-share-line' }} text-2xl"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-gray-800 truncate">{{ link.platform }}</h3>
+                            <a href="{{ link.url }}" target="_blank" class="text-sm text-gray-500 truncate block hover:underline hover:text-indigo-600">{{ link.url }}</a>
+                        </div>
+                        <form action="{{ url_for('views.admin_delete_social_link', link_id=link.id) }}" method="POST" onsubmit="return confirm('Delete {{ link.platform }} link?');" class="ml-4 shrink-0">
+                            <button type="submit" class="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-full transition-colors">
+                                <i class="ri-delete-bin-line text-xl"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-500 text-sm text-center py-4">No social links added yet.</p>
+                {% endif %}
+            </div>
+
+            <!-- Add Social Link Form (Matches screenshot style) -->
+            <div class="bg-pink-50 p-6 rounded-xl border border-pink-100 space-y-4">
+                <h3 class="text-sm font-bold text-pink-600 uppercase tracking-wider mb-3">ADD SOCIAL LINK</h3>
+                <form action="{{ url_for('views.admin_add_social_link') }}" method="POST" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="social_platform" class="sr-only">Platform</label>
+                            <select id="social_platform" name="platform" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-pink-500 focus:outline-none" required>
+                                <option value="">Platform</option>
+                                <option value="Facebook">Facebook</option>
+                                <option value="Instagram">Instagram</option>
+                                <option value="Twitter">X / Twitter</option>
+                                <option value="YouTube">YouTube</option>
+                                <option value="LinkedIn">LinkedIn</option>
+                                <option value="TikTok">TikTok</option>
+                                <option value="Pinterest">Pinterest</option>
+                                <option value="WhatsApp">WhatsApp</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="social_url" class="sr-only">URL</label>
+                            <input type="url" id="social_url" name="url" placeholder="https://" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-pink-500 focus:outline-none" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-pink-600 text-white font-bold py-3 rounded-lg hover:bg-pink-700 transition-colors flex items-center justify-center shadow-sm">
+                        <i class="ri-add-line mr-2"></i> Add Social Link
+                    </button>
+                </form>
+            </div>
+        </div>
+
+
+        <!-- Quick Links Management -->
+        <div class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm mb-12 max-w-2xl">
+            <h2 class="text-xl font-bold text-gray-900 mb-6 border-b pb-2 flex items-center">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-50 text-indigo-600 mr-3">
+                    <i class="ri-link-m text-xl"></i>
+                </div>
+                Manage Quicklinks
+            </h2>
+
+            <!-- Existing Quick Links -->
+            <div class="space-y-4 mb-8">
+                {% if quick_links %}
+                    {% for link in quick_links %}
+                    <div class="flex items-center bg-gray-50 p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="w-10 h-10 flex items-center justify-center text-gray-700 bg-white rounded-full mr-4 shrink-0">
+                            <i class="ri-arrow-right-s-line text-2xl"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-gray-800 truncate">{{ link.name }}</h3>
+                            <span class="text-sm text-gray-500 truncate block">{{ link.url }}</span>
+                        </div>
+                        <form action="{{ url_for('views.admin_delete_quick_link', link_id=link.id) }}" method="POST" onsubmit="return confirm('Delete {{ link.name }} quick link?');" class="ml-4 shrink-0">
+                            <button type="submit" class="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-full transition-colors">
+                                <i class="ri-delete-bin-line text-xl"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-500 text-sm text-center py-4">No quick links added yet.</p>
+                {% endif %}
+            </div>
+
+            <!-- Add Quick Link Form -->
+            <div class="bg-indigo-50 p-6 rounded-xl border border-indigo-100 space-y-4">
+                <h3 class="text-sm font-bold text-indigo-600 uppercase tracking-wider mb-3">ADD QUICK LINK</h3>
+                <form action="{{ url_for('views.admin_add_quick_link') }}" method="POST" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="quick_name" class="sr-only">Link Name</label>
+                            <input type="text" id="quick_name" name="name" placeholder="Link Name (e.g., Book a Session)" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-indigo-500 focus:outline-none" required>
+                        </div>
+                        <div>
+                            <label for="quick_url" class="sr-only">URL</label>
+                            <input type="text" id="quick_url" name="url" placeholder="URL (e.g., /book)" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-indigo-500 focus:outline-none" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center shadow-sm">
+                        <i class="ri-add-line mr-2"></i> Add Quick Link
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+</div>
+{% endblock %}

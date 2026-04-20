@@ -1,0 +1,2844 @@
+import json
+import csv
+import io
+import os
+from urllib.parse import urlparse 
+import tempfile
+# CHANGE: Added subprocess for running commands, shutil to check for them, and re for parsing.
+import subprocess
+import shutil
+import re 
+from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, session, jsonify, current_app
+from flask_login import login_required, current_user
+from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem, BlockedDate
+from . import db
+from datetime import datetime, timedelta
+from calendar import month_abbr
+from werkzeug.utils import secure_filename 
+from flask import current_app
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import threading
+from werkzeug.security import generate_password_hash 
+import requests
+
+import uuid
+import time
+# --- GOOGLE DRIVE IMPORTS ---
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+import mimetypes
+
+# --- 1. GOOGLE DRIVE API SETUP ---
+BASE_DIR = os.path.dirname(__file__)                  
+ROOT_DIR = os.path.dirname(BASE_DIR)                  
+
+# Point to the new token.json file
+TOKEN_FILE = os.path.join(ROOT_DIR, 'token.json')
+if not os.path.exists(TOKEN_FILE):
+    TOKEN_FILE = os.path.join(BASE_DIR, 'token.json')
+
+SCOPES = ['https://www.googleapis.com/auth/drive.file']
+ALLOWED_GALLERY_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+
+def allowed_gallery_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_GALLERY_EXTENSIONS
+
+def get_drive_service():
+    """Authenticates using your personal account token.json"""
+    creds = None
+    if os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        
+    # If token has expired, refresh it automatically
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        with open(TOKEN_FILE, 'w') as token:
+            token.write(creds.to_json())
+            
+    return build('drive', 'v3', credentials=creds)
+
+def create_drive_folder(service, folder_name):
+    """Creates a folder directly in your personal Google Drive"""
+    file_metadata = {
+        'name': folder_name,
+        'mimeType': 'application/vnd.google-apps.folder'
+        # Notice we removed the parents ID! It will now save straight to your My Drive.
+    }
+    folder = service.files().create(body=file_metadata, fields='id, webViewLink').execute()
+    folder_id = folder.get('id')
+    
+    # Set permissions so the customer can view it without logging into Google
+    permission = {'type': 'anyone', 'role': 'reader'}
+    service.permissions().create(fileId=folder_id, body=permission).execute()
+    
+    return folder_id, folder.get('webViewLink')
+
+def upload_to_drive_with_retry(service, file_path, folder_id, filename):
+    """Uploads file to GDrive, explicitly handling mimetypes and connection stability."""
+    file_metadata = {'name': filename, 'parents': [folder_id]}
+    
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type is None:
+        mime_type = 'application/octet-stream'
+        
+    media = MediaFileUpload(file_path, mimetype=mime_type, resumable=False) 
+    
+    for attempt in range(3):
+        try:
+            print(f"Uploading {filename}...")
+            file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+            print(f"✅ Successfully uploaded {filename}!")
+            return file.get('id')
+        except Exception as e:
+            print(f"⚠️ Upload failed for {filename}. Retrying... ({attempt+1}/3)")
+            print(f"🛑 EXACT ERROR: {str(e)}")
+            time.sleep(2 ** attempt)
+            
+    return None
+
+# --- 2. GALLERY EMAIL NOTIFICATION ---
+def send_gallery_email(app, booking, folder_link):
+    with app.app_context():
+        SMTP_USER = os.environ.get("SMTP_USER") # NEW
+        SMTP_PASS = os.environ.get("SMTP_PASS") # NEW
+
+        subject = f"Your Photos are Ready! - {booking.service_type}"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <h2 style="color: #4f46e5;">Wandershots Studios</h2>
+            <p>Hi <b>{booking.customer_name}</b>,</p>
+            <p>Great news! The high-resolution photos from your <b>{booking.service_type}</b> session on {booking.date} are now ready to view and download.</p>
+            
+            <div style="margin: 30px 0;">
+                <a href="{folder_link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    View & Download Gallery
+                </a>
+            </div>
+            
+            <p><b>Instructions:</b></p>
+            <ul>
+                <li>Click the button above to access your secure Google Drive folder.</li>
+                <li>You can download individual images or the entire folder.</li>
+                <li>The link is active and does not require a Google account to view.</li>
+            </ul>
+            <p>Thank you for choosing Wandershots!</p>
+        </body>
+        </html>
+        """
+        
+        msg = MIMEMultipart('alternative')
+        msg['From'] = f"Wandershots Studios <{SMTP_USER}>"
+        msg['To'] = booking.customer_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText("Please enable HTML to view this email.", 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+        
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+            server.quit()
+        except Exception as e:
+            print(f"Email failed: {e}")
+
+# --- 3. BACKGROUND WORKER THREAD ---
+def process_gallery_upload(app, booking_id, saved_files):
+    """Handles the heavy lifting of uploading files and cleaning up."""
+    with app.app_context():
+        booking = Booking.query.get(booking_id)
+        if not booking: return
+
+        try:
+            service = get_drive_service()
+            # Unique folder name per user/booking
+            folder_name = f"Wandershots_Gallery_{booking.customer_name}_{uuid.uuid4().hex[:6]}"
+            folder_id, folder_link = create_drive_folder(service, folder_name)
+
+            for filepath, original_name in saved_files:
+                try:
+                    upload_to_drive_with_retry(service, filepath, folder_id, original_name)
+                except Exception as e:
+                    print(f"❌ Failed to upload {original_name}: {e}")
+                finally:
+                    # STRICT CLEANUP: Always delete the temporary file after upload attempt
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+            
+            # Update Database and Notify User
+            booking.gallery_link = folder_link
+            db.session.commit()
+            send_gallery_email(app, booking, folder_link)
+
+        except Exception as e:
+            print(f"❌ Critical Gallery Upload Error: {e}")
+            # Ensure local cleanup even if Drive fails completely
+            for filepath, _ in saved_files:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+
+
+# SMS CONFIGURATION
+TEXTBEE_API_KEY = os.environ.get("TEXTBEE_API_KEY")
+TEXTBEE_DEVICE_ID = os.environ.get("TEXTBEE_DEVICE_ID")
+BRAND_NAME = "Wandershots" 
+DEFAULT_COUNTRY_CODE = "63"
+
+views = Blueprint('views', __name__)
+
+UPLOAD_FOLDER = 'website/static/images'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'mov', 'webm'}
+
+def format_phone(phone):
+    """Ensures phone number starts with 63 and has no spaces/symbols"""
+    clean_phone = "".join(filter(str.isdigit, str(phone)))
+    if clean_phone.startswith('0'):
+        clean_phone = DEFAULT_COUNTRY_CODE + clean_phone[1:]
+    elif not clean_phone.startswith(DEFAULT_COUNTRY_CODE):
+        clean_phone = DEFAULT_COUNTRY_CODE + clean_phone
+    return clean_phone
+
+def send_sms(phone, message):
+    """Triggers SMS via TextBee API with corrected recipient format"""
+    if not phone:
+        return
+    
+    url = f"https://api.textbee.dev/api/v1/gateway/devices/{TEXTBEE_DEVICE_ID}/send-sms"
+    
+    # THE FIX: TextBee expects "recipients" as a LIST [number], not "receiver" as a string
+    payload = {
+        "recipients": [format_phone(phone)], 
+        "message": f"{message}\n\n- {BRAND_NAME}"
+    }
+    
+    headers = { "x-api-key": TEXTBEE_API_KEY }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code in [200, 201]:
+            print(f"📱 SMS sent to {phone} successfully!")
+        else:
+            # This will help us see exactly what's wrong if it fails again
+            print(f"❌ SMS Failed: {response.text} for number {format_phone(phone)}")
+    except Exception as e:
+        print(f"📱 SMS Exception: {e}")
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_setting(key, default_value=""):
+    setting = SiteSetting.query.filter_by(setting_key=key).first()
+    return setting.setting_value if setting else default_value
+
+def set_setting(key, value):
+    setting = SiteSetting.query.filter_by(setting_key=key).first()
+    if setting:
+        setting.setting_value = value
+    else:
+        new_setting = SiteSetting(setting_key=key, setting_value=value)
+        db.session.add(new_setting)
+
+def get_image_url(filename, default_url):
+    if not filename:
+        return default_url
+    if filename.startswith('http://') or filename.startswith('https://'):
+        return filename
+    return url_for('static', filename='images/' + filename)
+
+# --- CONTACT INQUIRY EMAIL LOGIC ---
+
+def send_contact_message_email(app, name, email, message):
+    with app.app_context():
+        SMTP_USER = "enemyslayer0909@gmail.com" 
+        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        recipient_email = get_setting('notification_recipient_email', SMTP_USER)
+        admin_phone = get_setting('admin_phone_number', '')
+
+        # --- EMAIL CONTENT ---
+        subject = f"New Website Inquiry from {name}"
+        body = f"""You have a new message from the contact form!
+
+    SENDER DETAILS:
+    Name: {name}
+    Email: {email}
+
+    MESSAGE:
+    {message}
+
+    --------------------------------------------------
+    Reply directly to this email to contact the user.
+    """
+        msg = MIMEMultipart(); msg['From'] = f"Wandershots Website <{SMTP_USER}>"; msg['To'] = recipient_email
+        msg['Subject'] = subject; msg.add_header('reply-to', email); msg.attach(MIMEText(body, 'plain'))
+        
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
+            server.login(SMTP_USER, SMTP_PASS); server.send_message(msg); server.quit()
+        except Exception: pass
+
+        # --- SMS CONTENT (Admin) ---
+        if admin_phone:
+            sms_text = f"New Inquiry: {name}\nMsg: {message[:60]}..."
+            send_sms(admin_phone, sms_text)
+
+def async_send_contact_email(*args):
+    app = current_app._get_current_object()
+    thread = threading.Thread(target=send_contact_message_email, args=(app, *args))
+    thread.start()
+
+def send_client_confirmation_email(app, recipient_email, recipient_phone, name, service, date, time, location):
+    with app.app_context():
+        SMTP_USER = "enemyslayer0909@gmail.com" 
+        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        business_email = get_setting('notification_recipient_email', SMTP_USER)
+
+        # --- EMAIL CONTENT ---
+        subject = f"Booking Confirmed! - {service}"
+        body = f"""Hi {name},
+
+        Great news! Your booking request for {service} has been officially confirmed and scheduled.
+
+        EVENT DETAILS:
+        Service: {service}
+        Date: {date}
+        Time: {time}
+        Location: {location or 'In Studio'}
+
+        We look forward to capturing your special moments! If you have any questions, please reply directly to this email.
+
+        Best regards,
+        Wandershots Studios Team
+        """
+        msg = MIMEMultipart(); msg['From'] = f"Wandershots Studios <{business_email}>"; msg['To'] = recipient_email
+        msg['Subject'] = subject; msg.add_header('reply-to', business_email); msg.attach(MIMEText(body, 'plain'))
+        
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
+            server.login(SMTP_USER, SMTP_PASS); server.send_message(msg); server.quit()
+        except Exception: pass
+
+        # --- SMS CONTENT (Client) ---
+        sms_text = f"Hi {name}, Great news! Your booking for {service} on {date} is officially confirmed and scheduled. See you soon!"
+        send_sms(recipient_phone, sms_text)
+
+def send_client_cancellation_email(app, recipient_email, recipient_phone, name, service, date, time, reason):
+    with app.app_context():
+        SMTP_USER = "enemyslayer0909@gmail.com" 
+        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        business_email = get_setting('notification_recipient_email', SMTP_USER)
+
+        subject = f"Booking Cancelled - {service}"
+        body = f"""Hi {name},
+
+        We regret to inform you that your booking for {service} has been cancelled.
+
+        REASON FOR CANCELLATION:
+        {reason}
+
+        EVENT DETAILS:
+        Service: {service}
+        Date: {date}
+        Time: {time}
+
+        If you have any questions or would like to reschedule, please reply directly to this email.
+
+        Best regards,
+        Wandershots Studios Team
+        """
+        msg = MIMEMultipart(); msg['From'] = f"Wandershots Studios <{business_email}>"; msg['To'] = recipient_email
+        msg['Subject'] = subject; msg.add_header('reply-to', business_email); msg.attach(MIMEText(body, 'plain'))
+        
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
+            server.login(SMTP_USER, SMTP_PASS); server.send_message(msg); server.quit()
+        except Exception as e: 
+            print(f"Error sending cancellation email: {e}")
+
+        # --- SMS CONTENT (Client) ---
+        sms_text = f"Hi {name}, your booking for {service} on {date} was cancelled. Reason: {reason[:40]}... Please check your email."
+        send_sms(recipient_phone, sms_text)
+
+def async_send_cancellation_email(*args):
+    app = current_app._get_current_object()
+    thread = threading.Thread(target=send_client_cancellation_email, args=(app, *args))
+    thread.start()
+
+def send_event_reminder_email(app, booking):
+    with app.app_context():
+        SMTP_USER = "enemyslayer0909@gmail.com" 
+        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        business_email = get_setting('notification_recipient_email', SMTP_USER)
+        admin_phone = get_setting('admin_phone_number', '')
+
+        # --- EMAIL CONTENT (Client) ---
+        subject = f"Reminder: Your session is coming up! - {booking.service_type}"
+        body = f"""Hi {booking.customer_name},
+
+        This is a friendly reminder that your {booking.service_type} session is scheduled for tomorrow!
+
+        EVENT DETAILS:
+        Service: {booking.service_type}
+        Date: {booking.date}
+        Time: {booking.time}
+        Location: {booking.location or 'In Studio'}
+
+        We look forward to seeing you!
+        
+        Best regards,
+        Wandershots Studios Team
+        """
+        msg = MIMEMultipart(); msg['From'] = f"Wandershots Studios <{business_email}>"; msg['To'] = booking.customer_email
+        msg['Subject'] = subject; msg.attach(MIMEText(body, 'plain'))
+        
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
+            server.login(SMTP_USER, SMTP_PASS); server.send_message(msg); server.quit()
+        except Exception: pass
+
+        # --- SMS CONTENT (Client) ---
+        send_sms(booking.customer_phone, f"Hi {booking.customer_name}, just a reminder that your session for {booking.service_type} is scheduled for tomorrow at {booking.time}!")
+
+        # --- SMS CONTENT (Admin) ---
+        if admin_phone:
+            send_sms(admin_phone, f"Admin Reminder: Booking with {booking.customer_name} is scheduled for tomorrow at {booking.time}.")
+
+        # Update DB
+        booking.reminder_sent = True
+        db.session.commit()
+
+# --- THE BACKGROUND TASK ---
+def check_upcoming_events(app):
+    with app.app_context():
+        current_time = datetime.now()
+        
+        # 1. Get the admin's setting for hours (default to 24 if not set)
+        try:
+            hours_threshold = int(get_setting('reminder_hours_before', '24'))
+        except ValueError:
+            hours_threshold = 24
+
+        # 2. Get scheduled bookings that haven't received a reminder
+        bookings = Booking.query.filter_by(status='scheduled', reminder_sent=False).all()
+
+        for b in bookings:
+            try:
+                # Combine b.date (YYYY-MM-DD) and b.time (HH:MM) into a datetime object
+                event_datetime = datetime.strptime(f"{b.date} {b.time}", '%Y-%m-%d %H:%M')
+                
+                # Calculate the difference
+                time_diff = event_datetime - current_time
+                hours_until_event = time_diff.total_seconds() / 3600
+
+                # 3. If the event is within the threshold (but still in the future)
+                if 0 < hours_until_event <= hours_threshold:
+                    send_event_reminder_email(app, b)
+            except Exception as e:
+                print(f"Error processing reminder for booking {b.id}: {e}")
+
+
+def async_send_client_email(*args):
+    app = current_app._get_current_object()
+    thread = threading.Thread(target=send_client_confirmation_email, args=(app, *args))
+    thread.start()
+
+def send_new_booking_email(app, name, email, phone, service, package, date, time, location, notes):
+    with app.app_context():
+        SMTP_USER = "enemyslayer0909@gmail.com" 
+        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        recipient_email = get_setting('notification_recipient_email', SMTP_USER)
+        admin_phone = get_setting('admin_phone_number', '')
+
+        # --- EMAIL CONTENT ---
+        subject = f"New Booking Request: {service} - {name}"
+        body = f"""You have a new booking request from your website!
+
+    CUSTOMER DETAILS:
+    Name: {name}
+    Email: {email}
+    Phone: {phone}
+
+    EVENT DETAILS:
+    Service: {service}
+    Package: {package or 'None'}
+    Date: {date}
+    Time: {time}
+    Location: {location or 'In Studio'}
+
+    Notes:
+    {notes or 'None'}
+    """
+        msg = MIMEMultipart(); msg['From'] = f"Wandershots System <{SMTP_USER}>"; msg['To'] = recipient_email
+        msg['Subject'] = subject; msg.attach(MIMEText(body, 'plain'))
+        
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
+            server.login(SMTP_USER, SMTP_PASS); server.send_message(msg); server.quit()
+        except Exception: pass
+
+        # --- SMS CONTENT (Admin) ---
+        if admin_phone:
+            sms_text = f"New Booking: {name}\nService: {service}\nDate: {date} @ {time}\nLoc: {location[:30]}..."
+            send_sms(admin_phone, sms_text)
+
+def async_send_email(*args):
+    """
+    SANDS 10 ITEMS TOTAL:
+    The app object + the 9 booking details
+    """
+    # 1. Get the real app object
+    app = current_app._get_current_object()
+    
+    # 2. Start thread passing (app, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+    thread = threading.Thread(target=send_new_booking_email, args=(app, *args))
+    thread.start()
+
+def post_portfolio_to_facebook(app, portfolio_id, selected_pages):
+    """Creates Facebook Posts to selected pages, smartly separating videos and photos."""
+    with app.app_context():
+        item = PortfolioItem.query.get(portfolio_id)
+        if not item or not selected_pages:
+            return
+
+        # Collect all media slots (this is done once)
+        files_to_upload = []
+        for attr in [item.image_filename, item.image_filename_2, item.image_filename_3, item.image_filename_4]:
+            if attr:
+                files_to_upload.append(attr)
+        if item.extra_media:
+            try:
+                files_to_upload.extend(json.loads(item.extra_media))
+            except:
+                pass
+        files_to_upload = list(dict.fromkeys(files_to_upload))
+        if not files_to_upload:
+            return
+
+        # Separate photos and videos
+        photos, videos = [], []
+        for filename in files_to_upload:
+            if filename.lower().endswith(('.mp4', '.mov', '.webm')):
+                videos.append(filename)
+            else:
+                photos.append(filename)
+
+        caption = f"✨ {item.title}\n📂 Category: {item.category}\n\n{item.description}"
+        master_post_ids = []
+
+        # Loop through each selected page and post
+        for page_index in selected_pages:
+            # Construct setting keys based on index
+            id_key = 'fb_page_id' if page_index == '1' else f'fb_page_id_{page_index}'
+            token_key = 'fb_access_token' if page_index == '1' else f'fb_access_token_{page_index}'
+            name_key = 'fb_page_name' if page_index == '1' else f'fb_page_name_{page_index}'
+
+            page_id = get_setting(id_key)
+            token = get_setting(token_key)
+            page_name = get_setting(name_key, f"Page {page_index}")
+
+            if not page_id or not token:
+                print(f"Skipping post to '{page_name}': credentials missing.")
+                continue
+
+            print(f"--- Posting to Facebook Page: {page_name} ---")
+
+            try:
+                # 1. Process videos first for this page
+                for video in videos:
+                    path = os.path.join(app.root_path, 'static/images', video)
+                    if not os.path.exists(path): continue
+                    with open(path, 'rb') as f:
+                        url = f"https://graph-video.facebook.com/v19.0/{page_id}/videos"
+                        payload = {'description': caption, 'access_token': token, 'published': 'true'}
+                        r = requests.post(url, data=payload, files={'source': f})
+                        res = r.json()
+                        if 'id' in res:
+                            master_post_ids.append(str(res['id']))
+                            print(f"✅ FB Video Uploaded to '{page_name}'! ID: {res['id']}")
+                        else:
+                            print(f"❌ FB Video Error on '{page_name}': {res}")
+
+                # 2. Process photos second for this page
+                if len(photos) == 1:
+                    path = os.path.join(app.root_path, 'static/images', photos[0])
+                    if os.path.exists(path):
+                        with open(path, 'rb') as f:
+                            url = f"https://graph.facebook.com/v19.0/{page_id}/photos"
+                            payload = {'caption': caption, 'access_token': token, 'published': 'true'}
+                            r = requests.post(url, data=payload, files={'source': f})
+                            res = r.json()
+                            fb_post_id = res.get('post_id', res.get('id'))
+                            if fb_post_id:
+                                master_post_ids.append(str(fb_post_id))
+                                print(f"✅ FB Single Photo Uploaded to '{page_name}'! ID: {fb_post_id}")
+                elif len(photos) > 1:
+                    media_ids = []
+                    for photo in photos:
+                        path = os.path.join(app.root_path, 'static/images', photo)
+                        if not os.path.exists(path): continue
+                        with open(path, 'rb') as f:
+                            url = f"https://graph.facebook.com/v19.0/{page_id}/photos"
+                            r = requests.post(url, data={'published': 'false', 'access_token': token}, files={'source': f})
+                            res = r.json()
+                            if 'id' in res: media_ids.append(res['id'])
+                    
+                    if media_ids:
+                        feed_url = f"https://graph.facebook.com/v19.0/{page_id}/feed"
+                        attached_media = json.dumps([{'media_fbid': m_id} for m_id in media_ids])
+                        r = requests.post(feed_url, data={'message': caption, 'attached_media': attached_media, 'access_token': token, 'published': 'true'})
+                        res = r.json()
+                        if 'id' in res:
+                            master_post_ids.append(str(res['id']))
+                            print(f"✅ FB Photo Album Uploaded to '{page_name}'! ID: {res['id']}")
+
+            except Exception as e:
+                print(f"❌ FB Exception in Thread for page '{page_name}': {str(e)}")
+
+        # 3. Link all created post IDs from all pages to the portfolio item
+        if master_post_ids:
+            item.fb_post_id = ",".join(master_post_ids)
+            db.session.commit()
+
+def delete_facebook_post(app, fb_post_ids):
+    """Deletes ALL linked posts from Facebook (Photos and Videos)"""
+    with app.app_context():
+        token = get_setting('fb_access_token')
+        if not fb_post_ids or not token: return
+        
+        # Split the IDs and delete every single post associated with this portfolio
+        for post_id in fb_post_ids.split(','):
+            try:
+                url = f"https://graph.facebook.com/v19.0/{post_id.strip()}"
+                response = requests.delete(url, params={'access_token': token})
+                if response.status_code == 200:
+                    print(f"✅ Deleted FB post: {post_id}")
+            except Exception as e:
+                print(f"❌ FB Delete Exception: {e}")
+
+def update_facebook_post_text(app, fb_post_ids, caption):
+    """Updates the text on ALL linked Facebook posts"""
+    with app.app_context():
+        token = get_setting('fb_access_token')
+        if not fb_post_ids or not token: return
+        
+        for post_id in fb_post_ids.split(','):
+            try:
+                url = f"https://graph.facebook.com/v19.0/{post_id.strip()}"
+                # We send both 'message' and 'description' to ensure it updates both photos and videos
+                payload = {'message': caption, 'description': caption, 'access_token': token}
+                response = requests.post(url, data=payload)
+                if response.status_code == 200:
+                    print(f"✅ Updated text on FB post: {post_id}")
+            except Exception as e:
+                print(f"❌ FB Update Exception: {e}")
+
+
+# --- 4. UPLOAD ROUTE ---
+@views.route('/admin/deliver_gallery/<int:booking_id>', methods=['GET', 'POST'])
+@login_required
+def admin_deliver_gallery(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    
+    if request.method == 'POST':
+        files = request.files.getlist('gallery_images')
+        
+        if not files or files[0].filename == '':
+            flash('No images selected.', 'error')
+            return redirect(request.url)
+
+        # Temporary structured storage
+        TEMP_FOLDER = os.path.join(current_app.root_path, 'static/temp_uploads')
+        os.makedirs(TEMP_FOLDER, exist_ok=True)
+        
+        saved_files = []
+        for file in files:
+            if file and allowed_gallery_file(file.filename):
+                filename = secure_filename(file.filename)
+                unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                filepath = os.path.join(TEMP_FOLDER, unique_filename)
+                
+                file.save(filepath) # Saves temporarily
+                saved_files.append((filepath, filename))
+                
+        if not saved_files:
+            flash('Invalid file types. Please upload JPG or PNG only.', 'error')
+            return redirect(request.url)
+
+        # Start asynchronous upload to avoid blocking the web server
+        app = current_app._get_current_object()
+        threading.Thread(target=process_gallery_upload, args=(app, booking.id, saved_files)).start()
+
+        flash(f'Upload started in the background! {booking.customer_name} will receive an email once the photos are ready.', 'success')
+        return redirect(url_for('views.booked_bookings'))
+
+    counts = get_sidebar_counts()
+    return render_template("admin_deliver_gallery.html", user=current_user, booking=booking, page='dashboard', **counts)
+
+@views.route('/')
+def home():
+    # Fetch content from database, fallback to defaults if empty
+    settings = {
+        # Hero Section
+        'hero_pre': get_setting('home_hero_pre', 'TIMELESS STYLE'),
+        'hero_title': get_setting('home_hero_title', 'Timeless<br><em class="font-light italic">Elegance</em><br>in Every Frame.'),
+        'hero_desc': get_setting('home_hero_desc', "Capturing life's most precious moments with artistic vision and technical excellence. Every photograph tells a story worth preserving for generations."),
+        'hero_bg_img': get_image_url(get_setting('home_hero_bg_img'), 'https://readdy.ai/api/search-image?query=elegant%20photography%20studio%20with%20soft%20natural%20lighting%2C%20minimal%20modern%20interior%20design%2C%20professional%20camera%20equipment%2C%20clean%20white%20walls%2C%20large%20windows%20with%20diffused%20sunlight%2C%20sophisticated%20atmosphere%2C%20high-end%20photography%20workspace&width=1920&height=1080&seq=hero-bg-001&orientation=landscape'),
+        'hero_portrait_img': get_image_url(get_setting('home_hero_portrait_img'), 'https://readdy.ai/api/search-image?query=professional%20portrait%20photography%20of%20elegant%20woman%20with%20natural%20lighting%2C%20soft%20shadows%2C%20timeless%20beauty%2C%20classic%20composition%2C%20high-end%20fashion%20photography%20style%2C%20sophisticated%20atmosphere%2C%20artistic%20black%20and%20white%20tones&width=600&height=750&seq=hero-portrait-001&orientation=portrait'),
+        
+        # Expertise Section
+        'expertise_title': get_setting('home_expertise_title', 'Our Expertise'),
+        'exp1_title': get_setting('home_exp1_title', 'Studio Portraits'),
+        'exp1_desc': get_setting('home_exp1_desc', 'Professional studio sessions with controlled lighting and premium backdrops for timeless portrait photography that captures your unique personality.'),
+        'exp2_title': get_setting('home_exp2_title', 'Event Coverage'),
+        'exp2_desc': get_setting('home_exp2_desc', 'Comprehensive wedding and event photography services that document every precious moment with artistic flair and professional discretion.'),
+        'exp3_title': get_setting('home_exp3_title', 'Luxury Photobooth'),
+        'exp3_desc': get_setting('home_exp3_desc', 'Premium on-site studio booths with magnetic prints, custom elegant layouts, and flawless professional lighting setups.'),
+
+        # About Preview Section
+        'about_pre': get_setting('home_about_pre', 'OUR APPROACH'),
+        'about_title': get_setting('home_about_title', 'Crafting Moments,<br>Building <em class="italic">Legacies</em>.'),
+        'about_p1': get_setting('home_about_p1', 'With over a decade of experience in fine art photography, we believe that every image should tell a story that transcends time. Our approach combines classical composition techniques with modern artistic vision.'),
+        'about_p2': get_setting('home_about_p2', 'From intimate portraits to grand celebrations, we focus on capturing the authentic emotions and genuine connections that make each moment unique and meaningful for generations to come.'),
+        'about_img': get_image_url(get_setting('home_about_img'), 'https://readdy.ai/api/search-image?query=professional%20photography%20workspace%20with%20vintage%20cameras%2C%20artistic%20lighting%20equipment%2C%20film%20rolls%2C%20elegant%20desk%20setup%2C%20creative%20studio%20environment%2C%20warm%20natural%20lighting%2C%20sophisticated%20photographer%20tools%20and%20equipment&width=600&height=700&seq=workspace-001&orientation=portrait'),
+        
+        
+        # Portfolio Preview Section
+        'portfolio_title': get_setting('home_portfolio_title', 'Featured Projects'),
+        
+        'port1_img': get_image_url(get_setting('home_port1_img'), 'https://readdy.ai/api/search-image?query=elegant%20wedding...'),
+        'port1_title': get_setting('home_port1_title', 'Romantic Wedding'),
+        'port1_sub': get_setting('home_port1_sub', 'Outdoor Ceremony'),
+        'port1_link': get_setting('home_port1_link', '#'), # <--- ADD THIS
+        
+        'port2_img': get_image_url(get_setting('home_port2_img'), 'https://readdy.ai/api/search-image?query=professional%20family...'),
+        'port2_title': get_setting('home_port2_title', 'Family Legacy'),
+        'port2_sub': get_setting('home_port2_sub', 'Studio Session'),
+        'port2_link': get_setting('home_port2_link', '#'), # <--- ADD THIS
+        
+        'port3_img': get_image_url(get_setting('home_port3_img'), 'https://readdy.ai/api/search-image?query=artistic%20lifestyle...'),
+        'port3_title': get_setting('home_port3_title', 'Lifestyle Session'),
+        'port3_sub': get_setting('home_port3_sub', 'Natural Setting'),
+        'port3_link': get_setting('home_port3_link', '#'), # <--- ADD THIS
+
+        # Call to Action
+        'cta_title': get_setting('home_cta_title', "Let's create something beautiful."),
+        'cta_desc': get_setting('home_cta_desc', "Ready to capture your story? Our calendar fills up quickly for the upcoming season. We'd love to discuss your vision and create timeless photographs that celebrate your most precious moments.")
+    }
+    return render_template("index.html", user=current_user, page='home', settings=settings)
+# ==========================================
+
+@views.route('/admin/cms/home', methods=['GET', 'POST'])
+@login_required
+def admin_cms_home():
+    # Define text fields
+    text_keys = [
+        'home_hero_pre', 'home_hero_title', 'home_hero_desc',
+        'home_expertise_title', 'home_exp1_title', 'home_exp1_desc', 'home_exp2_title', 'home_exp2_desc', 'home_exp3_title', 'home_exp3_desc',
+        'home_about_pre', 'home_about_title', 'home_about_p1', 'home_about_p2',
+        'home_portfolio_title', 'home_port1_title', 'home_port1_sub', 'home_port1_link', # <-- Added Link
+        'home_port2_title', 'home_port2_sub', 'home_port2_link', # <-- Added Link
+        'home_port3_title', 'home_port3_sub', 'home_port3_link', # <-- Added Link
+        'home_cta_title', 'home_cta_desc'
+    ]
+    # Define image file fields
+    image_keys = [
+        'home_hero_bg_img', 'home_hero_portrait_img', 'home_about_img',
+        'home_port1_img', 'home_port2_img', 'home_port3_img'
+    ]
+
+    if request.method == 'POST':
+        # 1. Save Text Fields
+        for key in text_keys:
+            set_setting(key, request.form.get(key, ''))
+            
+        # 2. Save Uploaded Images
+        for key in image_keys:
+            file = request.files.get(key)
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                # Ensure directory exists
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                file.save(os.path.join(UPLOAD_FOLDER, filename))
+                set_setting(key, filename) # Save filename to database
+            
+            # If user pasted an external URL instead of uploading a file
+            elif request.form.get(f"{key}_url"):
+                set_setting(key, request.form.get(f"{key}_url"))
+            
+        db.session.commit()
+        flash('Homepage content updated successfully!', category='success')
+        return redirect(url_for('views.admin_cms_home'))
+
+    # Load current settings to populate the form
+    settings = {}
+    for key in text_keys + image_keys:
+        # Default empty string, actual defaults are handled on the frontend/home route
+        settings[key] = get_setting(key, "") 
+    
+    counts = get_sidebar_counts()
+    return render_template("admin_cms_home.html", user=current_user, page='dashboard', settings=settings, **counts) 
+
+@views.route('/admin/sales')
+@login_required
+def admin_sales():
+    import re
+    
+    def extract_price(package_str):
+        if not package_str: return 0.0
+        currency_match = re.search(r'(?:₱|Php|PHP|P)\s*([\d,]+(?:\.\d+)?)', package_str, re.IGNORECASE)
+        if currency_match:
+            try: return float(currency_match.group(1).replace(',', ''))
+            except: pass
+        all_matches = re.findall(r'[\d,]+(?:\.\d+)?', package_str)
+        if all_matches:
+            try: return float(all_matches[-1].replace(',', ''))
+            except: return 0.0
+        return 0.0
+
+    target_services = ['Photobooth', 'On-site Studio Booth', 'Photoman']
+    
+    # 1. AUTO-ARCHIVE LOGIC: Limit active records to 100
+    # Finds all active scheduled/finished bookings for these services
+    active_bookings = Booking.query.filter(
+        Booking.service_type.in_(target_services),
+        Booking.status.in_(['scheduled', 'finished']),
+        Booking.is_archived == False
+    ).order_by(Booking.date.desc()).all()
+
+    # If there are more than 100, automatically archive the older ones
+    if len(active_bookings) > 100:
+        for b in active_bookings[100:]:
+            b.is_archived = True
+        db.session.commit()
+
+    # 2. CAPTURE DATE FILTERS
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+
+    # 3. BUILD SALES QUERY 
+    # Notice: We REMOVED the is_archived == False filter. 
+    # Sales must calculate BOTH active and archived records so you don't lose money in your reports!
+    query = Booking.query.filter(
+        Booking.service_type.in_(target_services),
+        Booking.status.in_(['scheduled', 'finished'])
+    )
+
+    if start_date:
+        query = query.filter(Booking.date >= start_date)
+    if end_date:
+        query = query.filter(Booking.date <= end_date)
+
+    bookings = query.order_by(Booking.date.desc()).all()
+    all_packages = ServicePackage.query.all()
+    
+    package_sales = {}
+    for pkg in all_packages:
+        package_sales[pkg.name] = {
+            'name': pkg.name, 'type': pkg.package_type,
+            'base_price': pkg.price, 'count': 0, 'revenue': 0.0
+        }
+
+    sales_data = {
+        'Photobooth': {'count': 0, 'revenue': 0.0},
+        'On-site Studio Booth': {'count': 0, 'revenue': 0.0},
+        'Photoman': {'count': 0, 'revenue': 0.0},
+        'total_revenue': 0.0, 'total_count': 0
+    }
+
+    booking_list = []
+
+    # 4. CALCULATE REVENUES
+    for b in bookings:
+        price = extract_price(b.package_selected)
+        
+        if b.service_type in sales_data:
+            sales_data[b.service_type]['count'] += 1
+            sales_data[b.service_type]['revenue'] += price
+            sales_data['total_revenue'] += price
+            sales_data['total_count'] += 1
+            
+        matched_pkg = "Custom / Unmatched"
+        if b.package_selected:
+            for pkg in all_packages:
+                if pkg.name in b.package_selected:
+                    package_sales[pkg.name]['count'] += 1
+                    package_sales[pkg.name]['revenue'] += price
+                    matched_pkg = pkg.name
+                    break 
+            
+        booking_list.append({
+            'id': b.id, 'date': b.date, 'customer_name': b.customer_name,
+            'service_type': b.service_type, 'package_selected': b.package_selected,
+            'matched_package': matched_pkg, 'status': b.status, 'price': price
+        })
+
+    sorted_package_sales = sorted(package_sales.values(), key=lambda x: x['revenue'], reverse=True)
+    active_packages = [p for p in sorted_package_sales if p['count'] > 0]
+    
+    # 5. UI DISPLAY LIMITS (Limit the visual tables to 100 max)
+    total_packages_count = len(active_packages)
+    display_packages = active_packages[:100]
+    
+    total_bookings_count = len(booking_list)
+    display_bookings = booking_list[:100]
+
+    filters = {'start_date': start_date, 'end_date': end_date}
+
+    counts = get_sidebar_counts()
+    return render_template("admin_sales.html", 
+                           user=current_user, page='dashboard', 
+                           sales_data=sales_data, 
+                           display_packages=display_packages,
+                           total_packages_count=total_packages_count,
+                           display_bookings=display_bookings, 
+                           total_bookings_count=total_bookings_count,
+                           filters=filters, **counts)
+
+@views.route('/admin/export_sales')
+@login_required
+def export_sales():
+    import re, csv, io
+    from datetime import datetime
+    
+    def extract_price(package_str):
+        if not package_str: return 0.0
+        currency_match = re.search(r'(?:₱|Php|PHP|P)\s*([\d,]+(?:\.\d+)?)', package_str, re.IGNORECASE)
+        if currency_match:
+            try: return float(currency_match.group(1).replace(',', ''))
+            except: pass
+        all_matches = re.findall(r'[\d,]+(?:\.\d+)?', package_str)
+        if all_matches:
+            try: return float(all_matches[-1].replace(',', ''))
+            except: return 0.0
+        return 0.0
+
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+
+    # NOTE: is_archived filter is REMOVED here too so exports match the sales dashboard exactly.
+    query = Booking.query.filter(
+        Booking.service_type.in_(['Photobooth', 'On-site Studio Booth', 'Photoman']),
+        Booking.status.in_(['scheduled', 'finished'])
+    )
+
+    if start_date: query = query.filter(Booking.date >= start_date)
+    if end_date: query = query.filter(Booking.date <= end_date)
+
+    bookings = query.order_by(Booking.date.desc()).all()
+    all_packages = ServicePackage.query.all()
+
+    si = io.StringIO()
+    cw = csv.writer(si)
+    
+    cw.writerow(['Event Date', 'Customer Name', 'Service Category', 'Matched Package', 'Original Package String', 'Status', 'Extracted Revenue (PHP)'])
+    
+    total_revenue = 0.0
+    
+    for b in bookings:
+        price = extract_price(b.package_selected)
+        total_revenue += price
+        
+        matched_pkg = "Custom / Unmatched"
+        if b.package_selected:
+            for pkg in all_packages:
+                if pkg.name in b.package_selected:
+                    matched_pkg = pkg.name
+                    break
+                    
+        cw.writerow([
+            b.date, b.customer_name, b.service_type, matched_pkg, 
+            b.package_selected, b.status, price
+        ])
+        
+    cw.writerow([])
+    cw.writerow(['', '', '', '', 'TOTAL REVENUE:', total_revenue])
+
+    output = si.getvalue()
+    filename = f"sales_report_{datetime.now().strftime('%Y%m%d')}.csv"
+    
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment;filename={filename}"}
+    )
+
+@views.route('/admin/cms/about', methods=['GET', 'POST'])
+@login_required
+def admin_cms_about():
+    # Define fields
+    text_keys = [
+        'about_header_pre', 'about_header_title', 'about_header_desc',
+        'about_story_title', 'about_story_text',
+        'about_stat1_num', 'about_stat1_label',
+        'about_stat2_num', 'about_stat2_label',
+        'about_stat3_num', 'about_stat3_label'
+    ]
+    image_keys = ['about_main_img']
+
+    if request.method == 'POST':
+        # 1. Save Text Fields
+        for key in text_keys:
+            set_setting(key, request.form.get(key, ''))
+            
+        # 2. Save Uploaded Images
+        for key in image_keys:
+            file = request.files.get(key)
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                file.save(os.path.join(UPLOAD_FOLDER, filename))
+                set_setting(key, filename)
+            elif request.form.get(f"{key}_url"):
+                set_setting(key, request.form.get(f"{key}_url"))
+            
+        db.session.commit()
+        flash('About page content updated successfully!', category='success')
+        return redirect(url_for('views.admin_cms_about'))
+
+    # Load current settings
+    settings = {}
+    for key in text_keys + image_keys:
+        settings[key] = get_setting(key, "") 
+    
+    counts = get_sidebar_counts()
+    return render_template("admin_cms_about.html", user=current_user, page='dashboard', settings=settings, **counts)
+
+@views.route('/about')
+def about():
+    settings = {
+        'header_pre': get_setting('about_header_pre', 'THE STORY'),
+        'header_title': get_setting('about_header_title', 'About <em class="italic">Wandershots</em>'),
+        'header_desc': get_setting('about_header_desc', 'The vision, passion, and artistic dedication behind the lens.'),
+        
+        'story_title': get_setting('about_story_title', 'A Decade of<br><em class="italic text-gray-600">Craftsmanship</em><br>and Dedication.'),
+        'story_text': get_setting('about_story_text', 'For over ten years, Wandershots Studios has been dedicated to capturing moments that transcend time. Our journey has taken us through countless stories, each one a testament to our passion for elegant and authentic visual narratives. We specialize in bringing out the genuine emotion and sophisticated beauty in every subject we photograph.'),
+        
+        'stat1_num': get_setting('about_stat1_num', '500+'),
+        'stat1_label': get_setting('about_stat1_label', 'Clients'),
+        'stat2_num': get_setting('about_stat2_num', '150+'),
+        'stat2_label': get_setting('about_stat2_label', 'Events'),
+        'stat3_num': get_setting('about_stat3_num', '25'),
+        'stat3_label': get_setting('about_stat3_label', 'Awards'),
+        
+        'main_img': get_image_url(get_setting('about_main_img'), 'https://readdy.ai/api/search-image?query=Professional%20female%20photographer%20with%20camera%20in%20modern%20studio%20setting%20black%20and%20white&width=600&height=800&seq=about-main')
+    }
+    return render_template("about.html", user=current_user, page='about', settings=settings)
+
+@views.route('/works')
+def works():
+    # Fetch all portfolio items for the works page
+    portfolio_items = PortfolioItem.query.order_by(PortfolioItem.created_at.desc()).all()
+    return render_template("works.html", user=current_user, page='works', portfolio_items=portfolio_items)
+
+@views.route('/booking-success')
+def booking_success():
+    name = request.args.get('name', 'Guest')
+    return render_template("booking_success.html", user=current_user, page='book', name=name)
+
+@views.route('/book', methods=['GET', 'POST'])
+@login_required # <--- NEW: Forces login before booking
+def book():
+    packages = ServicePackage.query.order_by(ServicePackage.price).all()
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        service_type = request.form.get('service_type')
+        
+        location = request.form.get('location') 
+        map_url = request.form.get('map_url')
+        package_selected = request.form.get('package_selected') 
+        
+        date = request.form.get('date')
+        time = request.form.get('time')
+        notes = request.form.get('notes')
+        consent_data_processing = request.form.get('consent_data_processing')
+
+        if not name or not email or not phone:
+            flash('Please provide your name, email, and contact number.', category='error')
+        elif not service_type:
+            flash('Please select a service type.', category='error')
+        elif service_type == 'Photobooth' and not package_selected:
+            flash('Please select a Photobooth package.', category='error')
+        elif not date or not time:
+            flash('Please select a date and time.', category='error')
+        elif not consent_data_processing: 
+            flash('You must agree to the data privacy terms to submit a booking.', category='error')
+        else:
+            new_booking = Booking(
+                user_id=current_user.id, # <--- NEW: Link to current user
+                customer_name=name,
+                customer_email=email,
+                customer_phone=phone, 
+                service_type=service_type,
+                package_selected=package_selected, 
+                location=location,
+                map_url=map_url,
+                date=date,
+                time=time,
+                notes=notes,
+                status='pending',
+                is_archived=False 
+            )
+            db.session.add(new_booking)
+            db.session.commit()
+            
+            async_send_email(name, email, phone, service_type, package_selected, date, time, location, notes)
+            return redirect(url_for('views.booking_success', name=name))
+
+    return render_template("booking.html", user=current_user, page='book', packages=packages)
+
+@views.route('/my-bookings')
+@login_required
+def customer_dashboard():
+    # If admin tries to access this, redirect to admin dashboard
+    if current_user.role in ['admin', 'super_admin']:
+        return redirect(url_for('views.dashboard'))
+        
+    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.created_at.desc()).all()
+    return render_template("customer_dashboard.html", user=current_user, page='customer_dashboard', bookings=bookings)
+
+@views.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        message = request.form.get('message')
+
+        if not name or len(name) < 2:
+            flash('Name is too short!', category='error')
+        elif not message or len(message) < 5:
+            flash('Message is too short!', category='error')
+        else:
+            # 1. Save to Database
+            new_msg = ContactMessage(name=name, email=email, message=message, is_archived=False)
+            db.session.add(new_msg)
+            db.session.commit()
+            
+            # 2. TRIGGER EMAIL ALERT
+            async_send_contact_email(name, email, message)
+            
+            flash('Message sent successfully! Our team will get back to you soon.', category='success')
+            return redirect(url_for('views.contact'))
+    
+    
+    default_map_embed = '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3022.617326224328!2d-73.98801202450824!3d40.74844087139158!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c259a9b3117469%3A0xd134e199a405a163!2sEmpire%20State%20Building!5e0!3m2!1sen!2sph!4v1715494123456!5m2!1sen!2sph" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
+    
+    settings = {
+        'title': get_setting('contact_header_title', 'Get In Touch'),
+        'desc': get_setting('contact_header_desc', 'Have a question? Fill out the form or use the details below to reach us.'),
+        'address': get_setting('contact_address', '123 Creative District\nNew York, NY 10001'),
+        'phone': get_setting('contact_phone', '+1 (555) 123-4567\nMon-Fri, 9am - 6pm'),
+        'email': get_setting('contact_email', 'hello@wandershots.com\nSupport & Inquiries'),
+        'map_embed_url': get_setting('contact_map_embed_url', default_map_embed)
+    }
+    return render_template("contact.html", user=current_user, page='contact', settings=settings)
+
+@views.route('/admin/cms/contact', methods=['GET', 'POST'])
+@login_required
+def admin_cms_contact():
+    text_keys = [
+        'contact_header_title', 'contact_header_desc',
+        'contact_address', 'contact_phone', 'contact_email',
+        'contact_map_embed_url'  # This is the key for the Google Maps HTML
+    ]
+
+    if request.method == 'POST':
+        for key in text_keys:
+            # Use request.form.get() to save the HTML code as is from the textarea
+            set_setting(key, request.form.get(key, ''))
+            
+        db.session.commit()
+        flash('Contact info updated successfully!', category='success')
+        return redirect(url_for('views.admin_cms_contact'))
+
+    # Load current settings to populate the form fields
+    settings = {}
+    for key in text_keys:
+        settings[key] = get_setting(key, "") 
+    
+    counts = get_sidebar_counts()
+    return render_template("admin_cms_contact.html", user=current_user, page='dashboard', settings=settings, **counts)
+
+@views.route('/admin/cms/header', methods=['GET', 'POST'])
+@login_required
+def admin_cms_header():
+    text_keys = ['header_logo_type', 'header_logo_text', 'header_cta_text', 'header_cta_link']
+    image_keys = ['header_logo_image']
+
+    if request.method == 'POST':
+        # Save text fields
+        for key in text_keys:
+            set_setting(key, request.form.get(key, ''))
+            
+        # Save uploaded image
+        for key in image_keys:
+            file = request.files.get(key)
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                file.save(os.path.join(UPLOAD_FOLDER, filename))
+                set_setting(key, filename)
+            elif request.form.get(f"{key}_url"):
+                set_setting(key, request.form.get(f"{key}_url"))
+            
+        db.session.commit()
+        flash('Header & Logo settings updated successfully!', category='success')
+        return redirect(url_for('views.admin_cms_header'))
+
+    settings = {}
+    for key in text_keys + image_keys:
+        settings[key] = get_setting(key, "") 
+        
+    counts = get_sidebar_counts()
+    return render_template("admin_cms_header.html", user=current_user, page='dashboard', settings=settings, **counts)
+
+@views.route('/admin/cms/footer', methods=['GET', 'POST'])
+@login_required
+def admin_cms_footer():
+    # Only keep copyright here, as social and quicklinks are now dynamic models
+    text_keys = [
+        'footer_desc', # Kept for general footer description
+        'footer_avail_1', 'footer_avail_2', 'footer_avail_3', 'footer_avail_4',
+        'footer_contact_phone', 'footer_contact_email', 'footer_contact_address',
+        'footer_copyright'
+    ]
+
+    if request.method == 'POST':
+        for key in text_keys:
+            set_setting(key, request.form.get(key, ''))
+            
+        db.session.commit()
+        flash('Footer info updated successfully!', category='success')
+        return redirect(url_for('views.admin_cms_footer'))
+
+    settings = {}
+    for key in text_keys:
+        settings[key] = get_setting(key, "") 
+    
+    counts = get_sidebar_counts()
+    return render_template("admin_cms_footer.html", user=current_user, page='dashboard', settings=settings, **counts)
+
+# --- HELPER FOR SOCIAL ICONS ---
+def get_social_icon_class(platform_name):
+    platform_name_lower = platform_name.lower()
+    if "facebook" in platform_name_lower:
+        return "ri-facebook-fill"
+    elif "instagram" in platform_name_lower:
+        return "ri-instagram-line"
+    elif "twitter" in platform_name_lower or "x.com" in platform_name_lower or "x" == platform_name_lower:
+        return "ri-twitter-x-line"
+    elif "youtube" in platform_name_lower:
+        return "ri-youtube-fill"
+    elif "linkedin" in platform_name_lower:
+        return "ri-linkedin-fill"
+    elif "tiktok" in platform_name_lower:
+        return "ri-tiktok-fill"
+    elif "pinterest" in platform_name_lower:
+        return "ri-pinterest-fill"
+    elif "whatsapp" in platform_name_lower:
+        return "ri-whatsapp-fill"
+    else:
+        return "ri-share-line" 
+
+@views.context_processor
+def inject_global_settings():
+    """Injects global settings (Header/Footer, Dynamic Links) into all templates"""
+    
+    # Fetch dynamic social links
+    social_links = SocialLink.query.order_by(SocialLink.order).all()
+    # Fetch dynamic quick links
+    quick_links = QuickLink.query.order_by(QuickLink.order).all()
+
+    return dict(
+
+        user=current_user,
+        get_setting=get_setting, 
+        # Header Settings
+        header_logo_type=get_setting('header_logo_type', 'text'),
+        header_logo_image=get_image_url(get_setting('header_logo_image'), ''),
+        header_logo_text=get_setting('header_logo_text', 'Wandershots'),
+        header_cta_text=get_setting('header_cta_text', 'BOOK SESSION'),
+        header_cta_link=get_setting('header_cta_link', '/book'),
+        
+        # Footer Settings
+        footer_desc=get_setting('footer_desc', "Creating timeless photography that captures the essence of life's most precious moments with artistic excellence."),
+        footer_avail_1=get_setting('footer_avail_1', 'Monday - Friday: 9AM - 6PM'),
+        footer_avail_2=get_setting('footer_avail_2', 'Saturday: 10AM - 4PM'),
+        footer_avail_3=get_setting('footer_avail_3', 'Sunday: By Appointment'),
+        footer_avail_4=get_setting('footer_avail_4', 'Emergency: 24/7 Available'),
+        footer_contact_phone=get_setting('footer_contact_phone', '+1 (555) 123-4567'),
+        footer_contact_email=get_setting('footer_contact_email', 'hello@wandershots.com'),
+        footer_contact_address=get_setting('footer_contact_address', 'Creative District, NY'),
+        footer_copyright=get_setting('footer_copyright', '© 2024 Wandershots Studios. All rights reserved. | Privacy Policy | Terms of Service'),
+
+        # NEW: Dynamic social and quick links for the footer
+        social_links=social_links,
+        quick_links=quick_links
+    )
+
+@views.route('/admin/manage_links', methods=['GET'])
+@login_required
+def admin_manage_links():
+    social_links = SocialLink.query.order_by(SocialLink.order).all()
+    quick_links = QuickLink.query.order_by(QuickLink.order).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_manage_links.html", user=current_user, page='dashboard', 
+                           social_links=social_links, quick_links=quick_links, **counts)
+
+
+@views.route('/admin/add_social_link', methods=['POST'])
+@login_required
+def admin_add_social_link():
+    platform = request.form.get('platform')
+    url = request.form.get('url')
+
+    if not platform or not url:
+        flash('Platform and URL are required for social link.', category='error')
+        return redirect(url_for('views.admin_manage_links'))
+    
+    # Check if platform already exists
+    existing_link = SocialLink.query.filter_by(platform=platform).first()
+    if existing_link:
+        flash(f'A social link for {platform} already exists. Please edit it instead.', category='error')
+        return redirect(url_for('views.admin_manage_links'))
+
+    icon_class = get_social_icon_class(platform) # Use helper to get icon
+    
+    new_link = SocialLink(
+        platform=platform,
+        url=url,
+        icon_class=icon_class,
+        order=SocialLink.query.count() # Simple ordering
+    )
+    db.session.add(new_link)
+    db.session.commit()
+    flash(f'{platform} link added successfully!', category='success')
+    return redirect(url_for('views.admin_manage_links'))
+
+@views.route('/admin/delete_social_link/<int:link_id>', methods=['POST'])
+@login_required
+def admin_delete_social_link(link_id):
+    link = SocialLink.query.get_or_404(link_id)
+    db.session.delete(link)
+    db.session.commit()
+    flash(f'{link.platform} link deleted.', category='success')
+    return redirect(url_for('views.admin_manage_links'))
+
+
+@views.route('/admin/add_quick_link', methods=['POST'])
+@login_required
+def admin_add_quick_link():
+    name = request.form.get('name')
+    url = request.form.get('url')
+
+    if not name or not url:
+        flash('Name and URL are required for quick link.', category='error')
+        return redirect(url_for('views.admin_manage_links'))
+    
+    # Simple check for duplicate name (optional, but good practice)
+    existing_link = QuickLink.query.filter_by(name=name).first()
+    if existing_link:
+        flash(f'A quick link named "{name}" already exists. Please use a different name.', category='error')
+        return redirect(url_for('views.admin_manage_links'))
+
+    new_link = QuickLink(
+        name=name,
+        url=url,
+        order=QuickLink.query.count() # Simple ordering
+    )
+    db.session.add(new_link)
+    db.session.commit()
+    flash(f'Quick link "{name}" added successfully!', category='success')
+    return redirect(url_for('views.admin_manage_links'))
+
+@views.route('/admin/delete_quick_link/<int:link_id>', methods=['POST'])
+@login_required
+def admin_delete_quick_link(link_id):
+    link = QuickLink.query.get_or_404(link_id)
+    db.session.delete(link)
+    db.session.commit()
+    flash(f'Quick link "{link.name}" deleted.', category='success')
+    return redirect(url_for('views.admin_manage_links'))
+
+# ==========================================
+# ADMIN ROUTES & DASHBOARD
+# ==========================================
+
+# HELPER FUNCTION: Get Sidebar Counts
+def get_sidebar_counts():
+    return {
+        'pending_count': Booking.query.filter_by(status='pending', is_archived=False).count(),
+        'scheduled_count': Booking.query.filter_by(status='scheduled', is_archived=False).count(),
+        'cancelled_count': Booking.query.filter_by(status='cancelled', is_archived=False).count(),
+        'archived_count': Booking.query.filter_by(is_archived=True).count() + ContactMessage.query.filter_by(is_archived=True).count()
+    }
+
+
+
+# Helper function to get monthly booking data for the chart (Based on Event Date)
+def get_monthly_booking_data():
+    today = datetime.now()
+    
+    monthly_booked = {}
+    monthly_cancelled = {}
+    month_labels = []
+
+    # Generate month_keys and labels for the last 12 months
+    current_year = today.year
+    current_month = today.month
+    
+    date_tuples = []
+    for i in range(12):
+        month = (current_month - 1 - i) % 12 + 1
+        year = current_year - ((current_month - 1 - i) // 12)
+        date_tuples.insert(0, (year, month)) 
+        
+    for year, month in date_tuples:
+        month_key = f"{year:04d}-{month:02d}" # Format YYYY-MM
+        month_label = f"{month_abbr[month]} {year}" # E.g., 'Jan 2024'
+        monthly_booked[month_key] = 0
+        monthly_cancelled[month_key] = 0
+        month_labels.append(month_label)
+
+    # Fetch all Booked and Cancelled bookings
+    all_relevant_bookings = Booking.query.filter(
+        Booking.status.in_(['scheduled', 'cancelled'])
+    ).all()
+
+    # Populate counts based on the EVENT DATE (booking.date)
+    for booking in all_relevant_bookings:
+        if booking.date and len(booking.date) >= 7: # Ensure valid 'YYYY-MM-DD' format
+            month_key = booking.date[:7] 
+            
+            # If the event falls within our 12-month graph window, add it to the count
+            if month_key in monthly_booked: 
+                if booking.status == 'scheduled':
+                    monthly_booked[month_key] += 1
+                elif booking.status == 'cancelled':
+                    monthly_cancelled[month_key] += 1
+    
+    # Extract data in the correct order for the Chart.js
+    booked_data = [monthly_booked.get(f"{y:04d}-{m:02d}", 0) for y, m in date_tuples]
+    cancelled_data = [monthly_cancelled.get(f"{y:04d}-{m:02d}", 0) for y, m in date_tuples]
+
+    return {
+        'labels': month_labels,
+        'booked_data': booked_data,
+        'cancelled_data': cancelled_data
+    }
+
+@views.route('/dashboard')
+@login_required
+def dashboard():
+    # Only show active messages on the dashboard
+    messages = ContactMessage.query.filter_by(is_archived=False).order_by(ContactMessage.date.desc()).limit(5).all()
+    counts = get_sidebar_counts()
+    chart_data = get_monthly_booking_data()
+    
+    return render_template("dashboard.html", user=current_user, messages=messages, 
+                           page='dashboard', chart_data=chart_data, **counts)
+
+# Add this near your other imports at the top of views.py if missing:
+from datetime import datetime, timedelta
+
+@views.route('/api/blocked-dates')
+def api_blocked_dates():
+    blocked = BlockedDate.query.all()
+    # Create a dictionary mapping the date to the reason: {'2024-12-25': 'Christmas Holiday'}
+    blocked_dict = {b.date: (b.reason or "Unavailable") for b in blocked}
+    return {"blocked_dates": blocked_dict}
+
+@views.route('/admin/block_date', methods=['POST'])
+@login_required
+def admin_block_date():
+    start_date_str = request.form.get('start_date')
+    end_date_str = request.form.get('end_date')
+    reason = request.form.get('reason', 'Admin Blocked')
+    
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        # If no end date provided, just block the start date
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else start_date
+        
+        # Ensure start is always before end (just in case admin clicks backwards)
+        if start_date > end_date:
+            start_date, end_date = end_date, start_date
+            
+        delta = end_date - start_date
+        added_count = 0
+        
+        # Loop through every day in the range and add it to the database
+        for i in range(delta.days + 1):
+            current_date = start_date + timedelta(days=i)
+            date_str = current_date.strftime('%Y-%m-%d')
+            
+            existing = BlockedDate.query.filter_by(date=date_str).first()
+            if not existing:
+                new_block = BlockedDate(date=date_str, reason=reason)
+                db.session.add(new_block)
+                added_count += 1
+            else:
+                # Update the reason if the date was already blocked
+                existing.reason = reason
+                
+        db.session.commit()
+        if added_count > 0:
+            flash(f'Successfully blocked {added_count} day(s).', 'success')
+        else:
+            flash('Selected dates were already blocked.', 'success')
+            
+    return redirect(url_for('views.calendar'))
+
+@views.route('/admin/unblock_date/<int:block_id>', methods=['POST'])
+@login_required
+def admin_unblock_date(block_id):
+    block = BlockedDate.query.get_or_404(block_id)
+    db.session.delete(block)
+    db.session.commit()
+    flash('Date unblocked successfully.', 'success')
+    return redirect(url_for('views.calendar'))
+
+@views.route('/admin/calendar')
+@login_required
+def calendar():
+    bookings = Booking.query.filter(
+        Booking.status.in_(['scheduled', 'finished'])
+    ).filter_by(is_archived=False).all()
+    
+    events = []
+    
+    for booking in bookings:
+        start_datetime = f"{booking.date}T{booking.time}:00" if booking.date and booking.time else ""
+        
+        background_color = '#10B981' # Default Green
+        if booking.service_type == 'Photobooth':
+            background_color = '#4F46E5' # Indigo for Photobooth
+        if booking.status == 'finished':
+            background_color = '#15803D' # Darker green for finished
+            
+        events.append({
+            'title': f"{booking.customer_name} - {booking.service_type}",
+            'start': start_datetime,
+            'backgroundColor': background_color,
+            'borderColor': 'transparent',
+            'extendedProps': {
+                'customer': booking.customer_name,
+                'email': booking.customer_email,
+                'service': booking.service_type,
+                'package': booking.package_selected or 'N/A',
+                'location': booking.location or 'In Studio',
+                'notes': booking.notes or 'None',
+                'status': booking.status
+            }
+        })
+
+    # Add Blocked Dates to the Calendar
+    blocked_dates = BlockedDate.query.order_by(BlockedDate.date.asc()).all()
+    for b in blocked_dates:
+        events.append({
+            'title': f"BLOCKED: {b.reason or 'Unavailable'}",
+            'start': b.date,
+            'backgroundColor': '#EF4444', # Red
+            'borderColor': '#B91C1C',
+            'allDay': True,
+            'extendedProps': {
+                'status': 'blocked',
+                'notes': b.reason
+            }
+        })
+
+    counts = get_sidebar_counts()
+    return render_template("admin_calendar.html", user=current_user, page='dashboard', events=events, blocked_dates=blocked_dates, **counts)
+
+
+# --- ACTIVE BOOKING STATUS PAGES ---
+
+@views.route('/admin/pending_bookings')
+@login_required
+def pending_bookings():
+    bookings = Booking.query.filter_by(status='pending', is_archived=False).order_by(Booking.created_at.desc()).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_pending_bookings.html", user=current_user, page='dashboard', bookings=bookings, **counts)
+
+@views.route('/admin/booked_bookings')
+@login_required
+def booked_bookings():
+    bookings = Booking.query.filter_by(status='scheduled', is_archived=False).order_by(Booking.created_at.desc()).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_booked_bookings.html", user=current_user, page='dashboard', bookings=bookings, **counts)
+
+@views.route('/admin/cancelled_bookings')
+@login_required
+def cancelled_bookings():
+    bookings = Booking.query.filter_by(status='cancelled', is_archived=False).order_by(Booking.created_at.desc()).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_cancelled_bookings.html", user=current_user, page='dashboard', bookings=bookings, **counts)
+
+@views.route('/customer/cancel_booking/<int:booking_id>', methods=['POST'])
+@login_required
+def customer_cancel_booking(booking_id):
+    if current_user.role in ['admin', 'super_admin']:
+        return redirect(url_for('views.dashboard'))
+
+    booking = Booking.query.get_or_404(booking_id)
+
+    if booking.user_id != current_user.id:
+        flash("You do not have permission to cancel this booking.", category="error")
+        return redirect(url_for('views.customer_dashboard'))
+
+    if booking.status in ['pending', 'scheduled']:
+        booking.status = 'cancelled'
+        booking.cancellation_reason = "Cancelled by Customer" # Automatically set reason
+        db.session.commit()
+
+        async_send_cancellation_email(
+            booking.customer_email, booking.customer_phone, booking.customer_name,
+            booking.service_type, booking.date, booking.time, "Cancelled by Customer"
+        )
+
+        admin_phone = get_setting('admin_phone_number', '')
+        if admin_phone:
+            sms_text = f"Admin Alert: {booking.customer_name} has CANCELLED their {booking.service_type} booking on {booking.date}."
+            send_sms(admin_phone, sms_text)
+
+        flash("Your booking has been successfully cancelled.", category="success")
+    else:
+        flash("This booking cannot be cancelled at this stage.", category="error")
+
+    return redirect(url_for('views.customer_dashboard'))
+
+@views.route('/admin/booking_records')
+@login_required
+def booking_records():
+    # 1. Get filter parameters from the URL
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    status_filter = request.args.get('status', 'all')
+    service_filter = request.args.get('service', 'all')
+
+    # 2. Build the database query
+    query = Booking.query.filter_by(is_archived=False)
+
+    if start_date:
+        query = query.filter(Booking.date >= start_date)
+    if end_date:
+        query = query.filter(Booking.date <= end_date)
+    if status_filter and status_filter != 'all':
+        query = query.filter(Booking.status == status_filter)
+    if service_filter and service_filter != 'all':
+        query = query.filter(Booking.service_type == service_filter)
+
+    # 3. Fetch results
+    bookings = query.order_by(Booking.date.desc()).all()
+    
+    # 4. Gather filters into a dictionary to send back to the HTML for the "Export" link
+    active_filters = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'status': status_filter,
+        'service': service_filter
+    }
+
+    counts = get_sidebar_counts()
+    return render_template("admin_booking_records.html", 
+                           user=current_user, 
+                           page='dashboard', 
+                           bookings=bookings, 
+                           filters=active_filters,
+                           **counts)
+
+@views.route('/admin/inquiries')
+@login_required
+def inquiries():
+    # Show only active messages
+    messages = ContactMessage.query.filter_by(is_archived=False).order_by(ContactMessage.date.desc()).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_inquiries.html", user=current_user, page='dashboard', messages=messages, **counts)
+
+
+@views.route('/admin/archived_bookings')
+@login_required
+def archived_bookings():
+    tab = request.args.get('tab', 'records') # 'records', 'booked', 'cancelled', 'finished', 'inquiries'
+    counts = get_sidebar_counts()
+    
+    bookings = []
+    messages = []
+    
+    # Filter by the 'is_archived=True' flag, then split by category
+    if tab == 'booked':
+        bookings = Booking.query.filter_by(is_archived=True, status='scheduled').order_by(Booking.created_at.desc()).all()
+    elif tab == 'finished':
+        # NEW: Specifically fetches archived finished bookings (Old Sales)
+        bookings = Booking.query.filter_by(is_archived=True, status='finished').order_by(Booking.created_at.desc()).all()
+    elif tab == 'cancelled':
+        bookings = Booking.query.filter_by(is_archived=True, status='cancelled').order_by(Booking.created_at.desc()).all()
+    elif tab == 'inquiries':
+        messages = ContactMessage.query.filter_by(is_archived=True).order_by(ContactMessage.date.desc()).all()
+    else: 
+        # Default: all archived booking records
+        bookings = Booking.query.filter_by(is_archived=True).order_by(Booking.created_at.desc()).all()
+        
+    return render_template("admin_archived_bookings.html", user=current_user, page='dashboard', 
+                           tab=tab, bookings=bookings, messages=messages, **counts)
+
+
+# --- ACTIONS & OPERATIONS ---
+
+@views.route('/admin/edit_booking/<int:booking_id>', methods=['GET', 'POST'])
+@login_required
+def edit_booking(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    
+    if request.method == 'POST':
+        booking.customer_name = request.form.get('customer_name')
+        booking.customer_email = request.form.get('customer_email')
+        booking.customer_phone = request.form.get('customer_phone') # <--- NEW PHONE FIELD
+        booking.service_type = request.form.get('service_type')
+        booking.package_selected = request.form.get('package_selected')
+        booking.location = request.form.get('location')
+        booking.date = request.form.get('date')
+        booking.time = request.form.get('time')
+        booking.notes = request.form.get('notes')
+        
+        db.session.commit()
+        flash('Booking updated successfully!', category='success')
+        return redirect(url_for('views.booked_bookings'))
+        
+    counts = get_sidebar_counts()
+    return render_template("admin_edit_booking.html", user=current_user, page='dashboard', booking=booking, **counts)
+
+@views.route('/admin/update_booking/<int:booking_id>/<string:status>', methods=['POST'])
+@login_required
+def update_booking_status(booking_id, status):
+    booking = Booking.query.get_or_404(booking_id)
+    old_status = booking.status
+    
+    if status in ['scheduled', 'cancelled', 'pending', 'finished']:
+        booking.status = status
+        
+        if status == 'scheduled' and old_status != 'scheduled':
+            async_send_client_email(
+                booking.customer_email, booking.customer_phone, booking.customer_name,  
+                booking.service_type, booking.date, booking.time, booking.location        
+            )
+            flash(f'Booking confirmed! Alert sent to {booking.customer_name}.', category='success')
+            
+        elif status == 'cancelled' and old_status != 'cancelled':
+            # GET THE REASON FROM THE MODAL
+            reason = request.form.get('cancellation_reason', 'No reason provided by Admin.')
+            booking.cancellation_reason = reason
+            
+            async_send_cancellation_email(
+                booking.customer_email, booking.customer_phone, booking.customer_name,
+                booking.service_type, booking.date, booking.time, reason # PASSED REASON HERE
+            )
+            flash(f'Booking cancelled! Cancellation alert sent to {booking.customer_name}.', category='warning')
+            
+        else:
+            flash(f'Booking marked as {status.capitalize()}.', category='success')
+            
+        db.session.commit()
+    
+    return redirect(request.referrer or url_for('views.pending_bookings'))
+
+# --- ARCHIVING OPERATIONS ---
+
+@views.route('/admin/archive_selected_bookings', methods=['POST'])
+@login_required
+def archive_selected_bookings():
+    selected_bookings_json = request.form.get('selected_bookings')
+    
+    if not selected_bookings_json:
+        flash('No bookings selected for archiving.', category='error')
+        return redirect(request.referrer or url_for('views.dashboard'))
+
+    try:
+        selected_booking_ids = json.loads(selected_bookings_json)
+    except json.JSONDecodeError:
+        flash('Error processing selected bookings data.', category='error')
+        return redirect(request.referrer or url_for('views.dashboard'))
+
+    archived_count = 0
+    for booking_id in selected_booking_ids:
+        try:
+            booking = Booking.query.get(int(booking_id))
+            if booking:
+                booking.is_archived = True # Update boolean flag instead of status
+                archived_count += 1
+        except ValueError:
+            continue
+    
+    db.session.commit()
+    if archived_count > 0:
+        flash(f'{archived_count} booking(s) successfully moved to archives!', category='success')
+    return redirect(request.referrer or url_for('views.archived_bookings'))
+
+
+@views.route('/admin/unarchive_selected_bookings', methods=['POST'])
+@login_required
+def unarchive_selected_bookings():
+    selected_json = request.form.get('selected_bookings')
+    if not selected_json:
+        return redirect(request.referrer)
+        
+    try:
+        selected_ids = json.loads(selected_json)
+    except json.JSONDecodeError:
+        return redirect(request.referrer)
+
+    count = 0
+    for b_id in selected_ids:
+        try:
+            booking = Booking.query.get(int(b_id))
+            if booking:
+                booking.is_archived = False
+                count += 1
+        except ValueError:
+            continue
+            
+    db.session.commit()
+    if count > 0:
+        flash(f'{count} booking(s) successfully restored!', category='success')
+    return redirect(request.referrer or url_for('views.archived_bookings'))
+
+
+@views.route('/admin/unarchive_selected_messages', methods=['POST'])
+@login_required
+def unarchive_selected_messages():
+    selected_json = request.form.get('selected_messages')
+    if not selected_json:
+        return redirect(request.referrer)
+        
+    try:
+        selected_ids = json.loads(selected_json)
+    except json.JSONDecodeError:
+        return redirect(request.referrer)
+
+    count = 0
+    for m_id in selected_ids:
+        try:
+            msg = ContactMessage.query.get(int(m_id))
+            if msg:
+                msg.is_archived = False
+                count += 1
+        except ValueError:
+            continue
+            
+    db.session.commit()
+    if count > 0:
+        flash(f'{count} message(s) successfully restored!', category='success')
+    return redirect(request.referrer or url_for('views.archived_bookings', tab='inquiries'))
+
+# NEW ROUTE: PERMANENTLY DELETE SELECTED ARCHIVED ITEMS
+@views.route('/admin/delete_selected_archived_items', methods=['POST'])
+@login_required
+def delete_selected_archived_items():
+    current_tab = request.args.get('tab', 'records') # Get the current tab to redirect correctly
+
+    selected_json_data = None
+    if current_tab == 'inquiries':
+        selected_json_data = request.form.get('selected_messages')
+    else: # Default for all booking-related tabs
+        selected_json_data = request.form.get('selected_bookings')
+    
+    if not selected_json_data:
+        flash('No items selected for permanent deletion.', category='error')
+        return redirect(url_for('views.archived_bookings', tab=current_tab))
+
+    try:
+        selected_ids = json.loads(selected_json_data)
+    except json.JSONDecodeError:
+        flash('Error processing selected items data.', category='error')
+        return redirect(url_for('views.archived_bookings', tab=current_tab))
+
+    deleted_count = 0
+    for item_id in selected_ids:
+        try:
+            if current_tab == 'inquiries':
+                item = ContactMessage.query.get(int(item_id))
+            else: # For 'records', 'booked', 'finished', 'cancelled' tabs (all Booking objects)
+                item = Booking.query.get(int(item_id))
+
+            if item:
+                db.session.delete(item)
+                deleted_count += 1
+        except ValueError:
+            continue
+    
+    db.session.commit()
+    if deleted_count > 0:
+        flash(f'{deleted_count} item(s) permanently deleted!', category='success')
+    else:
+        flash('No items were deleted.', category='warning')
+
+    return redirect(url_for('views.archived_bookings', tab=current_tab))
+
+
+@views.route('/admin/unarchive_booking/<int:booking_id>', methods=['POST'])
+@login_required
+def unarchive_booking(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    booking.is_archived = False
+    db.session.commit()
+    flash('Booking restored from archives!', category='success')
+    return redirect(request.referrer or url_for('views.archived_bookings'))
+
+@views.route('/admin/archive_message/<int:message_id>', methods=['POST'])
+@login_required
+def archive_message(message_id):
+    msg = ContactMessage.query.get_or_404(message_id)
+    msg.is_archived = True
+    db.session.commit()
+    flash('Message moved to archives.', category='success')
+    return redirect(request.referrer or url_for('views.inquiries'))
+
+@views.route('/admin/unarchive_message/<int:message_id>', methods=['POST'])
+@login_required
+def admin_unarchive_message(message_id):
+    msg = ContactMessage.query.get_or_404(message_id)
+    msg.is_archived = False
+    db.session.commit()
+    flash('Message restored from archives.', category='success')
+    # Corrected redirect path:
+    return redirect(url_for('views.archived_bookings', tab='inquiries'))
+
+
+@views.route('/admin/delete_message/<int:message_id>', methods=['POST'])
+@login_required
+def delete_message(message_id):
+    msg = ContactMessage.query.get_or_404(message_id)
+    db.session.delete(msg)
+    db.session.commit()
+    flash('Message permanently deleted.', category='success')
+    return redirect(request.referrer or url_for('views.inquiries'))
+
+
+# --- EXPORT TO CSV WITH FILTERS ---
+
+@views.route('/admin/export_bookings')
+@login_required
+def export_bookings():
+    # Capture the same filters as the records page
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    status_filter = request.args.get('status')
+    service_filter = request.args.get('service')
+
+    query = Booking.query
+    if start_date:
+        query = query.filter(Booking.date >= start_date)
+    if end_date:
+        query = query.filter(Booking.date <= end_date)
+    if status_filter and status_filter != 'all':
+        query = query.filter(Booking.status == status_filter)
+    if service_filter and service_filter != 'all':
+        query = query.filter(Booking.service_type == service_filter)
+        
+    bookings = query.order_by(Booking.date.desc()).all()
+
+    # Generate CSV
+    si = io.StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Created On', 'Event Date', 'Time', 'Customer', 'Email', 'Phone', 'Service', 'Package', 'Location', 'Status'])
+    
+    for b in bookings:
+        cw.writerow([
+            b.created_at.strftime('%Y-%m-%d') if b.created_at else '',
+            b.date, b.time, b.customer_name, b.customer_email, b.customer_phone,
+            b.service_type, b.package_selected, b.location, b.status
+        ])
+
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment;filename=bookings_report_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )
+# =========================================================
+# NEW ADMIN PAGES: MANAGE PORTFOLIO, PACKAGES, SETTINGS, ADD RECORD
+# =========================================================
+
+# --- MANAGE PORTFOLIO ---
+
+def save_portfolio_image(file):
+    if file and file.filename != '' and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        file.save(os.path.join(UPLOAD_FOLDER, filename))
+        return filename
+    return None
+
+@views.route('/admin/portfolio')
+@login_required
+def admin_portfolio():
+    portfolio_items = PortfolioItem.query.order_by(PortfolioItem.created_at.desc()).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_portfolio.html", user=current_user, page='dashboard', 
+                           portfolio_items=portfolio_items, **counts)
+
+@views.route('/admin/portfolio/add', methods=['GET', 'POST'])
+@login_required
+def admin_add_portfolio():
+    if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        category = request.form.get('category')
+        link = request.form.get('link')
+        
+        # Helper to save files
+        def save_file(file):
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                file.save(os.path.join(UPLOAD_FOLDER, filename))
+                return filename
+            return None
+
+        # 1. Save standard slots 1, 2, and 3
+        img1 = save_file(request.files.get('image_file'))
+        img2 = save_file(request.files.get('image_file_2'))
+        img3 = save_file(request.files.get('image_file_3'))
+        
+        # 2. Handle 4th slot + extra media list
+        extra_files = request.files.getlist('extra_media')
+        extra_media_list = []
+        img4 = None
+        extra_count = ""
+
+        if extra_files and extra_files[0].filename != '':
+            for i, file in enumerate(extra_files):
+                filename = save_file(file)
+                if filename:
+                    extra_media_list.append(filename)
+                    if i == 0:
+                        img4 = filename 
+            
+            if len(extra_media_list) > 1:
+                extra_count = str(len(extra_media_list) - 1)
+
+        if not title or not img1:
+            flash('Title and the Main Media (Slot 1) are required.', category='error')
+        else:
+            # 3. Save to Database
+            new_item = PortfolioItem(
+                title=title,
+                description=description,
+                category=category,
+                link=link,
+                image_filename=img1,
+                image_filename_2=img2,
+                image_filename_3=img3,
+                image_filename_4=img4,
+                extra_count=extra_count,
+                extra_media=json.dumps(extra_media_list) if extra_media_list else None
+            )
+            db.session.add(new_item)
+            db.session.commit()
+
+            # 4. TRIGGER MULTI-PAGE/MULTI-MEDIA FACEBOOK POST
+            selected_pages = request.form.getlist('post_to_fb')
+            if selected_pages:
+                app = current_app._get_current_object()
+                threading.Thread(target=post_portfolio_to_facebook, args=(app, new_item.id, selected_pages)).start()
+                flash('Portfolio item added and sharing to selected Facebook Page(s)!', category='success')
+            else:
+                flash('Portfolio item added to website.', category='success')
+                
+            return redirect(url_for('views.admin_portfolio'))
+    
+    # Pass available FB pages to the template
+    fb_pages = []
+    for i in range(1, 4):
+        name_key = 'fb_page_name' if i == 1 else f'fb_page_name_{i}'
+        id_key = 'fb_page_id' if i == 1 else f'fb_page_id_{i}'
+        name = get_setting(name_key)
+        page_id = get_setting(id_key)
+        if name and page_id:
+            fb_pages.append({'index': str(i), 'name': name})
+            
+    return render_template("admin_add_edit_portfolio.html", user=current_user, item=None, fb_pages=fb_pages, **get_sidebar_counts())
+
+@views.route('/admin/portfolio/edit/<int:item_id>', methods=['GET', 'POST'])
+@login_required
+def admin_edit_portfolio(item_id):
+    item = PortfolioItem.query.get_or_404(item_id)
+
+    if request.method == 'POST':
+        # 1. Track old values to see if text changed
+        old_title = item.title
+        old_description = item.description
+        old_category = item.category
+
+        item.title = request.form.get('title')
+        item.description = request.form.get('description')
+        item.category = request.form.get('category')
+        item.link = request.form.get('link')
+        
+        text_changed = (old_title != item.title or old_description != item.description or old_category != item.category)
+        media_changed = False
+
+        # --- Helper to save files ---
+        def update_slot(form_key, current_filename):
+            file = request.files.get(form_key)
+            if file and file.filename != '' and allowed_file(file.filename):
+                return save_portfolio_image(file), True
+            return current_filename, False
+
+        # Update standard slots 1, 2, 3
+        item.image_filename, c1 = update_slot('image_file', item.image_filename)
+        item.image_filename_2, c2 = update_slot('image_file_2', item.image_filename_2)
+        item.image_filename_3, c3 = update_slot('image_file_3', item.image_filename_3)
+        if c1 or c2 or c3: media_changed = True
+
+        # --- SLOT 4: MULTI-MEDIA LOGIC (ADD & DELETE) ---
+        current_extra = json.loads(item.extra_media) if item.extra_media else []
+        
+        delete_list = request.form.getlist('delete_extra_media')
+        if delete_list:
+            media_changed = True
+            current_extra = [f for f in current_extra if f not in delete_list]
+
+        new_extras = request.files.getlist('extra_media')
+        if new_extras and new_extras[0].filename != '':
+            media_changed = True
+            for file in new_extras:
+                fname = save_portfolio_image(file)
+                if fname: current_extra.append(fname)
+
+        # SYNC BACK TO DATABASE
+        if media_changed:
+            if not current_extra:
+                item.extra_media = None
+                item.image_filename_4 = None
+                item.extra_count = ""
+            else:
+                item.extra_media = json.dumps(current_extra)
+                item.image_filename_4 = current_extra[0]
+                item.extra_count = str(len(current_extra) - 1) if len(current_extra) > 1 else ""
+
+        db.session.commit()
+
+        # --- FACEBOOK SYNC ---
+        selected_pages = request.form.getlist('post_to_fb')
+        app = current_app._get_current_object()
+        
+        if media_changed and selected_pages:
+            # If pictures changed, we MUST delete the old FB post and make a new one
+            old_fb_id = item.fb_post_id
+            item.fb_post_id = None # Reset so the new thread can save the new ID
+            db.session.commit()
+            
+            if old_fb_id:
+                threading.Thread(target=delete_facebook_post, args=(app, old_fb_id)).start()
+            
+            threading.Thread(target=post_portfolio_to_facebook, args=(app, item.id, selected_pages)).start()
+            flash('Portfolio updated. Old Facebook post deleted and re-posted to selected pages!', 'success')
+            
+        elif text_changed and item.fb_post_id:
+            # If only text changed, we update the existing FB post directly
+            new_caption = f"✨ {item.title}\n📂 Category: {item.category}\n\n{item.description}"
+            threading.Thread(target=update_facebook_post_text, args=(app, item.fb_post_id, new_caption)).start()
+            flash('Portfolio text and Facebook post caption updated successfully!', 'success')
+            
+        else:
+            flash('Portfolio updated successfully!', 'success')
+        
+        return redirect(url_for('views.admin_portfolio'))
+    
+    # Pass available FB pages to the template
+    fb_pages = []
+    for i in range(1, 4):
+        name_key = 'fb_page_name' if i == 1 else f'fb_page_name_{i}'
+        id_key = 'fb_page_id' if i == 1 else f'fb_page_id_{i}'
+        name = get_setting(name_key)
+        page_id = get_setting(id_key)
+        if name and page_id:
+            fb_pages.append({'index': str(i), 'name': name})
+            
+    extra_media_list = json.loads(item.extra_media) if item.extra_media else []
+    return render_template("admin_add_edit_portfolio.html", user=current_user, item=item, extra_media_list=extra_media_list, fb_pages=fb_pages, **get_sidebar_counts())
+
+@views.route('/admin/portfolio/delete/<int:item_id>', methods=['POST'])
+@login_required
+def admin_delete_portfolio(item_id):
+    item = PortfolioItem.query.get_or_404(item_id)
+    
+    # 1. Grab the post ID before we delete the item from the DB
+    fb_post_id = item.fb_post_id
+        
+    # 2. Delete from local Database
+    db.session.delete(item)
+    db.session.commit()
+    
+    # 3. Trigger Facebook Deletion
+    if fb_post_id:
+        app = current_app._get_current_object()
+        threading.Thread(target=delete_facebook_post, args=(app, fb_post_id)).start()
+    
+    flash('Item deleted from website and removed from Facebook.', category='success')
+    return redirect(url_for('views.admin_portfolio'))
+
+# --- PACKAGES & PRICING ---
+@views.route('/admin/packages_pricing')
+@login_required
+def admin_packages_pricing():
+    packages = ServicePackage.query.order_by(ServicePackage.name).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_packages_pricing.html", user=current_user, page='dashboard', 
+                           packages=packages, **counts)
+
+@views.route('/admin/packages_pricing/add', methods=['GET', 'POST'])
+@login_required
+def admin_add_package():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        price = request.form.get('price')
+        package_type = request.form.get('package_type')
+        
+        # Handle Package Image
+        file = request.files.get('image_file')
+        img = None
+        if file and file.filename != '' and allowed_file(file.filename):
+            img = secure_filename(file.filename)
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            file.save(os.path.join(UPLOAD_FOLDER, img))
+
+        if not name or not price:
+            flash('Name and Price are required.', category='error')
+        else:
+            # 1. Save to Database
+            new_package = ServicePackage(
+                name=name,
+                description=description,
+                price=price,
+                package_type=package_type,
+                image_filename=img
+            )
+            db.session.add(new_package)
+            db.session.commit()
+
+            flash('New package added successfully!', category='success')
+            return redirect(url_for('views.admin_packages_pricing'))
+
+    return render_template("admin_add_edit_package.html", user=current_user, package=None, **get_sidebar_counts())
+
+@views.route('/admin/packages_pricing/edit/<int:package_id>', methods=['GET', 'POST'])
+@login_required
+def admin_edit_package(package_id):
+    package = ServicePackage.query.get_or_404(package_id)
+
+    if request.method == 'POST':
+        package.name = request.form.get('name')
+        package.description = request.form.get('description')
+        package.price = request.form.get('price')
+        package.package_type = request.form.get('package_type')
+        
+        # Handle Package Image Replacement
+        file = request.files.get('image_file')
+        if file and file.filename != '' and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            file.save(os.path.join(UPLOAD_FOLDER, filename))
+            package.image_filename = filename
+        
+        db.session.commit()
+        flash('Package updated successfully!', category='success')
+        return redirect(url_for('views.admin_packages_pricing'))
+
+    counts = get_sidebar_counts()
+    return render_template("admin_add_edit_package.html", user=current_user, page='dashboard', package=package, **counts)
+
+@views.route('/admin/packages_pricing/delete/<int:package_id>', methods=['POST'])
+@login_required
+def admin_delete_package(package_id):
+    package = ServicePackage.query.get_or_404(package_id)
+    db.session.delete(package)
+    db.session.commit()
+    flash('Package deleted successfully!', category='success')
+    return redirect(url_for('views.admin_packages_pricing'))
+
+
+# --- SYSTEM SETTINGS ---
+@views.route('/admin/settings')
+@login_required
+def admin_settings():
+    counts = get_sidebar_counts()
+    # Fetch all settings to pass to the template
+    settings_data = {
+        'notification_email': get_setting('notification_recipient_email', 'enemyslayer0909@gmail.com'),
+        'reminder_hours': get_setting('reminder_hours_before', '24'),
+        'admin_phone': get_setting('admin_phone_number', ''),
+        # Page 1
+        'fb_page_name': get_setting('fb_page_name', ''),
+        'fb_page_id': get_setting('fb_page_id', ''),
+        'fb_access_token': get_setting('fb_access_token', ''),
+        # Page 2
+        'fb_page_name_2': get_setting('fb_page_name_2', ''),
+        'fb_page_id_2': get_setting('fb_page_id_2', ''),
+        'fb_access_token_2': get_setting('fb_access_token_2', ''),
+        # Page 3
+        'fb_page_name_3': get_setting('fb_page_name_3', ''),
+        'fb_page_id_3': get_setting('fb_page_id_3', ''),
+        'fb_access_token_3': get_setting('fb_access_token_3', ''),
+    }
+    return render_template("admin_settings.html", user=current_user, page='dashboard', settings=settings_data, **counts)
+
+
+# --- ADD NEW RECORD (Booking) ---
+@views.route('/admin/add_record', methods=['GET', 'POST'])
+@login_required
+def admin_add_record():
+    if request.method == 'POST':
+        customer_name = request.form.get('customer_name')
+        customer_email = request.form.get('customer_email')
+        customer_phone = request.form.get('customer_phone')
+        service_type = request.form.get('service_type')
+        package_selected = request.form.get('package_selected')
+        location = request.form.get('location')
+        map_url = request.form.get('map_url')
+        date = request.form.get('date')
+        time = request.form.get('time')
+        notes = request.form.get('notes')
+        status = request.form.get('status', 'scheduled') # Admin can set initial status
+
+        if not customer_name or not customer_email or not customer_phone or not service_type or not date or not time:
+            flash('Customer Name, Email, Phone, Service Type, Date, and Time are required.', category='error')
+        else:
+            new_booking = Booking(
+                customer_name=customer_name,
+                customer_email=customer_email,
+                customer_phone=customer_phone, # <--- SAVING PHONE TO DB
+                service_type=service_type,
+                package_selected=package_selected,
+                location=location,
+                map_url=map_url,
+                date=date,
+                time=time,
+                notes=notes,
+                status=status,
+                is_archived=False
+            )
+            db.session.add(new_booking)
+            db.session.commit()
+            flash(f'New booking for {customer_name} added successfully!', category='success')
+            return redirect(url_for('views.booked_bookings')) # Redirect to booked page
+
+    counts = get_sidebar_counts()
+    return render_template("admin_add_record.html", user=current_user, page='dashboard', **counts)
+
+@views.route('/admin/cms')
+@login_required
+def admin_cms():
+    counts = get_sidebar_counts()
+    return render_template("admin_cms.html", user=current_user, page='dashboard', **counts)
+
+# ==========================================
+# SUPER ADMIN: USER MANAGEMENT ROUTES
+# ==========================================
+
+
+# MOVED TO SYSTEM SETTINGS - NO LONGER SUPER ADMIN EXCLUSIVE
+@views.route('/admin/system/save_notification_settings', methods=['POST'])
+@login_required
+def save_notification_settings():
+    new_email = request.form.get('notification_email')
+    new_hours = request.form.get('reminder_hours')
+    new_admin_phone = request.form.get('admin_phone') 
+    
+    if new_email:
+        set_setting('notification_recipient_email', new_email)
+    if new_hours:
+        set_setting('reminder_hours_before', new_hours)
+    if new_admin_phone:
+        set_setting('admin_phone_number', new_admin_phone)
+
+    db.session.commit()
+    flash('Notification settings updated successfully!', 'success')
+    return redirect(url_for('views.admin_settings'))
+
+@views.route('/admin/super_admin')
+@login_required
+def super_admin_dashboard():
+    if current_user.role != 'super_admin': 
+        return redirect(url_for('views.dashboard'))
+        
+    users = User.query.filter(User.username.isnot(None)).order_by(User.id).all()
+    counts = get_sidebar_counts()
+    
+    return render_template("admin_super_admin.html", 
+                           user=current_user, 
+                           users=users, 
+                           page='dashboard', 
+                           maintenance_mode=get_setting('site_maintenance_mode', 'false'), 
+                           **counts)
+
+@views.route('/admin/super_admin/add_admin', methods=['GET', 'POST'])
+@login_required
+def super_admin_add_admin():
+    if current_user.role != 'super_admin':
+        flash('Access denied.', category='error')
+        return redirect(url_for('views.dashboard'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        first_name = request.form.get('first_name')
+        role = request.form.get('role')
+        password = request.form.get('password')
+        
+        # Validation checks
+        if User.query.filter_by(username=username).first():
+            flash('That username already exists. Please choose a different one.', category='error')
+        elif not password or len(password) < 6:
+            flash('Password must be at least 6 characters long.', category='error')
+        else:
+            # Create new admin user
+            new_admin = User(
+                username=username,
+                first_name=first_name,
+                role=role,
+                password=generate_password_hash(password, method='scrypt')
+            )
+            db.session.add(new_admin)
+            db.session.commit()
+            
+            flash(f'New {role.replace("_", " ").title()} account created successfully!', category='success')
+            return redirect(url_for('views.super_admin_dashboard'))
+            
+    counts = get_sidebar_counts()
+    return render_template("admin_add_admin.html", user=current_user, page='dashboard', **counts)
+
+@views.route('/admin/super_admin/toggle_maintenance', methods=['POST'])
+@login_required
+def toggle_maintenance():
+    if current_user.role != 'super_admin':
+        return redirect(url_for('views.dashboard'))
+    
+    current_status = get_setting('site_maintenance_mode', 'false')
+    new_status = 'false' if current_status == 'true' else 'true'
+    
+    set_setting('site_maintenance_mode', new_status)
+    db.session.commit()
+    
+    if new_status == 'true':
+        flash('⚠️ Website is now UNDER MAINTENANCE. Public access is disabled.', 'error')
+    else:
+        flash('✅ Website is now LIVE to the public.', 'success')
+        
+    return redirect(url_for('views.super_admin_dashboard'))
+
+@views.route('/admin/super_admin/edit/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def super_admin_edit_user(user_id):
+    if current_user.role != 'super_admin':
+        flash('Access denied.', category='error')
+        return redirect(url_for('views.dashboard'))
+    
+    target_user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        target_user.username = request.form.get('username')
+        target_user.first_name = request.form.get('first_name')
+        target_user.role = request.form.get('role')
+        
+        new_password = request.form.get('password')
+        if new_password and new_password.strip() != "":
+            target_user.password = generate_password_hash(new_password, method='scrypt')
+        
+        db.session.commit()
+        flash('User details updated successfully!', category='success')
+        return redirect(url_for('views.super_admin_dashboard'))
+        
+    counts = get_sidebar_counts()
+    return render_template("admin_edit_user.html", user=current_user, target_user=target_user, users=User.query.all(), page='dashboard', **counts)
+
+@views.route('/admin/super_admin/delete/<int:user_id>', methods=['POST'])
+@login_required
+def super_admin_delete_user(user_id):
+    if current_user.role != 'super_admin':
+        return redirect(url_for('views.dashboard'))
+        
+    if current_user.id == user_id:
+        flash('You cannot delete your own account.', category='error')
+        return redirect(url_for('views.super_admin_dashboard'))
+    
+    target_user = User.query.get_or_404(user_id)
+    db.session.delete(target_user)
+    db.session.commit()
+    flash('User deleted successfully.', category='success')
+    return redirect(url_for('views.super_admin_dashboard'))
+
+@views.before_request
+def check_maintenance_mode():
+    # Allow access to all admin routes and static files
+    if request.path.startswith('/admin') or request.path.startswith('/static'):
+        return
+        
+    # Allow access to the maintenance page itself
+    if request.path == '/maintenance':
+        return
+        
+    # Check if maintenance mode is ON
+    maintenance = get_setting('site_maintenance_mode', 'false')
+    if maintenance == 'true':
+        # Let logged-in admins bypass maintenance mode so they can preview the live site
+        if current_user.is_authenticated:
+            return
+        # Redirect all regular public traffic to the maintenance page
+        return redirect(url_for('views.maintenance'))
+
+# --- MAINTENANCE PAGE ROUTE ---
+@views.route('/maintenance')
+def maintenance():
+    # If maintenance mode is OFF, send them back to the home page
+    if get_setting('site_maintenance_mode', 'false') != 'true':
+        return redirect(url_for('views.home'))
+
+    return render_template('maintenance.html', user=current_user, page='maintenance')
+
+# NEW: Placeholder Privacy Policy Page
+@views.route('/privacy-policy')
+def privacy_policy():
+    return render_template('privacy_policy.html', user=current_user, page='privacy-policy')
+
+
+# ==========================================
+# SYSTEM: BACKUP & RESTORE (MYSQL VERSION)
+# ==========================================
+
+def _get_mysql_credentials():
+    """Parses MySQL credentials from the SQLAlchemy URI using urllib.parse."""
+    uri = current_app.config['SQLALCHEMY_DATABASE_URI']
+    
+    # DEBUG: Print the URI to console for verification
+    print(f"DEBUG: Attempting to parse URI: {uri}") 
+
+    try:
+        parsed_uri = urlparse(uri)
+
+        if not parsed_uri.scheme.startswith('mysql'):
+            print(f"DEBUG: URI scheme is not MySQL: {parsed_uri.scheme}")
+            return None, None, None, None
+
+        user = parsed_uri.username
+        password = parsed_uri.password
+        host = parsed_uri.hostname
+        # Path component is '/dbname', so strip the leading '/'
+        dbname = parsed_uri.path.lstrip('/')
+
+        print(f"DEBUG: Parsed - User: {user}, Host: {host}, DB: {dbname}")
+
+        return user, password, host, dbname
+
+    except Exception as e:
+        print(f"DEBUG: Error parsing URI with urlparse: {e}")
+        return None, None, None, None
+
+def _get_mysql_executable(command_name):
+    """
+    Locates a MySQL client executable (mysqldump or mysql).
+    Prioritizes the path defined in MYSQL_BIN_PATH, then falls back to system PATH.
+    """
+    mysql_bin_path = current_app.config.get('MYSQL_BIN_PATH')
+    
+    if mysql_bin_path:
+        full_path_executable = os.path.join(mysql_bin_path, command_name)
+        # Check for .exe on Windows
+        if os.name == 'nt' and not full_path_executable.lower().endswith('.exe'):
+            full_path_executable += '.exe'
+
+        # Check if the file exists and is executable
+        if os.path.exists(full_path_executable) and os.access(full_path_executable, os.X_OK):
+            return full_path_executable
+        else:
+            # If path is specified but executable isn't found there, signal failure
+            return None 
+    else:
+        # If no custom path is specified, rely on system PATH
+        return shutil.which(command_name)
+
+@views.route('/admin/system/backup_restore')
+@login_required
+def admin_backup_restore():
+    counts = get_sidebar_counts()
+    return render_template("admin_backup.html", user=current_user, page='dashboard', **counts)
+
+@views.route('/admin/system/backup')
+@login_required
+def admin_backup_db():
+    """
+    Generates and downloads a MySQL database backup (.sql file).
+    Includes the --no-tablespaces flag to avoid permission errors on most hosts.
+    """
+    user, password, host, dbname = _get_mysql_credentials()
+    if not all([user, password, host, dbname]):
+        flash('Could not parse database credentials from configuration.', 'error')
+        return redirect(url_for('views.admin_backup_restore'))
+
+    mysqldump_exe_default = r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
+    xampp_mysqldump_exe = r"C:\xampp\mysql\bin\mysqldump.exe"
+
+    mysqldump_cmd_path = None
+    if os.path.exists(mysqldump_exe_default):
+        mysqldump_cmd_path = mysqldump_exe_default
+    elif shutil.which('mysqldump'):
+        mysqldump_cmd_path = 'mysqldump'
+    elif os.path.exists(xampp_mysqldump_exe):
+        mysqldump_cmd_path = xampp_mysqldump_exe
+    else:
+        flash("Error: `mysqldump` command not found. Ensure MySQL client tools are installed and in your system PATH.", 'error')
+        return redirect(url_for('views.admin_backup_restore'))
+
+    with tempfile.NamedTemporaryFile(suffix='.sql', delete=False) as temp_file:
+        temp_file_path = temp_file.name
+
+    try:
+        env = os.environ.copy()
+        env['MYSQL_PWD'] = password
+        
+        # FIX: Added --no-tablespaces to avoid PROCESS privilege errors.
+        dump_cmd = f'"{mysqldump_cmd_path}" -h {host} -u {user} --no-tablespaces --single-transaction --routines --triggers {dbname} > "{temp_file_path}"'
+        
+        print(f"DEBUG: Executing backup command: {dump_cmd}")
+
+        process = subprocess.run(dump_cmd, shell=True, env=env, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
+
+        if process.returncode != 0:
+            flash(f'Backup failed: {process.stderr}', 'error')
+            print(f"DEBUG: mysqldump error: {process.stderr}")
+            return redirect(url_for('views.admin_backup_restore'))
+
+        with open(temp_file_path, 'rb') as f:
+            backup_data = f.read()
+            
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        filename = f'wandershots_backup_{timestamp}.sql'
+
+        flash('Database backup generated successfully!', 'success')
+        return Response(
+            backup_data,
+            mimetype="application/sql",
+            headers={"Content-Disposition": f"attachment;filename={filename}"}
+        )
+    except subprocess.CalledProcessError as e:
+        flash(f'Backup failed. Command execution error: {e.stderr}', 'error')
+        print(f"DEBUG: CalledProcessError during backup: {e.stderr}")
+        return redirect(url_for('views.admin_backup_restore'))
+    except Exception as e:
+        flash(f'An unexpected error occurred during backup: {str(e)}', 'error')
+        print(f"DEBUG: General exception during backup: {e}")
+        return redirect(url_for('views.admin_backup_restore'))
+    finally:
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+
+@views.route('/admin/system/restore', methods=['POST'])
+@login_required
+def admin_restore_db():
+    """
+    Handles the restoration of the MySQL database from an uploaded .sql backup file.
+    Refactored to use Popen.communicate() and explicitly sets character set to prevent hanging.
+    """
+    user, password, host, dbname = _get_mysql_credentials()
+    if not all([user, password, host, dbname]):
+        flash('Could not parse database credentials from configuration.', 'error')
+        return redirect(url_for('views.admin_backup_restore'))
+
+    mysql_exe_default = r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
+    xampp_mysql_exe = r"C:\xampp\mysql\bin\mysql.exe"
+
+    mysql_cmd_path = None
+    if os.path.exists(mysql_exe_default):
+        mysql_cmd_path = mysql_exe_default
+    elif shutil.which('mysql'):
+        mysql_cmd_path = 'mysql'
+    elif os.path.exists(xampp_mysql_exe):
+        mysql_cmd_path = xampp_mysql_exe
+    else:
+        flash("Error: `mysql` command not found. Ensure MySQL client tools are installed and in your system PATH.", 'error')
+        return redirect(url_for('views.admin_backup_restore'))
+
+    file = request.files.get('backup_file')
+    if not file or not file.filename.endswith('.sql'):
+        flash('Invalid file. Please upload a .sql backup file.', 'error')
+        return redirect(url_for('views.admin_backup_restore'))
+
+    file_content = file.read()
+    if not file_content.strip():
+        flash('Restore failed: The provided backup file is empty.', 'error')
+        return redirect(url_for('views.admin_backup_restore'))
+
+    env = os.environ.copy()
+    env['MYSQL_PWD'] = password
+
+    # FINAL FIX: Added '--default-character-set=utf8mb4' to the command
+    command = [
+        mysql_cmd_path,
+        '-h', host,
+        '-u', user,
+        '--default-character-set=utf8mb4', # This tells the client how to read the incoming file data
+        dbname
+    ]
+    
+    print(f"DEBUG: Executing restore command: {' '.join(command)}")
+
+    try:
+        process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        stdout, stderr = process.communicate(input=file_content)
+
+        if process.returncode != 0:
+            error_output = stderr.decode('utf-8', errors='ignore')
+            flash(f'Restore failed. MySQL Error: {error_output}', 'error')
+            print(f"DEBUG: Restore error: {error_output}")
+        else:
+            flash('Database restored successfully! Please log out and back in to refresh your session.', 'success')
+            return redirect(url_for('auth.logout'))
+    
+    except Exception as e:
+        flash(f'An unexpected error occurred during restore: {str(e)}', 'error')
+        print(f"DEBUG: General exception during restore: {e}")
+            
+    return redirect(url_for('views.admin_backup_restore'))
+
+@views.route('/admin/system/save_fb_settings', methods=['POST'])
+@login_required
+def save_fb_settings():
+    # Save settings for Page 1 (using original keys for backward compatibility)
+    set_setting('fb_page_name', request.form.get('fb_page_name'))
+    set_setting('fb_page_id', request.form.get('fb_page_id'))
+    set_setting('fb_access_token', request.form.get('fb_access_token'))
+    # Save settings for Page 2
+    set_setting('fb_page_name_2', request.form.get('fb_page_name_2'))
+    set_setting('fb_page_id_2', request.form.get('fb_page_id_2'))
+    set_setting('fb_access_token_2', request.form.get('fb_access_token_2'))
+    # Save settings for Page 3
+    set_setting('fb_page_name_3', request.form.get('fb_page_name_3'))
+    set_setting('fb_page_id_3', request.form.get('fb_page_id_3'))
+    set_setting('fb_access_token_3', request.form.get('fb_access_token_3'))
+    
+    db.session.commit()
+    flash('Facebook settings updated!', 'success')
+    return redirect(url_for('views.admin_settings'))
+
+# ==========================================
+# ADMIN: INVENTORY MANAGEMENT
+# ==========================================
+
+@views.route('/admin/inventory')
+@login_required
+def admin_inventory():
+    items = InventoryItem.query.order_by(InventoryItem.category).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_inventory.html", user=current_user, items=items, page='dashboard', **counts)
+
+@views.route('/admin/inventory/add', methods=['GET', 'POST'])
+@login_required
+def admin_add_inventory():
+    if request.method == 'POST':
+        new_item = InventoryItem(
+            name=request.form.get('name'),
+            category=request.form.get('category'),
+            quantity=int(request.form.get('quantity') or 0),
+            min_stock=int(request.form.get('min_stock') or 5),
+            unit=request.form.get('unit')
+        )
+        db.session.add(new_item)
+        db.session.commit()
+        flash(f'Item {new_item.name} added to inventory.', 'success')
+        return redirect(url_for('views.admin_inventory'))
+    
+    return render_template("admin_add_edit_inventory.html", user=current_user, item=None, **get_sidebar_counts())
+
+@views.route('/admin/inventory/edit/<int:item_id>', methods=['GET', 'POST'])
+@login_required
+def admin_edit_inventory(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    if request.method == 'POST':
+        item.name = request.form.get('name')
+        item.category = request.form.get('category')
+        item.quantity = int(request.form.get('quantity'))
+        item.min_stock = int(request.form.get('min_stock'))
+        item.unit = request.form.get('unit')
+        db.session.commit()
+        flash('Inventory updated.', 'success')
+        return redirect(url_for('views.admin_inventory'))
+    
+    return render_template("admin_add_edit_inventory.html", user=current_user, item=item, **get_sidebar_counts())
+
+@views.route('/admin/inventory/set_quantity/<int:item_id>', methods=['POST'])
+@login_required
+def admin_inventory_set_quantity(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    try:
+        new_quantity = int(request.form.get('quantity'))
+        if new_quantity >= 0:
+            item.quantity = new_quantity
+            db.session.commit()
+            flash(f"Quantity for '{item.name}' updated to {new_quantity}.", "success")
+        else:
+            flash("Quantity cannot be negative.", "error")
+    except (ValueError, TypeError):
+        flash("Invalid quantity entered.", "error")
+    return redirect(url_for('views.admin_inventory'))
+
+@views.route('/admin/inventory/quick-update/<int:item_id>/<string:action>', methods=['POST'])
+@login_required
+def admin_inventory_quick_update(item_id, action):
+    # (This existing function remains unchanged)
+    item = InventoryItem.query.get_or_404(item_id)
+    if action == 'add':
+        item.quantity += 1
+    elif action == 'sub' and item.quantity > 0:
+        item.quantity -= 1
+    db.session.commit()
+    return redirect(url_for('views.admin_inventory'))
+
+@views.route('/admin/inventory/delete/<int:item_id>', methods=['POST'])
+@login_required
+def admin_delete_inventory(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    db.session.delete(item)
+    db.session.commit()
+    flash('Item removed from inventory.', 'success')
+    return redirect(url_for('views.admin_inventory'))
+
+@views.route('/admin/inventory/update_stock/<int:item_id>', methods=['POST'])
+@login_required
+def admin_inventory_update_stock(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    
+    try:
+        # Get the amount from the form, default to 1 if not provided
+        amount = int(request.form.get('amount', 1))
+        if amount <= 0:
+            flash("Amount must be a positive number.", "error")
+            return redirect(url_for('views.admin_inventory'))
+
+        # Get the action ('add' or 'sub') from the clicked button
+        action = request.form.get('action')
+
+        if action == 'add':
+            item.quantity += amount
+            flash(f"Added {amount} {item.unit} to '{item.name}'.", "success")
+        elif action == 'sub':
+            # Ensure stock doesn't go below zero
+            original_quantity = item.quantity
+            item.quantity = max(0, original_quantity - amount)
+            subtracted_amount = original_quantity - item.quantity
+            flash(f"Subtracted {subtracted_amount} {item.unit} from '{item.name}'.", "success")
+        
+        db.session.commit()
+
+    except (ValueError, TypeError):
+        flash("Invalid amount entered. Please use whole numbers.", "error")
+        
+    return redirect(url_for('views.admin_inventory'))

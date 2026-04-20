@@ -1,0 +1,383 @@
+
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wandershots Studios</title>
+
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css" rel="stylesheet">
+
+ <!-- PWA Requirements -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Wandershots">
+
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1f2937',
+                        secondary: '#6b7280',
+                        pink: { 
+                            50: '#fdf2f8', 100: '#fce7f3', 200: '#fbcfe8', 300: '#f9a8d4', 400: '#f472b6',
+                            500: '#ec4899', 600: '#db2777', 700: '#be185d', 800: '#9d174d', 900: '#831843', 950: '#500724',
+                        }
+                    },
+                    borderRadius: {
+                        'none': '0px', 'sm': '4px', DEFAULT: '8px', 'md': '12px', 'lg': '16px',
+                        'xl': '20px', '2xl': '24px', '3xl': '32px', 'full': '9999px', 'button': '8px'
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'sans-serif'],
+                        'inter': ['Inter', 'sans-serif'],
+                        'serif-logo': ['Cinzel', 'serif'],
+                        'serif-monogram': ['Playfair Display', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Splash Screen Trigger Logic -->
+    <script>
+        // Check if running as a standalone installed app
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+            // Only show splash screen once per session
+            if (!sessionStorage.getItem('splashShown')) {
+                const splash = document.getElementById('pwa-splash');
+                splash.classList.remove('hidden');
+                
+                // Hide splash after 2 seconds
+                setTimeout(() => {
+                    splash.classList.add('opacity-0');
+                    setTimeout(() => splash.remove(), 700);
+                }, 2000);
+                sessionStorage.setItem('splashShown', 'true');
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #111827; }
+        :where([class^="ri-"])::before { content: "\f3c2"; }
+        .ri-menu-line::before { content: "\f502"; }
+        .ri-close-line::before { content: "\f18f"; }
+        .ri-camera-line::before { content: "\f042"; }
+        .ri-heart-line::before { content: "\f3e1"; }
+        .ri-landscape-line::before { content: "\f460"; }
+
+        .parallax-element { transform: translateZ(0); will-change: transform; }
+        .hover-lift { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); }
+        #navbar { transition: box-shadow 0.3s ease; }
+        .nav-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+
+        .nav-link { position: relative; display: inline-block; padding-bottom: 2px; }
+        .nav-link::after { content: ''; position: absolute; width: 0; height: 1.5px; bottom: -2px; left: 0; background-color: currentColor; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .nav-link:hover::after, .nav-link-active::after { width: 100%; }
+
+        @keyframes logoEntrance { 0% { opacity: 0; transform: translateY(-10px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        .logo-entrance { animation: logoEntrance 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .img-logo-anim { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .group:hover .img-logo-anim { transform: scale(1.08) rotate(-2deg); filter: drop-shadow(0 8px 12px rgba(0,0,0,0.1)); }
+
+        .ws-logo-container { display: flex; flex-direction: column; align-items: center; justify-content: center; transform-origin: left center; transition: transform 0.3s ease; }
+        .ws-monogram-circle { position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; margin: 0 auto 3px auto; }
+        .ws-monogram-circle::after { content: ''; position: absolute; inset: 0; border: 1px solid #1f2937; border-radius: 50%; transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .group:hover .ws-monogram-circle::after { transform: scale(1.15) rotate(180deg); border-color: #4f46e5; border-top-color: transparent; border-bottom-color: transparent; }
+        .ws-w { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 400; color: #1f2937; position: absolute; left: 5px; top: 2px; z-index: 1; transition: all 0.5s ease; }
+        .ws-s { font-family: 'Playfair Display', serif; font-style: italic; font-size: 28px; font-weight: 500; color: #1f2937; position: absolute; right: 8px; top: 6px; z-index: 2; transition: all 0.5s ease; }
+        .group:hover .ws-w { transform: translateX(-2px) rotate(-5deg); color: #4f46e5; }
+        .group:hover .ws-s { transform: translateX(2px) rotate(5deg); color: #4338ca; }
+
+        .ws-text-wrapper { display: flex; flex-direction: column; align-items: center; margin-top: -2px; }
+        .ws-brand-title { font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.22em; font-weight: 500; color: #1f2937; margin-left: 0.22em; line-height: 1.2; transition: color 0.3s ease; }
+        .ws-brand-subtitle { font-family: 'Inter', sans-serif; font-size: 6px; letter-spacing: 0.35em; color: #4b5563; margin-left: 0.35em; text-transform: uppercase; }
+        .group:hover .ws-brand-title { color: #4f46e5; }
+
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+        .fade-in { opacity: 0; transform: translateY(20px); animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .fade-in-down { opacity: 0; transform: translateY(-20px); animation: fadeInDown 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeInDown { to { opacity: 1; transform: translateY(0); } }
+        .stagger-1 { animation-delay: 0.1s; } .stagger-2 { animation-delay: 0.2s; } .stagger-3 { animation-delay: 0.3s; }
+
+        .portfolio-item { overflow: hidden; position: relative; }
+        .portfolio-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(31, 41, 55, 0.8), rgba(107, 114, 128, 0.6)); opacity: 0; transition: opacity 0.4s ease; display: flex; align-items: center; justify-content: center; }
+        .portfolio-item:hover .portfolio-overlay { opacity: 1; }
+
+        .btn-primary { background: linear-gradient(135deg, #1f2937, #374151); transition: all 0.3s ease; }
+        .btn-primary:hover { background: linear-gradient(135deg, #374151, #4b5563); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(31, 41, 55, 0.3); }
+        .btn-secondary { border: 2px solid #1f2937; transition: all 0.3s ease; }
+        .btn-secondary:hover { background-color: #1f2937; color: white; transform: translateY(-2px); }
+        .text-balance { text-wrap: balance; }
+    </style>
+</head>
+
+<body class="flex flex-col min-h-screen selection:bg-primary selection:text-white">
+
+    <!-- CUSTOM APP SPLASH SCREEN (Shows only when opened as installed App) -->
+    <div id="pwa-splash" class="fixed inset-0 bg-indigo-600 z-[99999] flex flex-col items-center justify-center transition-opacity duration-700 hidden">
+        <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 animate-pulse shadow-2xl">
+            <div class="relative w-full h-full flex items-center justify-center">
+                <span class="font-serif-monogram text-4xl text-gray-800 absolute right-1/2 translate-x-1">W</span>
+                <span class="font-serif-monogram italic text-3xl text-indigo-600 absolute left-1/2 -translate-x-1 mt-1 font-medium">S</span>
+            </div>
+        </div>
+        <h1 class="text-white text-3xl font-bold tracking-widest font-serif-logo animate-fade-in-down">WANDERSHOTS</h1>
+        <p class="text-indigo-200 mt-2 text-sm tracking-widest uppercase animate-fade-in-down" style="animation-delay: 0.2s;">Studio Admin</p>
+    </div>
+
+    {% if page != 'auth' and page != 'dashboard' %}
+    <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <a href="{{ url_for('views.home') }}" class="flex items-center gap-3 group text-primary logo-entrance">
+                        {% if header_logo_type == 'image' and header_logo_image %}
+                        <img src="{{ header_logo_image }}" alt="Logo" class="h-12 md:h-16 w-auto object-contain img-logo-anim">
+                        <div class="flex flex-col justify-center">
+                            <span class="font-['Pacifico'] text-2xl leading-none">{{ header_logo_text }}</span>
+                        </div>
+                        {% else %}
+                        <div class="ws-logo-container scale-90 md:scale-100">
+                            <div class="ws-monogram-circle"><span class="ws-w">W</span><span class="ws-s">S</span></div>
+                        </div>
+                        <div class="flex flex-col justify-center">
+                            <span class="font-['Pacifico'] text-2xl leading-none">{{ header_logo_text }}</span>
+                        </div>
+                        {% endif %}
+                    </a>
+                </div>
+
+                <!-- Desktop Links -->
+                <div class="hidden md:flex items-center space-x-6 lg:space-x-10 text-gray-700">
+                    <a href="{{ url_for('views.home') }}" class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors {% if page=='home'%}nav-link-active font-bold text-primary{%endif%}">HOME</a>
+                    <a href="{{ url_for('views.about') }}" class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors {% if page=='about'%}nav-link-active font-bold text-primary{%endif%}">ABOUT</a>
+                    <a href="{{ url_for('views.works') }}" class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors {% if page=='works'%}nav-link-active font-bold text-primary{%endif%}">GALLERY</a>
+                    <a href="{{ url_for('views.contact') }}" class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors {% if page=='contact'%}nav-link-active font-bold text-primary{%endif%}">CONTACT</a>
+
+                    {% if user.is_authenticated %}
+                        {% if user.role in ['admin', 'super_admin'] %}
+                            <a href="{{ url_for('views.dashboard') }}" class="text-indigo-600 font-bold tracking-wide text-[0.85rem] nav-link hover:text-indigo-800">DASHBOARD</a>
+                        {% else %}
+                            <a href="{{ url_for('views.customer_dashboard') }}" class="text-indigo-600 font-bold tracking-wide text-[0.85rem] nav-link hover:text-indigo-800">MY BOOKINGS</a>
+                        {% endif %}
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}" class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors">LOGIN</a>
+                    {% endif %}
+                </div>
+
+                <!-- Desktop Action Buttons -->
+                <div class="hidden md:flex items-center space-x-4 lg:space-x-6">
+                    <a href="{{ header_cta_link }}" class="btn-primary text-white px-5 lg:px-7 py-2.5 !rounded-button whitespace-nowrap font-medium text-xs lg:text-sm tracking-widest shadow-md uppercase">
+                        {{ header_cta_text }}
+                    </a>
+                    
+                    {% if user.is_authenticated %}
+                        <a href="{{ url_for('auth.logout') }}" class="text-gray-400 hover:text-red-500 text-xs uppercase tracking-widest transition-colors" title="Logout">
+                            <i class="ri-logout-box-r-line text-xl"></i>
+                        </a>
+                    
+                    {% endif %}
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <button id="mobile-menu-btn" class="md:hidden w-10 h-10 flex items-center justify-end text-primary">
+                    <i class="ri-menu-line text-3xl"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- FULL-SCREEN MOBILE MENU OVERLAY -->
+    <div id="mobile-menu" class="fixed inset-0 bg-white/95 backdrop-blur-md z-[100] flex flex-col justify-center items-center transition-transform duration-500 transform translate-x-full">
+        <button id="close-menu-btn" class="absolute top-6 right-4 p-2 text-primary hover:rotate-90 transition-transform duration-300">
+            <i class="ri-close-line text-4xl"></i>
+        </button>
+
+        <div class="flex flex-col items-center space-y-6 sm:space-y-8 text-base sm:text-lg tracking-widest uppercase font-medium">
+            <a href="{{ url_for('views.home') }}" class="text-gray-800 hover:text-primary transition-colors duration-200">HOME</a>
+            <a href="{{ url_for('views.about') }}" class="text-gray-800 hover:text-primary transition-colors duration-200">ABOUT</a>
+            <a href="{{ url_for('views.works') }}" class="text-gray-800 hover:text-primary transition-colors duration-200">PORTFOLIO</a>
+            <a href="{{ url_for('views.contact') }}" class="text-gray-800 hover:text-primary transition-colors duration-200">CONTACT</a>
+
+            <div class="w-12 h-px bg-gray-300 my-2"></div>
+
+            {% if user.is_authenticated %}
+                {% if user.role in ['admin', 'super_admin'] %}
+                    <a href="{{ url_for('views.dashboard') }}" class="text-indigo-600 font-bold mt-2">DASHBOARD</a>
+                {% else %}
+                    <a href="{{ url_for('views.customer_dashboard') }}" class="text-indigo-600 font-bold mt-2">MY BOOKINGS</a>
+                {% endif %}
+                <a href="{{ url_for('auth.logout') }}" class="text-red-500 font-medium text-sm"><i class="ri-logout-box-r-line mr-1"></i> LOGOUT</a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="text-indigo-600 font-bold mt-2">LOGIN</a>
+            
+            {% endif %}
+            <a href="{{ header_cta_link }}" class="btn-primary text-white px-8 py-3 sm:py-4 !rounded-button transition-colors duration-200 shadow-xl text-sm sm:text-base">{{ header_cta_text }}</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="fixed top-5 md:top-24 left-1/2 transform -translate-x-1/2 z-[110] w-full max-w-md px-4">
+        {% for category, message in messages %}
+        <div class="p-4 bg-white shadow-2xl text-center mb-2 font-medium border border-gray-200 animate-fade-in-down rounded-xl flex items-center justify-center space-x-2">
+            {% if category == 'error' %}
+            <i class="ri-error-warning-line text-red-500 text-xl"></i>
+            <span class="text-gray-800">{{ message }}</span>
+            {% else %}
+            <i class="ri-checkbox-circle-line text-green-500 text-xl"></i>
+            <span class="text-gray-800">{{ message }}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <main class="flex-grow {% if page == 'dashboard' or page == 'auth' %}pt-0{% else %}pt-20{% endif %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if page != 'auth' and page != 'dashboard' %}
+    <footer class="bg-gray-900 text-white py-12 md:py-16">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-8">
+                <div class="space-y-4">
+                    <span class="font-serif-logo text-xl md:text-2xl tracking-widest font-medium text-white">{{ header_logo_text if header_logo_text else 'WANDERSHOTS' }}</span>
+                    <p class="text-gray-400 leading-relaxed text-sm">{{ footer_desc }}</p>
+                    <div class="flex space-x-4 pt-2">
+                        {% for link in social_links %}
+                        <a href="{{ link.url }}" target="_blank" class="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-full hover:bg-primary transition-colors duration-200">
+                            <i class="{{ link.icon_class }}"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <h4 class="text-lg font-medium">Quicklinks</h4>
+                    <ul class="space-y-2 text-gray-400 text-sm">
+                        {% for link in quick_links %}
+                        <li><a href="{{ link.url }}" class="hover:text-white transition-colors duration-200">{{ link.name }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="space-y-4">
+                    <h4 class="text-lg font-medium">Availability</h4>
+                    <ul class="space-y-2 text-gray-400 text-sm">
+                        <li>{{ footer_avail_1 }}</li>
+                        <li>{{ footer_avail_2 }}</li>
+                        <li>{{ footer_avail_3 }}</li>
+                        <li>{{ footer_avail_4 }}</li>
+                    </ul>
+                </div>
+                <div class="space-y-4">
+                    <h4 class="text-lg font-medium">Contact</h4>
+                    <ul class="space-y-2 text-gray-400 text-sm">
+                        <li class="flex items-center space-x-3"><i class="ri-phone-line text-lg flex-shrink-0"></i><span>{{ footer_contact_phone }}</span></li>
+                        <li class="flex items-center space-x-3"><i class="ri-mail-line text-lg flex-shrink-0"></i><span class="break-all">{{ footer_contact_email }}</span></li>
+                        <li class="flex items-center space-x-3"><i class="ri-map-pin-line text-lg flex-shrink-0"></i><span>{{ footer_contact_address }}</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 mt-10 md:mt-12 pt-8 text-center text-gray-400 text-sm">
+                <p>{{ footer_copyright }}</p>
+            </div>
+        </div>
+    </footer>
+    {% endif %}
+
+    <script>
+        setTimeout(() => {
+            const flash = document.querySelector('.fixed.top-5, .fixed.top-24');
+            if (flash) {
+                flash.style.opacity = '0';
+                flash.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => flash.remove(), 500);
+            }
+        }, 4000);
+
+        const adminSidebar = document.getElementById('admin-sidebar');
+        const adminOverlay = document.getElementById('admin-sidebar-overlay');
+        const adminMobileToggleBtn = document.getElementById('admin-mobile-toggle');
+        const adminMobileCloseBtn = document.getElementById('admin-mobile-close');
+
+        if (adminSidebar && adminOverlay && adminMobileToggleBtn && adminMobileCloseBtn) {
+            function openAdminSidebar() { adminSidebar.classList.remove('-translate-x-full'); adminOverlay.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+            function closeAdminSidebar() { adminSidebar.classList.add('-translate-x-full'); adminOverlay.classList.add('hidden'); document.body.style.overflow = ''; }
+            adminMobileToggleBtn.addEventListener('click', openAdminSidebar);
+            adminMobileCloseBtn.addEventListener('click', closeAdminSidebar);
+            adminOverlay.addEventListener('click', closeAdminSidebar);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const navbar = document.getElementById('navbar');
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            const closeMenuBtn = document.getElementById('close-menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
+
+            if (navbar) {
+                window.addEventListener('scroll', function () {
+                    if (window.scrollY > 20) { navbar.classList.add('nav-shadow'); } else { navbar.classList.remove('nav-shadow'); }
+                });
+            }
+
+            if (mobileMenuBtn && mobileMenu && closeMenuBtn) {
+                const toggleMenu = () => { mobileMenu.classList.toggle('translate-x-full'); document.body.classList.toggle('overflow-hidden'); };
+                mobileMenuBtn.addEventListener('click', toggleMenu);
+                closeMenuBtn.addEventListener('click', toggleMenu);
+            }
+
+            const parallaxElements = document.querySelectorAll('.parallax-element');
+            if (parallaxElements.length > 0) {
+                window.addEventListener('scroll', function () {
+                    if(window.innerWidth > 768) {
+                        const scrolled = window.pageYOffset;
+                        const rate = scrolled * -0.3;
+                        parallaxElements.forEach(element => { element.style.transform = `translateY(${rate}px)`; });
+                    }
+                });
+            }
+
+            const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+            const observer = new IntersectionObserver(function (entries) {
+                entries.forEach(entry => { if (entry.isIntersecting) { entry.target.style.animationPlayState = 'running'; } });
+            }, observerOptions);
+
+            const animatedElements = document.querySelectorAll('.fade-in, .fade-in-down');
+            animatedElements.forEach(element => { element.style.animationPlayState = 'paused'; observer.observe(element); });
+        });
+    </script>
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                .then(reg => console.log('Service worker registered'))
+                .catch(err => console.log('Service worker not registered', err));
+            });
+        }
+    </script>
+</body>
+</html>

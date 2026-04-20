@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}Event Calendar{% endblock %}
+
+{% block content %}
+<!-- FullCalendar Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+<!-- Full screen container -->
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    
+    <!-- SIDEBAR -->
+    {% include '_admin_sidebar.html' %}
+
+    <!-- MAIN CALENDAR CONTENT -->
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 w-full relative">
+        
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-2 md:mt-0">Event Calendar</h1>
+                <p class="text-sm md:text-base text-gray-500">Manage your scheduled shoots and blocked dates.</p>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <button onclick="document.getElementById('blockedDatesModal').classList.remove('hidden'); document.body.style.overflow='hidden';" class="w-full sm:w-auto bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg hover:bg-red-100 font-medium transition-colors text-center shadow-sm">
+                    <i class="ri-calendar-close-line mr-2"></i> Manage Blocked Dates
+                </button>
+                <a href="{{ url_for('views.dashboard') }}" class="w-full sm:w-auto bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors text-center shadow-sm">
+                    <i class="ri-arrow-left-line mr-2"></i> Back
+                </a>
+            </div>
+        </div>
+
+        <!-- Calendar Container -->
+        <div class="bg-white p-4 md:p-6 rounded-2xl border border-gray-200 shadow-sm overflow-x-auto relative">
+            <style>
+                .fc .fc-toolbar { flex-wrap: wrap; gap: 10px; }
+                .fc .fc-toolbar-title { font-size: 1.25rem !important; }
+                @media (max-width: 640px) {
+                    .fc .fc-toolbar-title { font-size: 1.1rem !important; }
+                    .fc .fc-button { padding: 0.3rem 0.5rem !important; font-size: 0.85rem !important; }
+                }
+            </style>
+            <div id="calendar" class="w-full min-w-[700px] md:min-w-0" style="min-height: 700px;"></div>
+        </div>
+
+    </main>
+</div>
+
+<!-- EVENT DETAILS MODAL -->
+<div id="eventModal" class="fixed inset-0 bg-gray-900/60 hidden flex items-center justify-center z-[100] p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        
+        <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors bg-gray-100 hover:bg-red-50 rounded-full p-1.5 flex items-center justify-center">
+            <i class="ri-close-line text-xl"></i>
+        </button>
+        
+        <h2 id="modal-title" class="text-xl md:text-2xl font-bold text-gray-900 mb-6 border-b pb-3 pr-8">Booking Details</h2>
+        
+        <!-- Standard Booking Details -->
+        <div id="standard-details" class="space-y-4 md:space-y-5">
+            <div>
+                <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Customer</p>
+                <p id="m-customer" class="text-gray-900 text-base md:text-lg font-medium"></p>
+            </div>
+            <div>
+                <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Email</p>
+                <p id="m-email" class="text-indigo-600 break-all"></p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Service</p>
+                    <p id="m-service" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-sm inline-block font-bold mt-1"></p>
+                </div>
+                <div>
+                    <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Location</p>
+                    <p id="m-location" class="text-gray-800 font-medium mt-1"></p>
+                </div>
+            </div>
+            <div>
+                <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Package Selected</p>
+                <p id="m-package" class="text-gray-800 bg-gray-50 p-2.5 rounded border border-gray-100 mt-1 text-sm md:text-base"></p>
+            </div>
+            <div>
+                <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Notes</p>
+                <p id="m-notes" class="text-gray-600 italic bg-gray-50 p-3 rounded border border-gray-100 mt-1 text-sm md:text-base whitespace-pre-wrap"></p>
+            </div>
+        </div>
+
+        <!-- Blocked Date Details -->
+        <div id="blocked-details" class="hidden space-y-4">
+            <div class="bg-red-50 p-4 rounded-lg border border-red-100">
+                <p class="text-sm text-red-800 font-medium flex items-center">
+                    <i class="ri-information-fill mr-2"></i> This date has been blocked by an Admin. Customers cannot book sessions on this day.
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 font-bold uppercase tracking-wide">Reason / Note</p>
+                <p id="m-blocked-reason" class="text-gray-900 font-medium mt-1 text-lg"></p>
+            </div>
+            <p class="text-xs text-gray-400 italic">To unblock this date, use the "Manage Blocked Dates" button at the top of the calendar.</p>
+        </div>
+        
+        <div class="mt-8 pt-4 border-t border-gray-100">
+            <button onclick="closeModal()" class="w-full bg-gray-900 text-white font-bold py-3.5 rounded-lg hover:bg-gray-800 transition-colors text-sm md:text-base shadow-md">Close Window</button>
+        </div>
+    </div>
+</div>
+
+<!-- MANAGE BLOCKED DATES MODAL -->
+<div id="blockedDatesModal" class="fixed inset-0 bg-gray-900/60 hidden flex items-center justify-center z-[105] p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-4xl shadow-2xl relative max-h-[90vh] flex flex-col animate-fade-in-down">
+        <div class="flex justify-between items-center mb-6 border-b pb-3">
+            <h2 class="text-xl md:text-2xl font-bold text-gray-900">Manage Blocked Dates</h2>
+            <button onclick="document.getElementById('blockedDatesModal').classList.add('hidden'); document.body.style.overflow='';" class="text-gray-400 hover:text-red-500 transition-colors bg-gray-100 hover:bg-red-50 rounded-full p-1.5">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+        
+        <div class="overflow-y-auto flex-1 pr-2">
+            <!-- Add New Block Form (NOW WITH RANGE) -->
+            <form action="{{ url_for('views.admin_block_date') }}" method="POST" class="bg-gray-50 p-4 md:p-6 rounded-xl border border-gray-200 mb-6 shadow-sm">
+                <h3 class="text-sm font-bold text-red-600 mb-3 uppercase tracking-wide">Block a Date or Range</h3>
+                <div class="flex flex-col md:flex-row gap-4 items-end">
+                    <div class="w-full md:w-1/4">
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">From Date</label>
+                        <input type="date" name="start_date" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-red-500 outline-none">
+                    </div>
+                    <div class="w-full md:w-1/4">
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">To Date (Optional)</label>
+                        <input type="date" name="end_date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-red-500 outline-none" title="Leave blank to block just one day">
+                    </div>
+                    <div class="w-full md:w-2/4">
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Reason (Visible to clients on hover)</label>
+                        <input type="text" name="reason" placeholder="e.g., Personal Holiday, Studio Maintenance" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-red-500 outline-none">
+                    </div>
+                    <button type="submit" class="w-full md:w-auto bg-red-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow hover:bg-red-700 transition-colors shrink-0">
+                        Block Range
+                    </button>
+                </div>
+            </form>
+
+            <!-- List of Blocked Dates -->
+            <h3 class="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wide">Currently Blocked Dates</h3>
+            <div class="space-y-3">
+                {% for block in blocked_dates %}
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-white border border-gray-200 p-3.5 rounded-lg shadow-sm gap-3">
+                    <div>
+                        <span class="font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded border border-gray-200">{{ block.date }}</span>
+                        <span class="text-sm text-gray-600 ml-2 block sm:inline mt-1 sm:mt-0"><i class="ri-arrow-right-s-line text-gray-400 hidden sm:inline"></i> {{ block.reason }}</span>
+                    </div>
+                    <form action="{{ url_for('views.admin_unblock_date', block_id=block.id) }}" method="POST" onsubmit="return confirm('Unblock {{ block.date }}? Customers will be able to book it again.');">
+                        <button type="submit" class="w-full sm:w-auto text-gray-500 hover:text-green-700 bg-gray-100 hover:bg-green-100 px-4 py-1.5 rounded-md text-xs font-bold transition-colors border border-gray-200 hover:border-green-300 shrink-0">
+                            Unblock Date
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="bg-gray-50 rounded-lg border border-gray-200 border-dashed p-6 text-center">
+                    <p class="text-sm text-gray-500 font-medium">No dates are currently blocked.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Inject backend events directly into javascript
+    const eventsData = {{ events | tojson | safe }};
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: window.innerWidth < 768 ? 'timeGridDay' : 'dayGridMonth', 
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            events: eventsData,
+            eventTimeFormat: { 
+                hour: 'numeric',
+                minute: '2-digit',
+                meridiem: 'short'
+            },
+            height: 'auto', 
+            eventClick: function(info) {
+                info.jsEvent.preventDefault();
+                
+                const props = info.event.extendedProps;
+                const isBlocked = props.status === 'blocked';
+
+                // Setup Modal Title
+                document.getElementById('modal-title').textContent = isBlocked ? "Date Blocked" : "Booking Details";
+
+                // Toggle views based on event type
+                if (isBlocked) {
+                    document.getElementById('standard-details').classList.add('hidden');
+                    document.getElementById('blocked-details').classList.remove('hidden');
+                    document.getElementById('m-blocked-reason').textContent = props.notes || 'No reason provided';
+                } else {
+                    document.getElementById('standard-details').classList.remove('hidden');
+                    document.getElementById('blocked-details').classList.add('hidden');
+                    
+                    document.getElementById('m-customer').textContent = props.customer || 'N/A';
+                    document.getElementById('m-email').textContent = props.email || 'N/A';
+                    document.getElementById('m-service').textContent = props.service || 'N/A';
+                    document.getElementById('m-location').textContent = props.location || 'In Studio';
+                    document.getElementById('m-package').textContent = props.package || 'None Selected';
+                    document.getElementById('m-notes').textContent = props.notes || 'No notes provided.';
+                }
+                
+                // Show Modal
+                document.getElementById('eventModal').classList.remove('hidden');
+                document.body.style.overflow = 'hidden'; 
+            }
+        });
+        
+        calendar.render();
+    });
+
+    // Close Modal Function
+    function closeModal() {
+        document.getElementById('eventModal').classList.add('hidden');
+        document.body.style.overflow = ''; 
+    }
+</script>
+{% endblock %}

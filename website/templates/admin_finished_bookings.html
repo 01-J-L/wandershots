@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Finished Bookings{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-8 overflow-y-auto bg-gray-50">
+        <div class="mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Finished Bookings</h1>
+                <p class="text-gray-500">Successfully completed events and sessions.</p>
+            </div>
+            <a href="{{ url_for('views.dashboard') }}" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium">
+                <i class="ri-arrow-left-line mr-2"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <div class="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm mb-12">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-gray-600">
+                    <thead class="bg-gray-100 text-gray-700 uppercase text-sm">
+                        <tr>
+                            <th class="px-6 py-3">Date/Time</th>
+                            <th class="px-6 py-3">Service</th>
+                            <th class="px-6 py-3">Location</th>
+                            <th class="px-6 py-3">Customer</th>
+                            <th class="px-6 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for booking in bookings %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">{{ booking.date }}<br><span class="text-xs text-gray-500">{{ booking.time }}</span></td>
+                            <td class="px-6 py-4 text-sm">
+                                <span class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-md text-xs font-bold whitespace-nowrap">{{ booking.service_type }}</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm">{{ booking.location or 'In Studio' }}</td>
+                            <td class="px-6 py-4 text-sm">
+                                <div class="font-bold text-gray-800">{{ booking.customer_name }}</div>
+                                <div class="text-xs text-gray-500">{{ booking.customer_email }}</div>
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                <span class="bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-bold"><i class="ri-flag-2-fill mr-1"></i>Finished</span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-4 text-center text-gray-500">No finished bookings yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

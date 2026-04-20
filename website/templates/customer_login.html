@@ -1,0 +1,67 @@
+
+
+{% extends "base.html" %}
+{% block title %}Customer Login - Wandershots{% endblock %}
+
+{% block content %}
+<section class="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8 py-20">
+    <div class="max-w-md w-full space-y-8 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-gray-100 animate-fade-in-down">
+        
+        <div class="text-center">
+            <h2 class="text-3xl font-light text-primary tracking-tight mb-2">Welcome Back</h2>
+            <p class="text-sm text-gray-500 font-light">Sign in to manage your bookings</p>
+        </div>
+
+        
+
+        <form method="POST" action="{{ url_for('auth.login') }}" class="mt-6 space-y-5">
+            <div>
+                <label for="email" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Email Address</label>
+                <input id="email" name="email" type="email" required 
+                    class="block w-full px-4 py-3.5 border border-gray-200 rounded-xl text-gray-900 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all sm:text-sm">
+            </div>
+
+            <div>
+                <label for="password" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Password</label>
+                <input id="password" name="password" type="password" required 
+                    class="block w-full px-4 py-3.5 border border-gray-200 rounded-xl text-gray-900 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all sm:text-sm">
+            </div>
+
+            <div class="flex items-center justify-between mt-2">
+                <label class="flex items-center">
+                    <input type="checkbox" name="remember" class="w-4 h-4 text-primary bg-gray-50 border-gray-300 rounded focus:ring-primary">
+                    <span class="ml-2 text-sm text-gray-600">Remember me</span>
+                </label>
+                <a href="{{ url_for('auth.forgot_password') }}" class="text-sm font-bold text-primary hover:text-indigo-600 transition-colors">Forgot Password?</a>
+            </div>
+
+            <button type="submit" class="w-full flex justify-center mt-6 py-4 px-4 border border-transparent text-sm font-bold tracking-widest uppercase rounded-xl text-white btn-primary transition-all shadow-md">
+                Sign In
+            </button>
+            
+            <div class="text-center mt-6">
+                <p class="text-sm text-gray-600">Don't have an account? 
+                    <a href="{{ url_for('auth.signup', next=request.args.get('next', '')) }}" class="font-bold text-primary hover:text-indigo-600 transition-colors">Sign up</a>
+                </p>
+            </div>
+        </form>
+
+        <div class="mt-6 flex items-center justify-between">
+            <span class="w-1/5 border-b border-gray-200 lg:w-1/4"></span>
+            <span class="text-[10px] text-center text-gray-400 uppercase font-bold tracking-widest">or log in with email</span>
+            <span class="w-1/5 border-b border-gray-200 lg:w-1/4"></span>
+        </div>
+        
+            <!-- Social Logins -->
+        <div class="mt-6 grid grid-cols-2 gap-4">
+            <a href="{{ url_for('auth.login_google', next=request.args.get('next', '')) }}" class="w-full flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 transition-all">
+                <i class="ri-google-fill text-red-500 text-xl mr-2"></i> Google
+            </a>
+            <a href="{{ url_for('auth.login_facebook', next=request.args.get('next', '')) }}" class="w-full flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 transition-all">
+                <i class="ri-facebook-circle-fill text-blue-600 text-xl mr-2"></i> Facebook
+            </a>
+        </div>
+
+    </div>
+</section>
+{% endblock %}

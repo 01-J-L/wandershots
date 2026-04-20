@@ -1,0 +1,87 @@
+--- START OF FILE admin_inventory.html ---
+
+{% extends "base.html" %}
+{% block title %}Manage Inventory{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50">
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Inventory Management</h1>
+                <p class="text-sm text-gray-500">Track and monitor photobooth supplies and equipment.</p>
+            </div>
+            <a href="{{ url_for('views.admin_add_inventory') }}" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center shadow-md">
+                <i class="ri-add-line mr-2"></i> Add New Item
+            </a>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto w-full">
+                <table class="w-full text-left text-gray-600 min-w-[800px]">
+                    <thead class="bg-gray-100 text-gray-700 uppercase text-xs font-bold tracking-wider">
+                        <tr>
+                            <th class="px-6 py-4">Item Name</th>
+                            <th class="px-6 py-4">Category</th>
+                            <th class="px-6 py-4 text-center">Current Stock & Actions</th>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4 text-right">Settings</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for item in items %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="font-bold text-gray-900">{{ item.name }}</div>
+                                <div class="text-[11px] text-gray-400">Last updated: {{ item.last_updated.strftime('%b %d, %H:%M') }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md text-xs font-medium">{{ item.category }}</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-center gap-6">
+                                    <!-- Current Stock Display -->
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-gray-800">{{ item.quantity }}</div>
+                                        <div class="text-xs font-medium text-gray-400">{{ item.unit }}</div>
+                                    </div>
+                                    
+                                    <!-- Action Form -->
+                                    <form action="{{ url_for('views.admin_inventory_update_stock', item_id=item.id) }}" method="POST" class="flex items-center space-x-2 bg-gray-50 border border-gray-200 p-2 rounded-xl">
+                                        <button type="submit" name="action" value="sub" class="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm font-bold text-xl">-</button>
+                                        <input type="number" name="amount" value="1" min="1" required 
+                                               class="w-16 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 py-1">
+                                        <button type="submit" name="action" value="add" class="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-green-50 hover:text-green-600 transition-colors shadow-sm font-bold text-xl">+</button>
+                                    </form>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if item.quantity <= item.min_stock %}
+                                    <span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[11px] font-bold border border-red-200 flex items-center w-fit">
+                                        <i class="ri-error-warning-fill mr-1"></i> LOW STOCK
+                                    </span>
+                                {% else %}
+                                    <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[11px] font-bold border border-green-200 flex items-center w-fit">
+                                        <i class="ri-checkbox-circle-fill mr-1"></i> IN STOCK
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-right whitespace-nowrap">
+                                <a href="{{ url_for('views.admin_edit_inventory', item_id=item.id) }}" class="text-blue-600 hover:text-blue-800 font-bold mr-4 text-sm transition-colors">Edit</a>
+                                <form action="{{ url_for('views.admin_delete_inventory', item_id=item.id) }}" method="POST" class="inline" onsubmit="return confirm('Remove this item from inventory?');">
+                                    <button type="submit" class="text-red-500 hover:text-red-700 font-bold text-sm transition-colors">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="px-6 py-12 text-center text-gray-500">Your inventory is empty.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
