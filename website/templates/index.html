@@ -13,53 +13,61 @@
 </style>
 
 <!-- Hero Section -->
+<!-- Hero Section -->
 <section class="hero-bg-dynamic min-h-[100vh] md:min-h-screen flex items-center relative overflow-hidden -mt-20">
-    <!-- -mt-20 offsets the transparent navbar -->
-    <div
-        class="absolute inset-0 bg-gradient-to-b from-primary/90 via-primary/80 to-primary md:bg-gradient-to-r md:from-white md:via-white/95 md:to-transparent">
-    </div>
+    <div class="absolute inset-0 bg-gradient-to-b from-primary/90 via-primary/80 to-primary md:bg-gradient-to-r md:from-white md:via-white/95 md:to-transparent"></div>
+    
     <div class="w-full relative z-10 pt-24 pb-12 md:py-20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center min-h-[80vh] md:min-h-[85vh]">
+            <!-- ADDED: flex-col-reverse for mobile, md:grid for desktop -->
+            <div class="flex flex-col-reverse md:grid md:grid-cols-2 gap-8 md:gap-12 items-center min-h-[80vh] md:min-h-[85vh]">
 
-                <!-- Text Area -->
-                <div class="space-y-6 md:space-y-8 fade-in text-center md:text-left mt-10 md:mt-0">
-                    <div class="space-y-4">
-                        <p
-                            class="text-xs sm:text-sm font-medium text-gray-300 md:text-secondary tracking-wider uppercase fade-in stagger-1">
-                            {{ settings.hero_pre }}
-                        </p>
-                        <h1
-                            class="text-4xl sm:text-5xl lg:text-6xl font-light text-white md:text-primary leading-tight text-balance mx-auto md:mx-0 fade-in stagger-2">
-                            {{ settings.hero_title | safe }}
-                        </h1>
-                        <p
-                            class="text-base sm:text-lg text-gray-200 md:text-gray-600 leading-relaxed max-w-lg mx-auto md:mx-0 fade-in stagger-3">
-                            {{ settings.hero_desc }}
-                        </p>
-                    </div>
+                <!-- Replace your current Hero Section Text Area (within the grid) with this: -->
 
-                    <div
-                        class="flex flex-col sm:flex-row justify-center md:justify-start gap-4 fade-in stagger-3 w-full sm:w-auto px-4 sm:px-0">
-                        <a href="{{ url_for('views.works') }}"
-                            class="btn-primary text-white px-8 py-3.5 sm:py-3 w-full sm:w-auto !rounded-button font-medium text-center shadow-lg text-sm sm:text-base">
-                            EXPLORE WORK
-                        </a>
-                        <a href="{{ url_for('views.book') }}"
-                            class="btn-secondary border-white text-white hover:bg-white hover:text-primary md:border-primary md:text-primary md:hover:bg-primary md:hover:text-white px-8 py-3.5 sm:py-3 w-full sm:w-auto !rounded-button font-medium text-center text-sm sm:text-base transition-colors">
-                            BOOK SESSION
-                        </a>
-                    </div>
-                </div>
+<!-- Text Area (Split into two parts to sandwich the image) -->
+<div class="space-y-6 md:space-y-8 fade-in text-center md:text-left mt-10 md:mt-0 flex flex-col">
+    
+    <!-- TOP PART: Pre-headline and Main Title -->
+    <div class="space-y-4 order-1">
+        <p class="text-xs sm:text-sm font-medium text-gray-300 md:text-secondary tracking-wider uppercase fade-in stagger-1">
+            {{ settings.hero_pre }}
+        </p>
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-light text-white md:text-primary leading-tight text-balance mx-auto md:mx-0 fade-in stagger-2">
+            {{ settings.hero_title | safe }}
+        </h1>
+    </div>
 
-                <!-- Image Area (Now completely visible on mobile) -->
-                <div class="relative fade-in stagger-2 w-full max-w-sm mx-auto md:max-w-none mt-8 md:mt-0 px-4 md:px-0">
-                    <div
-                        class="aspect-[4/5] sm:aspect-[3/4] md:aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl parallax-element">
-                        <img src="{{ settings.hero_portrait_img }}" alt="Portrait Photography"
-                            class="w-full h-full object-cover object-top">
-                    </div>
-                </div>
+    <!-- MIDDLE PART (MOBILE ONLY): Image -->
+    <div class="md:hidden order-2 my-4">
+        <div class="relative fade-in stagger-2 w-full max-w-sm mx-auto px-4">
+            <div class="aspect-[4/5] sm:aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl">
+                <img src="{{ settings.hero_portrait_img }}" alt="Portrait Photography" class="w-full h-full object-cover object-top">
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM PART: Description and CTA Buttons -->
+    <div class="space-y-6 order-3">
+        <p class="text-base sm:text-lg text-gray-200 md:text-gray-600 leading-relaxed max-w-lg mx-auto md:mx-0 fade-in stagger-3">
+            {{ settings.hero_desc }}
+        </p>
+        <div class="flex flex-col sm:flex-row justify-center md:justify-start gap-4 fade-in stagger-3 w-full sm:w-auto px-4 sm:px-0">
+            <a href="{{ url_for('views.works') }}" class="btn-primary text-white px-8 py-3.5 w-full sm:w-auto !rounded-button font-medium text-center shadow-lg text-sm sm:text-base">
+                EXPLORE WORK
+            </a>
+            <a href="{{ url_for('views.book') }}" class="btn-secondary border-white text-white hover:bg-white hover:text-primary md:border-primary md:text-primary md:hover:bg-primary md:hover:text-white px-8 py-3.5 w-full sm:w-auto !rounded-button font-medium text-center text-sm sm:text-base transition-colors">
+                BOOK SESSION
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- HIDDEN ON MOBILE: Original Image Area -->
+<div class="hidden md:block relative fade-in stagger-2 w-full max-w-sm mx-auto md:max-w-none mt-8 md:mt-0 px-4 md:px-0 order-2">
+    <div class="aspect-[4/5] sm:aspect-[3/4] md:aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl parallax-element">
+        <img src="{{ settings.hero_portrait_img }}" alt="Portrait Photography" class="w-full h-full object-cover object-top">
+    </div>
+</div>
 
             </div>
         </div>

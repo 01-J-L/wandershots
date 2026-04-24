@@ -1,10 +1,13 @@
-
-
 {% extends "base.html" %}
 {% block title %}Customer Login - Wandershots{% endblock %}
 
 {% block content %}
 <section class="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8 py-20">
+    <!-- NEW: Back to Home Link -->
+    <a href="{{ url_for('views.home') }}" class="absolute top-4 left-4 text-gray-500 hover:text-primary transition-colors flex items-center text-sm font-medium">
+        <i class="ri-arrow-left-s-line mr-1 text-lg"></i> Back to Home
+    </a>
+
     <div class="max-w-md w-full space-y-8 bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-gray-100 animate-fade-in-down">
         
         <div class="text-center">

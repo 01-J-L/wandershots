@@ -11,6 +11,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import email.utils
 import threading
+import traceback
+import requests
 
 auth = Blueprint('auth', __name__)
 
@@ -98,8 +100,15 @@ def authorize_google():
         flash(f'Welcome, {user.first_name}!', 'success')
         next_url = session.pop('next_url', None)
         return redirect(next_url or url_for('views.customer_dashboard'))
+        
     except Exception as e:
-        flash('Google login failed or was cancelled.', 'error')
+        # ---- MAKE SURE THESE LINES ARE PRESENT ----
+        print("!!!!!!!! DETAILED GOOGLE LOGIN ERROR !!!!!!!!")
+        traceback.print_exc() # This will print the full, detailed error to your console
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # -------------------------------------------
+        
+        flash('Google login failed. See console for details.', 'error') 
         return redirect(url_for('auth.login'))
 
 @auth.route('/login/facebook')

@@ -87,10 +87,10 @@ class SiteSetting(db.Model):
 
 class SocialLink(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    platform = db.Column(db.String(100), nullable=False, unique=True) 
+    platform = db.Column(db.String(100), nullable=False) 
     url = db.Column(db.String(500), nullable=False)
     icon_class = db.Column(db.String(100)) 
-    order = db.Column(db.Integer, default=0) 
+    order = db.Column(db.Integer, default=0)
 
 class QuickLink(db.Model):
     id = db.Column(db.Integer, primary_key=True)

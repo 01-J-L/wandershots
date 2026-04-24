@@ -12,7 +12,7 @@
             <p class="text-sm md:text-base text-gray-500">Manage integrations, notifications, and other system-wide configurations.</p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl">
+        <div class="grid grid-cols-1 lg:grid-cols-1 gap-8 max-w-6xl">
             
             <!-- Combined Settings Card -->
             <div class="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm space-y-8">
@@ -98,17 +98,7 @@
                 </div>
             </div>
 
-            <!-- Link to Backup/Restore Page -->
-            <div class="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
-                <div class="w-14 h-14 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-6">
-                    <i class="ri-database-2-line text-3xl"></i>
-                </div>
-                <h2 class="text-xl font-bold text-gray-900 mb-2">Backup & Restore</h2>
-                <p class="text-gray-500 text-sm mb-6 flex-grow">Create a complete copy of your database or restore from a previously saved backup file. This is a critical system operation.</p>
-                <a href="{{ url_for('views.admin_backup_restore') }}" class="w-full bg-orange-500 text-white text-center font-bold py-3.5 rounded-xl hover:bg-orange-600 transition-colors shadow-md">
-                    <i class="ri-shield-keyhole-line mr-2"></i> Go to Backup & Restore Page
-                </a>
-            </div>
+        
         </div>
 
     </main>

@@ -7,15 +7,22 @@
     {% include '_admin_sidebar.html' %}
 
     <main class="flex-1 p-8 overflow-y-auto bg-gray-50">
-        <div class="mb-6 flex justify-between items-center">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900 mb-2">Manage Portfolio</h1>
-                <p class="text-gray-500">Add, edit, or remove items from your public portfolio.</p>
-            </div>
-            <a href="{{ url_for('views.admin_add_portfolio') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium transition-colors flex items-center">
-                <i class="ri-add-line mr-2"></i> Add New Item
-            </a>
-        </div>
+        <!-- Add this to the top of the main container -->
+<div class="mb-6 flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4">
+    <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Manage Portfolio</h1>
+        <p class="text-sm text-gray-500">Add, edit, or remove items.</p>
+    </div>
+    
+    <div class="flex items-center gap-2 w-full sm:w-auto">
+        <a href="{{ url_for('views.admin_cms') }}" class="flex-1 sm:flex-none text-center bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 font-medium transition-colors text-sm">
+            <i class="ri-arrow-left-line mr-1"></i> Back
+        </a>
+        <a href="{{ url_for('views.admin_add_portfolio') }}" class="flex-1 sm:flex-none text-center bg-indigo-600 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-700 font-bold transition-colors text-sm shadow-sm">
+            <i class="ri-add-line mr-1"></i> Add New
+        </a>
+    </div>
+</div>
 
         <div class="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm mb-12">
             <div class="overflow-x-auto">
