@@ -33,6 +33,12 @@ def create_app():
     HOST = os.environ.get("MYSQL_HOST")      
     DB_NAME = os.environ.get("MYSQL_DB_NAME") 
     PORT = os.environ.get("MYSQL_PORT") 
+
+    print("DEBUG: Checking Env Variables:")
+    for key in ["MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_HOST", "MYSQL_DB_NAME", "MYSQL_PORT"]:
+        print(f"{key}: {'PRESENT' if os.environ.get(key) else 'MISSING'}")
+    
+    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or 'default_key'
     
     # Debug: Check if any are missing
     if not all([USER, PASSWORD, HOST, DB_NAME, PORT]):
