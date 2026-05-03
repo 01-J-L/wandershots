@@ -25,27 +25,21 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
     
-    # Get SECRET_KEY from environment variable, with a fallback for development if not set
-    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or 'your_strong_default_secret_key_if_not_set'
+    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or 'default_key'
     
-    # --- DATABASE CONFIGURATION FOR MYSQL ---
-    # Get MySQL credentials from environment variables
-    # Get MySQL credentials
-    
-    print(f"DEBUG: ENV VARS - USER: {os.environ.get('MYSQL_USER')}")
-    print(f"DEBUG: ENV VARS - HOST: {os.environ.get('MYSQL_HOST')}")
-    
-    USER = os.environ.get("MYSQL_USER")       
+    # Get credentials
+    USER = os.environ.get("MYSQL_USER")           
     PASSWORD = os.environ.get("MYSQL_PASSWORD")   
     HOST = os.environ.get("MYSQL_HOST")      
     DB_NAME = os.environ.get("MYSQL_DB_NAME") 
-    PORT = os.environ.get("MYSQL_PORT", "3306") # Default to 3306
+    PORT = os.environ.get("MYSQL_PORT") 
     
-    # Ensure variables are set
-    if not all([USER, PASSWORD, HOST, DB_NAME]):
-        raise ValueError("Missing one or more MySQL environment variables.")
+    # Debug: Check if any are missing
+    if not all([USER, PASSWORD, HOST, DB_NAME, PORT]):
+        missing = [k for k, v in {"USER": USER, "PASSWORD": PASSWORD, "HOST": HOST, "DB": DB_NAME, "PORT": PORT}.items() if not v]
+        raise ValueError(f"Missing environment variables: {missing}")
 
-    # IMPORTANT: Include the PORT in the connection string
+    # Use PORT in the URI
     app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?charset=utf8mb4'
     
     # Optional - Path to MySQL client binaries (mysqldump, mysql).
