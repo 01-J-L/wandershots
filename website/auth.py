@@ -14,8 +14,15 @@ import threading
 import traceback
 import requests
 from itsdangerous import URLSafeTimedSerializer as Serializer
+import socket
 
 auth = Blueprint('auth', __name__)
+
+try:
+    r = requests.get("https://www.google.com", timeout=5)
+    print(f"DEBUG: Connection test: {r.status_code}")
+except Exception as e:
+    print(f"DEBUG: Connection test FAILED: {e}")
 
 # --- HELPER: SPAM-PROOF EMAIL CONFIGURATION ---
 def create_secure_message(subject, recipient_email, html_body, plain_body):
@@ -38,7 +45,8 @@ def create_secure_message(subject, recipient_email, html_body, plain_body):
 
 def send_email_thread(msg, smtp_user, smtp_pass):
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        # Force IPv4 connection
+        server = smtplib.SMTP('smtp.gmail.com', 587, source_address=('0.0.0.0', 0))
         server.ehlo()
         server.starttls()
         server.login(smtp_user, smtp_pass)
@@ -46,9 +54,7 @@ def send_email_thread(msg, smtp_user, smtp_pass):
         server.quit()
         print("DEBUG: Email sent successfully!")
     except Exception as e:
-        # THIS PRINT IS CRITICAL
         print(f"❌ CRITICAL EMAIL ERROR: {str(e)}")
-        traceback.print_exc()
 
 # --- HELPER: SEND PASSWORD RESET OTP ---
 def send_otp_async(app, recipient_email, otp_code, first_name):
