@@ -24,7 +24,15 @@ load_dotenv()
 
 def create_app():
     app = Flask(__name__)
+
+
+
+    secret_key = os.environ.get('FLASK_SECRET_KEY')
+    if not secret_key:
+        print("CRITICAL: SECRET_KEY is missing from environment!")
+        secret_key = "a_hardcoded_backup_key_for_testing" # Only for debugging
     
+    app.config['SECRET_KEY'] = secret_key
     # 1. Print ALL environment keys to see what exists
     print(f"DEBUG: Available ENV Keys: {list(os.environ.keys())}")
     
