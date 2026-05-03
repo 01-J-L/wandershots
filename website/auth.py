@@ -13,6 +13,7 @@ import email.utils
 import threading
 import traceback
 import requests
+from itsdangerous import URLSafeTimedSerializer as Serializer
 
 auth = Blueprint('auth', __name__)
 
@@ -43,8 +44,11 @@ def send_email_thread(msg, smtp_user, smtp_pass):
         server.login(smtp_user, smtp_pass)
         server.send_message(msg)
         server.quit()
+        print("DEBUG: Email sent successfully!")
     except Exception as e:
-        print(f"❌ Failed to send email: {e}")
+        # THIS PRINT IS CRITICAL
+        print(f"❌ CRITICAL EMAIL ERROR: {str(e)}")
+        traceback.print_exc()
 
 # --- HELPER: SEND PASSWORD RESET OTP ---
 def send_otp_async(app, recipient_email, otp_code, first_name):
@@ -371,15 +375,91 @@ def reset_password():
 
 # --- ADMIN LOGIN & LOGOUT ---
 @auth.route('/admin_login', methods=['GET', 'POST'])
-@auth.route('/superadmin@login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        user = User.query.filter_by(username=request.form.get('username')).first()
-        if user and check_password_hash(user.password, request.form.get('password')):
-            login_user(user, remember=True)
-            return redirect(url_for('views.dashboard'))
-        flash('Account not found or incorrect password.', 'error')
-    return render_template("admin_login.html", user=current_user, page='auth')
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.role in ['admin', 'super_admin']:
+            
+            # --- LOCKOUT LOGIC ---
+            if user.login_attempts >= 5:
+                # Generate token for the lock-out unlock
+                token = generate_verification_token(user.email)
+                send_verification_email(user.email, token) # Send the email
+                flash('Account locked due to too many failed attempts. A reset link has been sent to your email.', 'error')
+                return render_template("admin_login.html", user=current_user)
+
+            # --- NORMAL LOGIN ---
+            if check_password_hash(user.password, password):
+                user.login_attempts = 0 # Reset attempts on successful login
+                db.session.commit()
+                
+                # Check 15-day verification requirement
+                if user.last_verified and (datetime.now() - user.last_verified).days >= 15:
+                    token = generate_verification_token(user.email)
+                    send_verification_email(user.email, token)
+                    flash('For your security, please verify your email to continue. Link sent!', 'info')
+                    return render_template("admin_login.html", user=current_user)
+                
+                login_user(user, remember=True)
+                return redirect(url_for('views.dashboard'))
+            
+            else:
+                user.login_attempts += 1
+                db.session.commit()
+                flash(f'Invalid password. {5 - user.login_attempts} attempts left.', 'error')
+        
+        else:
+            flash('Login failed. Check your credentials.', 'error')
+            
+    return render_template("admin_login.html", user=current_user)
+
+@auth.route('/verify-admin-link/<token>')
+def verify_admin_link(token):
+    email = confirm_token(token)
+    if not email:
+        flash('The verification link is invalid or has expired.', 'error')
+        return redirect(url_for('auth.admin_login'))
+    
+    user = User.query.filter_by(email=email).first()
+    if user:
+        user.last_verified = datetime.now()
+        user.login_attempts = 0 # <--- THIS IS THE KEY FIX
+        db.session.commit()
+        
+        login_user(user)
+        flash('Verification successful! Account unlocked and logged in.', 'success')
+        return redirect(url_for('views.dashboard'))
+    
+    flash('User not found.', 'error')
+    return redirect(url_for('auth.admin_login'))
+
+def generate_verification_token(email):
+    s = Serializer(current_app.config['SECRET_KEY'])
+    return s.dumps(email, salt='email-confirm')
+
+def confirm_token(token, expiration=3600):
+    s = Serializer(current_app.config['SECRET_KEY'])
+    try:
+        email = s.loads(token, salt='email-confirm', max_age=expiration)
+    except:
+        return False
+    return email
+
+# Update the Send Email helper
+def send_verification_email(recipient_email, token):
+    url = url_for('auth.verify_admin_link', token=token, _external=True)
+    SMTP_PASS = os.environ.get("SMTP_PASS")
+    SMTP_USER = os.environ.get("SMTP_USER")
+    
+    html = f"<h2>Verify Admin Access</h2><p>Click the link below to verify your account. This link expires in 1 hour.</p><a href='{url}'>{url}</a>"
+    msg, smtp_user = create_secure_message("Verify your Admin Account", recipient_email, html, "Verify your account: " + url)
+    
+    # Use the existing thread helper but add a print statement to verify it's being called
+    print(f"DEBUG: Attempting to send verification email to {recipient_email}")
+    threading.Thread(target=send_email_thread, args=(msg, smtp_user, SMTP_PASS)).start()
 
 @auth.route('/logout')
 @login_required

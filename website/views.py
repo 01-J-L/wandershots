@@ -2568,32 +2568,34 @@ def super_admin_dashboard():
 @login_required
 def super_admin_add_admin():
     if current_user.role != 'super_admin':
-        flash('Access denied.', category='error')
         return redirect(url_for('views.dashboard'))
     
     if request.method == 'POST':
         username = request.form.get('username')
+        email = request.form.get('email') # NEW
         first_name = request.form.get('first_name')
         role = request.form.get('role')
         password = request.form.get('password')
         
         # Validation checks
         if User.query.filter_by(username=username).first():
-            flash('That username already exists. Please choose a different one.', category='error')
+            flash('That username already exists.', category='error')
+        elif User.query.filter_by(email=email).first(): # NEW: Check if email exists
+            flash('That email is already in use.', category='error')
         elif not password or len(password) < 6:
-            flash('Password must be at least 6 characters long.', category='error')
+            flash('Password must be at least 6 characters.', category='error')
         else:
-            # Create new admin user
             new_admin = User(
                 username=username,
+                email=email, # NEW
                 first_name=first_name,
                 role=role,
-                password=generate_password_hash(password, method='scrypt')
+                password=generate_password_hash(password, method='scrypt'),
+                last_verified=datetime.now() # Initialize verified status
             )
             db.session.add(new_admin)
             db.session.commit()
-            
-            flash(f'New {role.replace("_", " ").title()} account created successfully!', category='success')
+            flash(f'New {role.replace("_", " ").title()} created!', category='success')
             return redirect(url_for('views.super_admin_dashboard'))
             
     counts = get_sidebar_counts()
@@ -2628,7 +2630,25 @@ def super_admin_edit_user(user_id):
     target_user = User.query.get_or_404(user_id)
     
     if request.method == 'POST':
-        target_user.username = request.form.get('username')
+        new_username = request.form.get('username')
+        new_email = request.form.get('email')
+        
+        # 1. Validate Email uniqueness
+        # Check if another user already has this email
+        email_taken = User.query.filter(User.email == new_email, User.id != user_id).first()
+        if email_taken:
+            flash(f'The email {new_email} is already in use by another account.', category='error')
+            return redirect(url_for('views.super_admin_edit_user', user_id=user_id))
+
+        # 2. Validate Username uniqueness
+        username_taken = User.query.filter(User.username == new_username, User.id != user_id).first()
+        if username_taken:
+            flash(f'The username {new_username} is already taken.', category='error')
+            return redirect(url_for('views.super_admin_edit_user', user_id=user_id))
+
+        # 3. Update fields
+        target_user.username = new_username
+        target_user.email = new_email
         target_user.first_name = request.form.get('first_name')
         target_user.role = request.form.get('role')
         
@@ -2636,8 +2656,13 @@ def super_admin_edit_user(user_id):
         if new_password and new_password.strip() != "":
             target_user.password = generate_password_hash(new_password, method='scrypt')
         
-        db.session.commit()
-        flash('User details updated successfully!', category='success')
+        try:
+            db.session.commit()
+            flash('User details updated successfully!', category='success')
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred while updating. Please try again.', category='error')
+            
         return redirect(url_for('views.super_admin_dashboard'))
         
     counts = get_sidebar_counts()

@@ -390,7 +390,7 @@
         }
     </style>
 </head>
-
+{% include '_loading.html' %}
 <body class="flex flex-col min-h-screen selection:bg-primary selection:text-white">
 
     <!-- CUSTOM APP SPLASH SCREEN (Shows only when opened as installed App) -->
@@ -408,7 +408,7 @@
             style="animation-delay: 0.2s;">Studio Admin</p>
     </div>
 
-    {% if page != 'auth' and page != 'dashboard' %}
+    {% if page != 'auth' and page != 'dashboard' and page != 'admin_login' %}
     <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
         <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
             <div class="flex items-center justify-between h-20">
@@ -775,10 +775,23 @@
                 // If you wanted dynamic initial message from AI API, you would put the call here.
             }
         });
+
+        let timer;
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a');
+        if (link && !link.target && !link.getAttribute('href').startsWith('#')) {
+            timer = setTimeout(showLoading, 200); 
+        }
+    });
+
+    window.addEventListener('pageshow', () => {
+        clearTimeout(timer);
+        document.getElementById('globalLoadingOverlay').classList.remove('active');
+    });
     </script>
     {% endif %}
 
-    {% if page != 'auth' and page != 'dashboard' %}
+    {% if page != 'auth' and page != 'dashboard' and page != 'admin_login' %}
     <footer class="bg-gray-900 text-white py-12 md:py-16">
         <div class="max-w-7xl mx-auto px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-8">

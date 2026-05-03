@@ -4,17 +4,20 @@ from sqlalchemy.sql import func
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=True) # Admin uses this
-    email = db.Column(db.String(150), unique=True, nullable=True)    # Customer uses this
-    # CHANGE: Increased length from 150 to 255 to accommodate the longer scrypt hash.
+    username = db.Column(db.String(150), unique=True, nullable=True) 
+    email = db.Column(db.String(150), unique=True, nullable=True)    
     password = db.Column(db.String(255))
     first_name = db.Column(db.String(150))
     phone = db.Column(db.String(50), nullable=True)                  
     role = db.Column(db.String(50), default='customer')              
     
-    # NEW FIELDS FOR OTP VERIFICATION
+    # OTP VERIFICATION
     otp_code = db.Column(db.String(10), nullable=True)
     otp_expiry = db.Column(db.DateTime(timezone=True), nullable=True)
+    
+    # NEW FIELDS FOR ADMIN SECURITY
+    last_verified = db.Column(db.DateTime(timezone=True), default=func.now())
+    login_attempts = db.Column(db.Integer, default=0)
     
     bookings = db.relationship('Booking', backref='user', lazy=True)
 
