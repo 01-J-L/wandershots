@@ -31,7 +31,7 @@ def create_app():
     # --- DATABASE CONFIGURATION FOR MYSQL ---
     # Get MySQL credentials from environment variables
     # Get MySQL credentials
-    import os
+    
     print(f"DEBUG: ENV VARS - USER: {os.environ.get('MYSQL_USER')}")
     print(f"DEBUG: ENV VARS - HOST: {os.environ.get('MYSQL_HOST')}")
     
