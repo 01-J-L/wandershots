@@ -34,12 +34,13 @@ def create_app():
     PASSWORD = os.environ.get("MYSQL_PASSWORD")   
     HOST = os.environ.get("MYSQL_HOST")      
     DB_NAME = os.environ.get("MYSQL_DB_NAME") 
+    PORT = os.environ.get("MYSQL_PORT")
     
     # Ensure all MySQL variables are set before trying to build the URI
     if not all([USER, PASSWORD, HOST, DB_NAME]):
         raise ValueError("Missing one or more MySQL environment variables (MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB_NAME).")
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}/{DB_NAME}?charset=utf8mb4'
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?charset=utf8mb4'
     
     # Optional - Path to MySQL client binaries (mysqldump, mysql).
     # Get from environment variable. Leave blank on PythonAnywhere if not used/supported.
