@@ -45,14 +45,17 @@ def create_secure_message(subject, recipient_email, html_body, plain_body):
 
 def send_email_thread(msg, smtp_user, smtp_pass):
     try:
-        # Force IPv4 connection
-        server = smtplib.SMTP('smtp.gmail.com', 587, source_address=('0.0.0.0', 0))
-        server.ehlo()
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.send_message(msg)
-        server.quit()
-        print("DEBUG: Email sent successfully!")
+        # Create a socket explicitly using IPv4
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect(('smtp.gmail.com', 587))
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.sock = sock # Override the socket
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+            server.quit()
+            print("DEBUG: Email sent successfully!")
     except Exception as e:
         print(f"❌ CRITICAL EMAIL ERROR: {str(e)}")
 
