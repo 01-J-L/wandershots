@@ -13,3 +13,4 @@ pymysql
 requests
 gunicorn
 dotenv
+groq
