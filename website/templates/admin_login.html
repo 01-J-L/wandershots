@@ -4,7 +4,8 @@
 {% block content %}
 <style>
     /* Hides the nav and footer if they have specific IDs or tags */
-    nav, footer {
+    nav,
+    footer {
         display: none !important;
     }
 </style>
@@ -55,7 +56,7 @@
                     </div>
                 </div>
 
-                
+
             </div>
 
             <div class="pt-2 space-y-5">
@@ -75,10 +76,12 @@
                     </a>
 
                     <!-- Download App Button -->
-                    <button id="installAppBtn" type="button"
-                        class="hidden items-center px-5 py-2 border border-gray-200 shadow-sm text-xs font-bold rounded-full text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none transition-all mt-2">
-                        <i class="ri-download-cloud-2-line mr-1.5 text-lg"></i> Install Admin App
-                    </button>
+                    {% if get_setting('admin_apk_filename') %}
+                    <a href="{{ url_for('static', filename='apps/' + get_setting('admin_apk_filename')) }}" download
+                        class="inline-flex items-center px-5 py-2 border border-gray-200 shadow-sm text-xs font-bold rounded-full text-emerald-700 bg-emerald-50 hover:bg-emerald-100 focus:outline-none transition-all mt-2">
+                        <i class="ri-android-line mr-1.5 text-lg"></i> Download Android App (APK)
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </form>

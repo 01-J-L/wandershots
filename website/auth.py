@@ -2,7 +2,7 @@ import os # NEW: Import os
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app
 from .models import User
 from werkzeug.security import check_password_hash, generate_password_hash
-from . import db, oauth # IMPORT OAUTH FROM INIT
+from . import db, oauth, limiter 
 from flask_login import login_user, login_required, logout_user, current_user
 import random
 from datetime import datetime, timedelta
@@ -101,6 +101,7 @@ def authorize_google():
             db.session.commit()
             
         login_user(user, remember=True)
+        session.permanent = True
         flash(f'Welcome, {user.first_name}!', 'success')
         next_url = session.pop('next_url', None)
         return redirect(next_url or url_for('views.customer_dashboard'))
@@ -143,6 +144,7 @@ def authorize_facebook():
             db.session.commit()
             
         login_user(user, remember=True)
+        session.permanent = True
         flash(f'Welcome, {user.first_name}!', 'success')
         next_url = session.pop('next_url', None)
         return redirect(next_url or url_for('views.customer_dashboard'))
@@ -157,6 +159,7 @@ def authorize_facebook():
 
 # --- CUSTOMER LOGIN ---
 @auth.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('views.home'))
@@ -171,6 +174,9 @@ def login():
             if user.password and check_password_hash(user.password, password):
                 flash(f'Welcome back, {user.first_name}!', category='success')
                 login_user(user, remember=remember)
+
+                session.permanent = True 
+
                 return redirect(request.args.get('next') or url_for('views.customer_dashboard'))
             elif not user.password:
                 flash('This account was created via social login. Please sign in with Google or Facebook.', category='error')
@@ -259,6 +265,7 @@ def verify_signup_otp():
 
 # --- RESEND SIGNUP OTP ---
 @auth.route('/resend-signup-otp')
+@limiter.limit("3 per hour")
 def resend_signup_otp():
     if 'signup_data' not in session:
         return redirect(url_for('auth.signup'))
@@ -375,6 +382,7 @@ def reset_password():
 
 # --- ADMIN LOGIN & LOGOUT ---
 @auth.route('/admin_login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def admin_login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -383,33 +391,45 @@ def admin_login():
 
         if user and user.role in ['admin', 'super_admin']:
             
-            # --- LOCKOUT LOGIC ---
-            if user.login_attempts >= 5:
-                # Generate token for the lock-out unlock
+            # --- LOCKOUT LOGIC (Bypassed for super_admin) ---
+            # Super admins will never be prompted for email authorization due to failed attempts
+            if user.role != 'super_admin' and user.login_attempts >= 5:
                 token = generate_verification_token(user.email)
-                send_verification_email(user.email, token) # Send the email
+                send_verification_email(user.email, token)
                 flash('Account locked due to too many failed attempts. A reset link has been sent to your email.', 'error')
                 return render_template("admin_login.html", user=current_user)
 
-            # --- NORMAL LOGIN ---
+            # --- PASSWORD CHECK ---
             if check_password_hash(user.password, password):
                 user.login_attempts = 0 # Reset attempts on successful login
                 db.session.commit()
                 
-                # Check 15-day verification requirement
-                if user.last_verified and (datetime.now() - user.last_verified).days >= 15:
-                    token = generate_verification_token(user.email)
-                    send_verification_email(user.email, token)
-                    flash('For your security, please verify your email to continue. Link sent!', 'info')
-                    return render_template("admin_login.html", user=current_user)
+                # --- 15-DAY VERIFICATION (Bypassed for super_admin) ---
+                # Super admins bypass the periodic email security check
+                if user.role != 'super_admin':
+                    if user.last_verified and (datetime.now() - user.last_verified.replace(tzinfo=None)).days >= 15:
+                        token = generate_verification_token(user.email)
+                        send_verification_email(user.email, token)
+                        flash('For your security, please verify your email to continue. Link sent!', 'info')
+                        return render_template("admin_login.html", user=current_user)
                 
+                # Successful Login
                 login_user(user, remember=True)
+
+                session.permanent = True
+
                 return redirect(url_for('views.dashboard'))
             
             else:
+                # Increment failed attempts
                 user.login_attempts += 1
                 db.session.commit()
-                flash(f'Invalid password. {5 - user.login_attempts} attempts left.', 'error')
+                
+                # Only show remaining attempts for standard admins
+                if user.role != 'super_admin':
+                    flash(f'Invalid password. {5 - user.login_attempts} attempts left.', 'error')
+                else:
+                    flash('Invalid password.', 'error')
         
         else:
             flash('Login failed. Check your credentials.', 'error')

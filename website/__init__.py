@@ -8,12 +8,20 @@ from werkzeug.security import generate_password_hash
 from flask_apscheduler import APScheduler
 from authlib.integrations.flask_client import OAuth
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # NEW: Import load_dotenv
 from dotenv import load_dotenv
 
 # NEW: Import datetime
-from datetime import datetime
+from datetime import datetime, timedelta 
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://", # Use Redis for production if using multiple servers
+)
 
 db = SQLAlchemy()
 oauth = OAuth() # INITIALIZE OAUTH
@@ -27,6 +35,10 @@ def create_app():
     
     # Get SECRET_KEY from environment variable, with a fallback for development if not set
     app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or 'your_strong_default_secret_key_if_not_set'
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+    app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+
+    limiter.init_app(app)
     
     # --- DATABASE CONFIGURATION FOR MYSQL ---
     # Get MySQL credentials from environment variables
@@ -34,12 +46,13 @@ def create_app():
     PASSWORD = os.environ.get("MYSQL_PASSWORD")   
     HOST = os.environ.get("MYSQL_HOST")      
     DB_NAME = os.environ.get("MYSQL_DB_NAME") 
+    PORT = os.environ.get("MYSQL_PORT", "3306")
     
     # Ensure all MySQL variables are set before trying to build the URI
     if not all([USER, PASSWORD, HOST, DB_NAME]):
         raise ValueError("Missing one or more MySQL environment variables (MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB_NAME).")
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}/{DB_NAME}?charset=utf8mb4'
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?charset=utf8mb4'
     
     # Optional - Path to MySQL client binaries (mysqldump, mysql).
     # Get from environment variable. Leave blank on PythonAnywhere if not used/supported.
@@ -109,18 +122,20 @@ def create_app():
     scheduler = APScheduler()
 
     @scheduler.task('interval', id='event_reminders', hours=1)
-    def scheduled_reminders():
+    def scheduled_tasks():
         """
         This task runs inside the web application's context.
         Consider using PythonAnywhere's dedicated Scheduled Tasks for more reliability,
         especially for critical background jobs.
         """
         with app.app_context():
-            from .views import check_upcoming_events
+            from .views import check_upcoming_events, auto_finish_past_bookings
             # datetime.now() is now correctly imported
             print(f"Running scheduled event reminders at {datetime.now()}...")
             check_upcoming_events(app)
             print("Scheduled event reminders complete.")
+            auto_finish_past_bookings(app)
+            print("Auto finished status complete.")
     
     # Initialize SQLAlchemy with the Flask app
     db.init_app(app)
@@ -157,6 +172,16 @@ def create_app():
     scheduler.api_enabled = True # Enable the scheduler's API for dashboard views (if applicable)
     scheduler.init_app(app)
     scheduler.start()
+
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        return """
+        <div style="text-align:center; padding-top:100px; font-family:sans-serif;">
+            <h1 style="color:#4f46e5;">Too Many Requests</h1>
+            <p>You are submitting forms too quickly. Please wait 60 seconds and try again.</p>
+            <a href="/">Go Back Home</a>
+        </div>
+        """, 429
 
     return app
 

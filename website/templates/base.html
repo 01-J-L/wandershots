@@ -55,9 +55,9 @@
                 }
             }
         }
-        
+
     </script>
-    
+
 
     <!-- Splash Screen Trigger Logic -->
     <script>
@@ -391,6 +391,7 @@
     </style>
 </head>
 {% include '_loading.html' %}
+
 <body class="flex flex-col min-h-screen selection:bg-primary selection:text-white">
 
     <!-- CUSTOM APP SPLASH SCREEN (Shows only when opened as installed App) -->
@@ -440,6 +441,8 @@
                         class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors {% if page=='home'%}nav-link-active font-bold text-primary{%endif%}">HOME</a>
                     <a href="{{ url_for('views.about') }}"
                         class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors {% if page=='about'%}nav-link-active font-bold text-primary{%endif%}">ABOUT</a>
+                    <a href="{{ url_for('views.services') }}"
+                        class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors {% if page=='services'%}nav-link-active font-bold text-primary{%endif%}">SERVICES</a>
                     <a href="{{ url_for('views.works') }}"
                         class="font-medium tracking-wide text-[0.85rem] nav-link hover:text-primary transition-colors {% if page=='works'%}nav-link-active font-bold text-primary{%endif%}">GALLERY</a>
                     <a href="{{ url_for('views.contact') }}"
@@ -499,6 +502,8 @@
                 class="text-gray-800 hover:text-primary transition-colors duration-200">HOME</a>
             <a href="{{ url_for('views.about') }}"
                 class="text-gray-800 hover:text-primary transition-colors duration-200">ABOUT</a>
+            <a href="{{ url_for('views.services') }}"
+                class="text-gray-800 hover:text-primary transition-colors">SERVICES</a>
             <a href="{{ url_for('views.works') }}"
                 class="text-gray-800 hover:text-primary transition-colors duration-200">PORTFOLIO</a>
             <a href="{{ url_for('views.contact') }}"
@@ -777,17 +782,17 @@
         });
 
         let timer;
-    document.addEventListener('click', function(e) {
-        const link = e.target.closest('a');
-        if (link && !link.target && !link.getAttribute('href').startsWith('#')) {
-            timer = setTimeout(showLoading, 200); 
-        }
-    });
+        document.addEventListener('click', function (e) {
+            const link = e.target.closest('a');
+            if (link && !link.target && !link.getAttribute('href').startsWith('#')) {
+                timer = setTimeout(showLoading, 200);
+            }
+        });
 
-    window.addEventListener('pageshow', () => {
-        clearTimeout(timer);
-        document.getElementById('globalLoadingOverlay').classList.remove('active');
-    });
+        window.addEventListener('pageshow', () => {
+            clearTimeout(timer);
+            document.getElementById('globalLoadingOverlay').classList.remove('active');
+        });
     </script>
     {% endif %}
 
@@ -916,6 +921,66 @@
                     .then(reg => console.log('Service worker registered'))
                     .catch(err => console.log('Service worker not registered', err));
             });
+        }
+        // --- REAL-TIME GALLERY EXPIRY COUNTDOWN (Race-Condition Safe) ---
+        function initGalleryCountdowns() {
+            const elements = document.querySelectorAll('[data-countdown-expiry]');
+
+            function updateCountdowns() {
+                elements.forEach(el => {
+                    const expiryStr = el.getAttribute('data-countdown-expiry');
+
+                    // Fallback 1: If no date exists (older records)
+                    if (!expiryStr || expiryStr.trim() === "") {
+                        el.textContent = "Auto-deletion: 14 days after delivery";
+                        return;
+                    }
+
+                    const expiryDate = new Date(expiryStr).getTime();
+
+                    // Fallback 2: If browser can't parse the date format
+                    if (isNaN(expiryDate)) {
+                        el.textContent = "Auto-deletion: 14 days after delivery";
+                        return;
+                    }
+
+                    const now = new Date().getTime();
+                    const diff = expiryDate - now;
+
+                    if (diff <= 0) {
+                        el.textContent = "Expired (Cleanup Pending)";
+                        el.className = "text-red-500 font-bold text-[11px]";
+                    } else {
+                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                        let timeString = "";
+                        if (days > 0) {
+                            timeString += `${days}d ${hours}h ${minutes}m ${seconds}s`;
+                        } else if (hours > 0) {
+                            timeString += `${hours}h ${minutes}m ${seconds}s`;
+                        } else {
+                            timeString += `${minutes}m ${seconds}s`;
+                        }
+
+                        el.textContent = "Expires in: " + timeString;
+                    }
+                });
+            }
+
+            if (elements.length > 0) {
+                updateCountdowns();
+                setInterval(updateCountdowns, 1000);
+            }
+        }
+
+        // SAFE TRIGGER: Run immediately if DOM is already parsed, otherwise wait for event
+        if (document.readyState === "loading") {
+            document.addEventListener('DOMContentLoaded', initGalleryCountdowns);
+        } else {
+            initGalleryCountdowns();
         }
     </script>
 </body>

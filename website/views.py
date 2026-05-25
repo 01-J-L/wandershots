@@ -11,8 +11,8 @@ import re
 from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, session, jsonify, current_app
 from flask_login import login_required, current_user
 from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem, BlockedDate
-from . import db
-from datetime import datetime, timedelta
+from . import db, limiter
+from datetime import date, datetime, timedelta
 from calendar import month_abbr
 from werkzeug.utils import secure_filename 
 from flask import current_app
@@ -140,6 +140,9 @@ def send_gallery_email(app, booking, folder_link):
     with app.app_context():
         SMTP_USER = os.environ.get("SMTP_USER")
         SMTP_PASS = os.environ.get("SMTP_PASS")
+        
+        # Calculate the exact expiration date (14 days from now)
+        expiry_date = (datetime.now() + timedelta(days=14)).strftime('%B %d, %Y')
 
         subject = f"Your Photos are Ready! - {booking.service_type}"
         
@@ -148,7 +151,7 @@ def send_gallery_email(app, booking, folder_link):
         <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
             <h2 style="color: #4f46e5;">Wandershots Studios</h2>
             <p>Hi <b>{booking.customer_name}</b>,</p>
-            <p>Great news! The high-resolution photos from your <b>{booking.service_type}</b> session on {booking.date} are now ready to view and download.</p>
+            <p>The high-resolution photos from your <b>{booking.service_type}</b> session are now ready!</p>
             
             <div style="margin: 30px 0;">
                 <a href="{folder_link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
@@ -156,16 +159,17 @@ def send_gallery_email(app, booking, folder_link):
                 </a>
             </div>
             
-            <p><b>Instructions:</b></p>
-            <ul>
-                <li>Click the button above to access your secure Google Drive folder.</li>
-                <li>You can download individual images or the entire folder.</li>
-                <li>The link is active and does not require a Google account to view.</li>
-            </ul>
-            <p>Thank you for choosing Wandershots!</p>
+            <div style="background-color: #fff7ed; border: 1px solid #ffedd5; padding: 15px; border-radius: 8px; color: #9a3412; font-size: 14px;">
+                <strong>⚠️ Important Expiration Notice:</strong><br>
+                To maintain studio storage space, your online gallery link will <b>expire and be deleted on {expiry_date}</b>. 
+                Please ensure you download all your photos to your personal device before this date.
+            </div>
+
+            <p style="margin-top: 20px;">Thank you for choosing Wandershots!</p>
         </body>
         </html>
         """
+        # ... rest of your smtplib code (unchanged) ...
         
         msg = MIMEMultipart('alternative')
         msg['From'] = f"Wandershots Studios <{SMTP_USER}>"
@@ -252,6 +256,8 @@ def process_gallery_upload(app, booking_id, saved_files):
             # Update Database and Notify User (only if folder was created)
             if folder_link:
                 booking.gallery_link = folder_link
+                booking.gallery_folder_id = folder_id # SAVE THIS
+                booking.gallery_updated_at = datetime.now() # SAVE THIS
                 db.session.commit()
                 print(f"DEBUG: Database updated with gallery_link: {folder_link}")
                 send_gallery_email(app, booking, folder_link)
@@ -268,6 +274,39 @@ def process_gallery_upload(app, booking_id, saved_files):
                 if os.path.exists(filepath):
                     os.remove(filepath)
                     print(f"DEBUG: Deleted local temporary file after critical error: {filepath}")
+
+def auto_delete_expired_galleries(app):
+    with app.app_context():
+        # Define the expiration limit (14 days ago)
+        expiration_date = datetime.now() - timedelta(days=14)
+        
+        # Find bookings where a gallery exists and it was updated more than 14 days ago
+        expired_bookings = Booking.query.filter(
+            Booking.gallery_folder_id != None,
+            Booking.gallery_updated_at <= expiration_date
+        ).all()
+
+        if not expired_bookings:
+            return
+
+        try:
+            service = get_drive_service()
+            for b in expired_bookings:
+                try:
+                    # Delete the folder from Google Drive
+                    service.files().delete(fileId=b.gallery_folder_id).execute()
+                    print(f"🗑️ Deleted expired folder for {b.customer_name}")
+                except Exception as e:
+                    print(f"⚠️ Could not delete GDrive folder {b.gallery_folder_id}: {e}")
+
+                # Clear the links in our database so we don't try to delete again
+                b.gallery_link = None
+                b.gallery_folder_id = None
+                b.gallery_updated_at = None
+            
+            db.session.commit()
+        except Exception as e:
+            print(f"❌ Critical Error in auto-delete task: {e}")
 
 
 # SMS CONFIGURATION
@@ -289,6 +328,10 @@ def format_phone(phone):
     elif not clean_phone.startswith(DEFAULT_COUNTRY_CODE):
         clean_phone = DEFAULT_COUNTRY_CODE + clean_phone
     return clean_phone
+
+def allowed_apk_file(filename):
+    """Ensures only .apk files can be uploaded for the application binary."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'apk'
 
 def send_sms(phone, message):
     """Triggers SMS via TextBee API with corrected recipient format"""
@@ -532,6 +575,29 @@ def async_send_client_email(*args):
     app = current_app._get_current_object()
     thread = threading.Thread(target=send_client_confirmation_email, args=(app, *args))
     thread.start()
+
+def auto_finish_past_bookings(app):
+    """Checks for events that happened yesterday or earlier and marks them Finished."""
+    with app.app_context():
+        # Get today's date in YYYY-MM-DD format (matches your DB storage)
+        today_str = date.today().strftime('%Y-%m-%d')
+        
+        # Find all scheduled bookings where the event date is less than today
+        past_bookings = Booking.query.filter(
+            Booking.status == 'scheduled',
+            Booking.date < today_str
+        ).all()
+
+        for b in past_bookings:
+            b.status = 'finished'
+            # Optional: Log it
+            print(f"Auto-Finished Booking ID {b.id} for {b.customer_name}")
+        
+        if past_bookings:
+            for b in past_bookings:
+                b.status = 'finished'
+            db.session.commit()
+            print(f"DEBUG: Auto-finished {len(past_bookings)} bookings.")
 
 def send_new_booking_email(app, name, email, phone, service, package, date, time, location, notes):
     with app.app_context():
@@ -826,6 +892,7 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # --- THE NEW CHAT ROUTE ---
 @views.route('/api/chat', methods=['POST'])
+@limiter.limit("50 per minute; 100 per hour")
 def chat():
     user_message = request.json.get('message')
 
@@ -922,6 +989,21 @@ def home():
     return render_template("index.html", user=current_user, page='home', settings=settings)
 # ==========================================
 
+@views.route('/services')
+def services():
+    # Fetch all packages from the database
+    all_packages = ServicePackage.query.order_by(ServicePackage.package_type).all()
+    
+    # Group packages by their type (e.g., Photobooth, Events, etc.)
+    categorized_services = {}
+    for pkg in all_packages:
+        category = pkg.package_type or "General Services"
+        if category not in categorized_services:
+            categorized_services[category] = []
+        categorized_services[category].append(pkg)
+    
+    return render_template("services.html", user=current_user, page='services', services=categorized_services)
+
 @views.route('/admin/cms/home', methods=['GET', 'POST'])
 @login_required
 def admin_cms_home():
@@ -996,7 +1078,7 @@ def admin_sales():
     # Finds all active scheduled/finished bookings for these services
     active_bookings = Booking.query.filter(
         Booking.service_type.in_(target_services),
-        Booking.status.in_(['scheduled', 'finished']),
+        Booking.status == 'finished',
         Booking.is_archived == False
     ).order_by(Booking.date.desc()).all()
 
@@ -1015,7 +1097,7 @@ def admin_sales():
     # Sales must calculate BOTH active and archived records so you don't lose money in your reports!
     query = Booking.query.filter(
         Booking.service_type.in_(target_services),
-        Booking.status.in_(['scheduled', 'finished'])
+        Booking.status == 'finished'
     )
 
     if start_date:
@@ -1113,7 +1195,7 @@ def export_sales():
     # NOTE: is_archived filter is REMOVED here too so exports match the sales dashboard exactly.
     query = Booking.query.filter(
         Booking.service_type.in_(['Photobooth', 'On-site Studio Booth', 'Photoman']),
-        Booking.status.in_(['scheduled', 'finished'])
+        Booking.status == 'finished'
     )
 
     if start_date: query = query.filter(Booking.date >= start_date)
@@ -1231,6 +1313,7 @@ def booking_success():
     return render_template("booking_success.html", user=current_user, page='book', name=name)
 
 @views.route('/book', methods=['GET', 'POST'])
+@limiter.limit("3 per minute")
 @login_required # <--- NEW: Forces login before booking
 def book():
     packages = ServicePackage.query.order_by(ServicePackage.price).all()
@@ -1295,6 +1378,7 @@ def customer_dashboard():
     return render_template("customer_dashboard.html", user=current_user, page='customer_dashboard', bookings=bookings)
 
 @views.route('/contact', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def contact():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -1437,8 +1521,9 @@ def get_social_icon_class(platform_name):
     else:
         return "ri-share-line" 
 
-@views.context_processor
+@views.app_context_processor
 def inject_global_settings():
+    from datetime import timedelta
     """Injects global settings (Header/Footer, Dynamic Links) into all templates"""
     
     # Fetch dynamic social links
@@ -1447,9 +1532,9 @@ def inject_global_settings():
     quick_links = QuickLink.query.order_by(QuickLink.order).all()
 
     return dict(
-
+        timedelta=timedelta,
         user=current_user,
-        get_setting=get_setting, 
+        get_setting=get_setting,
         # Header Settings
         header_logo_type=get_setting('header_logo_type', 'text'),
         header_logo_image=get_image_url(get_setting('header_logo_image'), ''),
@@ -1559,24 +1644,22 @@ def get_sidebar_counts():
     return {
         'pending_count': Booking.query.filter_by(status='pending', is_archived=False).count(),
         'scheduled_count': Booking.query.filter_by(status='scheduled', is_archived=False).count(),
+        'finished_count': Booking.query.filter_by(status='finished', is_archived=False).count(),
         'cancelled_count': Booking.query.filter_by(status='cancelled', is_archived=False).count(),
-        'archived_count': Booking.query.filter_by(is_archived=True).count() + ContactMessage.query.filter_by(is_archived=True).count()
+        'archived_count': Booking.query.filter_by(is_archived=True).count()
     }
-
 
 
 # Helper function to get monthly booking data for the chart (Based on Event Date)
 def get_monthly_booking_data():
     today = datetime.now()
-    
     monthly_booked = {}
     monthly_cancelled = {}
     month_labels = []
 
-    # Generate month_keys and labels for the last 12 months
+    # Generate labels for the last 12 months
     current_year = today.year
     current_month = today.month
-    
     date_tuples = []
     for i in range(12):
         month = (current_month - 1 - i) % 12 + 1
@@ -1584,30 +1667,31 @@ def get_monthly_booking_data():
         date_tuples.insert(0, (year, month)) 
         
     for year, month in date_tuples:
-        month_key = f"{year:04d}-{month:02d}" # Format YYYY-MM
-        month_label = f"{month_abbr[month]} {year}" # E.g., 'Jan 2024'
+        month_key = f"{year:04d}-{month:02d}"
+        month_label = f"{month_abbr[month]} {year}"
         monthly_booked[month_key] = 0
         monthly_cancelled[month_key] = 0
         month_labels.append(month_label)
 
-    # Fetch all Booked and Cancelled bookings
+    # Fetch all confirmed and cancelled bookings
+    # RECORDED = Scheduled or Finished
+    # UNLESS = Cancelled
     all_relevant_bookings = Booking.query.filter(
-        Booking.status.in_(['scheduled', 'cancelled'])
+        Booking.status.in_(['scheduled', 'finished', 'cancelled'])
     ).all()
 
-    # Populate counts based on the EVENT DATE (booking.date)
     for booking in all_relevant_bookings:
-        if booking.date and len(booking.date) >= 7: # Ensure valid 'YYYY-MM-DD' format
+        if booking.date and len(booking.date) >= 7:
             month_key = booking.date[:7] 
             
-            # If the event falls within our 12-month graph window, add it to the count
             if month_key in monthly_booked: 
-                if booking.status == 'scheduled':
+                # If it is booked (Scheduled or Finished), record it
+                if booking.status in ['scheduled', 'finished']:
                     monthly_booked[month_key] += 1
+                # If it was cancelled, record it in the cancelled set
                 elif booking.status == 'cancelled':
                     monthly_cancelled[month_key] += 1
     
-    # Extract data in the correct order for the Chart.js
     booked_data = [monthly_booked.get(f"{y:04d}-{m:02d}", 0) for y, m in date_tuples]
     cancelled_data = [monthly_cancelled.get(f"{y:04d}-{m:02d}", 0) for y, m in date_tuples]
 
@@ -1621,6 +1705,7 @@ def get_monthly_booking_data():
 @login_required
 def dashboard():
     # Only show active messages on the dashboard
+    auto_finish_past_bookings(current_app._get_current_object())
     messages = ContactMessage.query.filter_by(is_archived=False).order_by(ContactMessage.date.desc()).limit(5).all()
     counts = get_sidebar_counts()
     chart_data = get_monthly_booking_data()
@@ -1630,6 +1715,55 @@ def dashboard():
 
 # Add this near your other imports at the top of views.py if missing:
 from datetime import datetime, timedelta
+
+@views.route('/api/booking-occupancy')
+def api_booking_occupancy():
+    # 1. Get Global Limits from settings (default to 1 if not set)
+    am_limit = int(get_setting('global_am_limit', '1'))
+    pm_limit = int(get_setting('global_pm_limit', '1'))
+
+    # 2. Get all active bookings
+    active_bookings = Booking.query.filter(Booking.status.in_(['scheduled', 'pending'])).all()
+
+    # 3. Count AM/PM per date
+    # Format: {'2024-10-25': {'am': 1, 'pm': 0}}
+    counts = {}
+    for b in active_bookings:
+        if b.date not in counts:
+            counts[b.date] = {'am': 0, 'pm': 0}
+        
+        # Check if time is AM (before 12:00) or PM (12:00 and later)
+        try:
+            hour = int(b.time.split(':')[0])
+            if hour < 12:
+                counts[b.date]['am'] += 1
+            else:
+                counts[b.date]['pm'] += 1
+        except: continue
+
+    # 4. Determine status for each date
+    occupancy_status = {}
+    for date, occ in counts.items():
+        am_full = occ['am'] >= am_limit
+        pm_full = occ['pm'] >= pm_limit
+        
+        if am_full and pm_full:
+            occupancy_status[date] = "FULL"
+        elif am_full:
+            occupancy_status[date] = "AM_FULL"
+        elif pm_full:
+            occupancy_status[date] = "PM_FULL"
+
+    # 5. Add manually blocked dates from the Admin
+    blocked_dates = BlockedDate.query.all()
+    for b in blocked_dates:
+        occupancy_status[b.date] = "FULL"
+
+    return jsonify({
+        "status_map": occupancy_status,
+        "global_am_limit": am_limit,
+        "global_pm_limit": pm_limit
+    })
 
 @views.route('/api/blocked-dates')
 def api_blocked_dates():
@@ -1764,6 +1898,14 @@ def cancelled_bookings():
     counts = get_sidebar_counts()
     return render_template("admin_cancelled_bookings.html", user=current_user, page='dashboard', bookings=bookings, **counts)
 
+@views.route('/admin/finished_bookings')
+@login_required
+def finished_bookings():
+    # Fetch bookings that are finished and not archived
+    bookings = Booking.query.filter_by(status='finished', is_archived=False).order_by(Booking.date.desc()).all()
+    counts = get_sidebar_counts()
+    return render_template("admin_finished_bookings.html", user=current_user, page='dashboard', bookings=bookings, **counts)
+
 @views.route('/customer/cancel_booking/<int:booking_id>', methods=['POST'])
 @login_required
 def customer_cancel_booking(booking_id):
@@ -1881,9 +2023,10 @@ def edit_booking(booking_id):
     booking = Booking.query.get_or_404(booking_id)
     
     if request.method == 'POST':
+        # Update all fields from the form
         booking.customer_name = request.form.get('customer_name')
         booking.customer_email = request.form.get('customer_email')
-        booking.customer_phone = request.form.get('customer_phone') # <--- NEW PHONE FIELD
+        booking.customer_phone = request.form.get('customer_phone')
         booking.service_type = request.form.get('service_type')
         booking.package_selected = request.form.get('package_selected')
         booking.location = request.form.get('location')
@@ -1891,9 +2034,24 @@ def edit_booking(booking_id):
         booking.time = request.form.get('time')
         booking.notes = request.form.get('notes')
         
+        # We also allow admins to manually override the status if needed via edit
+        # If your admin_edit_booking.html doesn't have a status dropdown, 
+        # this line will just keep the current status.
+        if request.form.get('status'):
+            booking.status = request.form.get('status')
+        
         db.session.commit()
-        flash('Booking updated successfully!', category='success')
-        return redirect(url_for('views.booked_bookings'))
+        flash(f'Successfully updated details for {booking.customer_name}.', category='success')
+        
+        # SMART REDIRECT: Go back to the page the user likely came from
+        if booking.status == 'finished':
+            return redirect(url_for('views.finished_bookings'))
+        elif booking.status == 'cancelled':
+            return redirect(url_for('views.cancelled_bookings'))
+        elif booking.status == 'pending':
+            return redirect(url_for('views.pending_bookings'))
+        else:
+            return redirect(url_for('views.booked_bookings'))
         
     counts = get_sidebar_counts()
     return render_template("admin_edit_booking.html", user=current_user, page='dashboard', booking=booking, **counts)
@@ -2475,6 +2633,59 @@ def admin_settings():
     }
     return render_template("admin_settings.html", user=current_user, page='dashboard', settings=settings_data, **counts)
 
+@views.route('/admin/system/upload_apk', methods=['POST'])
+@login_required
+def admin_upload_apk():
+    """Handles uploading the Android APK file to the static/apps directory."""
+    file = request.files.get('apk_file')
+    if file and file.filename != '':
+        if allowed_apk_file(file.filename):
+            filename = secure_filename(file.filename)
+            apk_folder = os.path.join(current_app.root_path, 'static/apps')
+            os.makedirs(apk_folder, exist_ok=True)
+            
+            # Clean up the previous APK file to save disk space
+            old_apk = get_setting('admin_apk_filename')
+            if old_apk:
+                old_path = os.path.join(apk_folder, old_apk)
+                if os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                    except Exception as e:
+                        current_app.logger.error(f"Error removing old APK: {e}")
+            
+            # Save the new APK file
+            file.save(os.path.join(apk_folder, filename))
+            set_setting('admin_apk_filename', filename)
+            db.session.commit()
+            
+            flash('Admin APK updated successfully!', 'success')
+        else:
+            flash('Invalid file format. Please upload a .apk file only.', 'error')
+    else:
+        flash('No file selected.', 'error')
+    return redirect(url_for('views.admin_settings'))
+
+@views.route('/admin/system/delete_apk', methods=['POST'])
+@login_required
+def admin_delete_apk():
+    """Permanently deletes the uploaded APK file and clears the setting."""
+    old_apk = get_setting('admin_apk_filename')
+    if old_apk:
+        apk_folder = os.path.join(current_app.root_path, 'static/apps')
+        old_path = os.path.join(apk_folder, old_apk)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except Exception as e:
+                current_app.logger.error(f"Error removing APK file: {e}")
+        
+        set_setting('admin_apk_filename', '')
+        db.session.commit()
+        flash('Admin APK file removed from server.', 'success')
+    else:
+        flash('No APK found to delete.', 'error')
+    return redirect(url_for('views.admin_settings'))
 
 # --- ADD NEW RECORD (Booking) ---
 @views.route('/admin/add_record', methods=['GET', 'POST'])
@@ -2535,7 +2746,11 @@ def admin_cms():
 def save_notification_settings():
     new_email = request.form.get('notification_email')
     new_hours = request.form.get('reminder_hours')
-    new_admin_phone = request.form.get('admin_phone') 
+    new_admin_phone = request.form.get('admin_phone')
+    
+    # NEW: Get Capacity Limits
+    am_limit = request.form.get('global_am_limit')
+    pm_limit = request.form.get('global_pm_limit')
     
     if new_email:
         set_setting('notification_recipient_email', new_email)
@@ -2543,10 +2758,18 @@ def save_notification_settings():
         set_setting('reminder_hours_before', new_hours)
     if new_admin_phone:
         set_setting('admin_phone_number', new_admin_phone)
+        
+    # NEW: Save Capacity Limits if they exist in the submitted form
+    if am_limit:
+        set_setting('global_am_limit', am_limit)
+    if pm_limit:
+        set_setting('global_pm_limit', pm_limit)
 
     db.session.commit()
-    flash('Notification settings updated successfully!', 'success')
-    return redirect(url_for('views.admin_settings'))
+    flash('Settings updated successfully!', 'success')
+    
+    # Redirect back to the page the user was on (Calendar or Settings)
+    return redirect(request.referrer or url_for('views.admin_settings'))
 
 @views.route('/admin/super_admin')
 @login_required

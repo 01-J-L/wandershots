@@ -53,6 +53,8 @@ class Booking(db.Model):
     is_archived = db.Column(db.Boolean, default=False)
 
     gallery_link = db.Column(db.String(500), nullable=True)
+    gallery_folder_id = db.Column(db.String(100), nullable=True) # NEW
+    gallery_updated_at = db.Column(db.DateTime(timezone=True), nullable=True) # NEW
 
 
 class PortfolioItem(db.Model):
@@ -115,3 +117,9 @@ class BlockedDate(db.Model):
     date = db.Column(db.String(50), unique=True, nullable=False) 
     reason = db.Column(db.String(200))
     created_at = db.Column(db.DateTime(timezone=True), default=func.now())
+
+class BookingLimit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.String(50), unique=True, nullable=False) # YYYY-MM-DD
+    am_limit = db.Column(db.Integer, default=1) # Max bookings before 12:00 PM
+    pm_limit = db.Column(db.Integer, default=1) # Max bookings after 12:00 PM
