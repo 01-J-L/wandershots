@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Our Services - Wandershots{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<section class="relative py-24 lg:py-32 bg-gray-50 overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-white to-gray-50 z-0"></div>
+    <div class="relative max-w-7xl mx-auto px-6 lg:px-8 text-center z-10 fade-in">
+        <p class="text-sm font-medium text-secondary tracking-wider uppercase mb-4">Investment & Experience</p>
+        <h1 class="text-5xl md:text-6xl font-light text-primary mb-6">
+            Our <em class="italic">Services</em>
+        </h1>
+        <p class="text-xl text-gray-500 font-light max-w-2xl mx-auto">
+            Discover our range of premium photography and booth experiences designed to make your events unforgettable.
+        </p>
+    </div>
+</section>
+
+<!-- Service Overview Grid (Matching the new UI style) -->
+<section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <!-- On-site Studio Booth -->
+            <div onclick="scrollToCategory('On-site Studio Booth')" class="cursor-pointer group bg-[#f5f7ff] border border-indigo-50 rounded-xl p-8 hover:border-indigo-200 transition-all duration-300">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-[#0d1b3e] text-white rounded-full flex items-center justify-center shrink-0 shadow-md">
+                        <i class="ri-camera-lens-line text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-[#0d1b3e]">On-site Studio Booth</h3>
+                </div>
+                <p class="text-gray-600 text-[15px] leading-relaxed">
+                    Professional high-end studio lighting and premium backdrops brought directly to your venue for a red-carpet experience.
+                </p>
+            </div>
+
+            <!-- Photobooth -->
+            <div onclick="scrollToCategory('Photobooth')" class="cursor-pointer group bg-[#f5f7ff] border border-indigo-50 rounded-xl p-8 hover:border-indigo-200 transition-all duration-300">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-[#0d1b3e] text-white rounded-full flex items-center justify-center shrink-0 shadow-md">
+                        <i class="ri-printer-line text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-[#0d1b3e]">Photobooth</h3>
+                </div>
+                <p class="text-gray-600 text-[15px] leading-relaxed">
+                    Get instant high-quality magnetic prints for your guests to take home. Includes custom layouts and a variety of fun props.
+                </p>
+            </div>
+
+            <!-- Website Security (Placeholder for Photoman to match image style) -->
+            <div onclick="scrollToCategory('Photoman')" class="cursor-pointer group bg-[#f5f7ff] border border-indigo-50 rounded-xl p-8 hover:border-indigo-200 transition-all duration-300">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-[#0d1b3e] text-white rounded-full flex items-center justify-center shrink-0 shadow-md">
+                        <i class="ri-user-star-line text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-[#0d1b3e]">Photoman</h3>
+                </div>
+                <p class="text-gray-600 text-[15px] leading-relaxed">
+                    A roaming photographer that captures candid interactions and "live" moments, delivering prints to guests as they mingle.
+                </p>
+            </div>
+
+            <!-- Reliable Email Service (Placeholder for Events Photography) -->
+            <div onclick="scrollToCategory('Events Photography')" class="cursor-pointer group bg-[#f5f7ff] border border-indigo-50 rounded-xl p-8 hover:border-indigo-200 transition-all duration-300">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-[#0d1b3e] text-white rounded-full flex items-center justify-center shrink-0 shadow-md">
+                        <i class="ri-hearts-line text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-[#0d1b3e]">Events Photography</h3>
+                </div>
+                <p class="text-gray-600 text-[15px] leading-relaxed">
+                    Full-scale artistic coverage for your most important milestones, from intimate weddings to grand corporate celebrations.
+                </p>
+            </div>
+
+            <!-- Website Backup (Placeholder for Studio Photoshoot) -->
+            <div onclick="scrollToCategory('Studio Photoshoot')" class="cursor-pointer group bg-[#f5f7ff] border border-indigo-50 rounded-xl p-8 hover:border-indigo-200 transition-all duration-300">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-[#0d1b3e] text-white rounded-full flex items-center justify-center shrink-0 shadow-md">
+                        <i class="ri-building-4-line text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-[#0d1b3e]">Studio Photoshoot</h3>
+                </div>
+                <p class="text-gray-600 text-[15px] leading-relaxed">
+                    Premium private sessions at our studio for corporate headshots, fashion editorials, and timeless family portraits.
+                </p>
+            </div>
+
+            <!-- Bespoke Requests -->
+            <div onclick="window.location.href='/contact'" class="cursor-pointer group bg-[#f5f7ff] border border-indigo-50 rounded-xl p-8 hover:border-indigo-200 transition-all duration-300">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-[#0d1b3e] text-white rounded-full flex items-center justify-center shrink-0 shadow-md">
+                        <i class="ri-settings-4-line text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-[#0d1b3e]">Custom Proposals</h3>
+                </div>
+                <p class="text-gray-600 text-[15px] leading-relaxed">
+                    Don't see exactly what you need? We create tailored photography packages specifically designed for your unique requirements.
+                </p>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Expandable Services Accordion Section -->
+<section class="py-16 bg-gray-50/50">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <div class="text-center mb-12 fade-in">
+            <h2 class="text-3xl font-serif text-primary">Browse Packages</h2>
+            <p class="text-gray-500 mt-2">Select a category to view detailed inclusions and pricing.</p>
+        </div>
+
+        {% if services %}
+            <div class="space-y-6">
+                {% for category, items in services.items() %}
+                <!-- Added data-category attribute for the auto-scroll script -->
+                <div id="section-{{ category|replace(' ', '-') }}" class="category-accordion-item border border-gray-200 rounded-2xl overflow-hidden transition-all duration-300 bg-white shadow-sm fade-in" data-category-name="{{ category }}">
+                    
+                    <button onclick="toggleCategoryAccordion('cat-wrapper-{{ loop.index }}', this)" 
+                            class="w-full px-8 py-6 flex justify-between items-center text-left bg-white hover:bg-gray-50/50 transition-colors group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold font-serif text-lg">
+                                {{ loop.index }}
+                            </div>
+                            <h2 class="text-xl md:text-2xl font-serif text-primary tracking-wide">{{ category }}</h2>
+                        </div>
+                        <div class="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 group-hover:border-indigo-600 group-hover:text-indigo-600 transition-colors">
+                            <i class="ri-add-line text-xl transition-transform duration-300 accordion-icon"></i>
+                        </div>
+                    </button>
+
+                    <div id="cat-wrapper-{{ loop.index }}" class="hidden border-t border-gray-100 bg-gray-50/30 px-6 py-10 md:px-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {% for pkg in items %}
+                            <div class="package-card bg-white rounded-2xl border border-gray-100 shadow-sm hover-lift overflow-hidden flex flex-col group transition-all duration-500
+                                {% if loop.index0 >= 3 %} hidden opacity-0 translate-y-4 extra-item {% endif %}">
+                                
+                                <div class="aspect-[16/10] overflow-hidden bg-gray-100">
+                                    {% if pkg.image_filename %}
+                                    <img src="{{ url_for('static', filename='images/' + pkg.image_filename) }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                                    {% else %}<div class="w-full h-full flex items-center justify-center text-gray-300"><i class="ri-image-2-line text-5xl"></i></div>{% endif %}
+                                </div>
+
+                                <div class="p-8 flex-grow flex flex-col">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <h3 class="text-xl font-bold text-gray-900 leading-tight">{{ pkg.name }}</h3>
+                                        <span class="text-indigo-600 font-bold font-mono">{{ pkg.price }}</span>
+                                    </div>
+                                    <p class="text-gray-500 text-sm font-light leading-relaxed mb-8 flex-grow whitespace-pre-line">{{ pkg.description }}</p>
+                                    <a href="{{ url_for('views.book') }}" class="w-full text-center btn-primary text-white py-3 !rounded-button font-medium text-sm tracking-widest uppercase transition-all shadow-md">Book This Package</a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        {% if items|length > 3 %}
+                        <div class="mt-10 text-center">
+                            <button onclick="toggleShowMore('cat-wrapper-{{ loop.index }}', this)" class="inline-flex items-center gap-2 text-indigo-600 font-bold tracking-widest uppercase text-xs hover:text-indigo-800 transition-colors py-2 px-4 rounded-lg bg-indigo-50 border border-indigo-100 hover:bg-indigo-100">
+                                <span class="btn-text">Show More ({{ items|length - 3 }})</span>
+                                <i class="ri-arrow-down-s-line text-base transition-transform duration-300 more-icon"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Custom Request Section -->
+<section class="py-20 bg-gray-900 text-white text-center">
+    <div class="max-w-3xl mx-auto px-6">
+        <h2 class="text-3xl font-light mb-6">Need something bespoke?</h2>
+        <p class="text-gray-400 font-light mb-10">If our standard packages don't quite fit your vision, we are happy to create a custom proposal for your specific needs.</p>
+        <a href="{{ url_for('views.contact') }}" class="inline-block border-2 border-white text-white px-10 py-3 !rounded-button font-medium hover:bg-white hover:text-gray-900 transition-all tracking-widest uppercase text-sm">
+            Contact for Custom Quote
+        </a>
+    </div>
+</section>
+
+<script>
+    // 1. Toggles the Main Category Panel
+    function toggleCategoryAccordion(wrapperId, headerBtn) {
+        const wrapper = document.getElementById(wrapperId);
+        const icon = headerBtn.querySelector('.accordion-icon');
+        const isHidden = wrapper.classList.contains('hidden');
+
+        if (isHidden) {
+            wrapper.classList.remove('hidden');
+            icon.classList.replace('ri-add-line', 'ri-subtract-line');
+        } else {
+            wrapper.classList.add('hidden');
+            icon.classList.replace('ri-subtract-line', 'ri-add-line');
+        }
+    }
+
+    // 2. Toggles "Show More"
+    function toggleShowMore(wrapperId, btn) {
+        const wrapper = document.getElementById(wrapperId);
+        const extraItems = wrapper.querySelectorAll('.extra-item');
+        const btnText = btn.querySelector('.btn-text');
+        const isShowingMore = btnText.innerText.includes('SHOW MORE');
+
+        if (isShowingMore) {
+            extraItems.forEach((item, index) => {
+                item.classList.remove('hidden');
+                setTimeout(() => item.classList.replace('opacity-0', 'opacity-100'), index * 50);
+            });
+            btnText.innerText = 'SHOW LESS';
+        } else {
+            extraItems.forEach(item => {
+                item.classList.replace('opacity-100', 'opacity-0');
+                setTimeout(() => item.classList.add('hidden'), 400);
+            });
+            btnText.innerText = `SHOW MORE (${extraItems.length})`;
+        }
+    }
+
+    // 3. Helper to scroll to category when top card is clicked
+    function scrollToCategory(categoryName) {
+        const accordions = document.querySelectorAll('.category-accordion-item');
+        accordions.forEach(acc => {
+            if (acc.getAttribute('data-category-name').trim() === categoryName) {
+                // Open it first
+                const btn = acc.querySelector('button');
+                const wrapper = acc.querySelector('div[id^="cat-wrapper"]');
+                if (wrapper.classList.contains('hidden')) {
+                    btn.click();
+                }
+                // Scroll to it
+                acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    }
+</script>
+
+<style>
+    .package-card { transition: opacity 0.4s ease, transform 0.4s ease, box-shadow 0.3s ease; }
+</style>
+{% endblock %}

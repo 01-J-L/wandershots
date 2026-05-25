@@ -1,0 +1,91 @@
+
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<!-- Add Chart.js for the Bar Graph -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Full screen container overriding dark mode -->
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    
+    <!-- SIDEBAR (Included from partial) -->
+    {% include '_admin_sidebar.html' %}
+
+    <!-- MAIN SCROLLABLE CONTENT -->
+    <main class="flex-1 p-8 overflow-y-auto bg-gray-50">
+        
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Overview & Analytics</h1>
+            <p class="text-gray-500">Monitor your bookings, revenue, and manage your business operations.</p>
+        </div>
+
+        <!-- BAR GRAPH SECTION -->
+        <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm mb-10">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Monthly Bookings Overview</h3>
+            <div class="relative h-72 w-full">
+                <canvas id="bookingsChart"></canvas>
+            </div>
+        </div>
+
+        {# The CARDS GRID SECTION has been moved to the sidebar in _admin_sidebar.html #}
+        
+    </main>
+</div>
+
+<!-- Script to initialize the Bar Graph -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('bookingsChart').getContext('2d');
+        
+        // Use the chart_data passed from Flask (safe filter ensures proper JSON rendering)
+        const chartLabels = {{ chart_data.labels | tojson | safe }};
+        const bookedBookings = {{ chart_data.booked_data | tojson | safe }}; // CHANGED: from finishedBookings to bookedBookings
+        const cancelledBookings = {{ chart_data.cancelled_data | tojson | safe }};
+
+        const bookingsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartLabels, // Dynamic labels
+                datasets: [{
+                    label: 'Booked Bookings', // CHANGED: from 'Finished Bookings' to 'Booked Bookings'
+                    data: bookedBookings, // Dynamic data
+                    backgroundColor: 'rgba(79, 70, 229, 0.8)', 
+                    borderRadius: 6,
+                    borderSkipped: false,
+                },
+                {
+                    label: 'Cancelled',
+                    data: cancelledBookings, // Dynamic data
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)', 
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+{
+  "name": "Wandershots Admin",
+  "short_name": "WS Admin",
+  "description": "Wandershots Studios Booking & Management App",
+  "start_url": "/admin_login",
+  "display": "standalone",
+  "background_color": "#4f46e5",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/static/wslogo.jpg",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/wslogo.jpg",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

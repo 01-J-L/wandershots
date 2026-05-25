@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+.DS_Store
+*.log
+web_app_logs/*
+
+# Sensitive Files - DO NOT COMMIT TO GIT
+token.json
+credentials.json
+client_secret.json
+service_account.json
+# If you make local database backups:
+*.sql
