@@ -5,6 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wandershots Studios</title>
+    <meta name="description" content="Wandershots Studios offers premium photography, on-site studio booths, photoman, and custom photobooth services for weddings, corporate events, and private sessions.">
+    <meta name="keywords" content="Wandershots, Wandershots Studios, photography, photobooth, studio booth, photoman, wedding photography">
+
+{% block extra_meta %}{% endblock %}
+
+<!-- Open Graph (For Social Sharing previews) -->
+    <meta property="og:title" content="Wandershots Studios">
+    <meta property="og:description" content="Timeless elegance in every frame. Capture your special moments with Wandershots.">
+    <meta property="og:url" content="https://wandershots.online">
+    <meta property="og:type" content="website">
 
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
 
@@ -17,7 +27,7 @@
 
     <!-- PWA Requirements -->
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Wandershots">

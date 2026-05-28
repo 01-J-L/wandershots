@@ -34,7 +34,7 @@ def create_app():
     app = Flask(__name__)
     
     # Get SECRET_KEY from environment variable, with a fallback for development if not set
-    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or 'your_strong_default_secret_key_if_not_set'
+    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
     app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 

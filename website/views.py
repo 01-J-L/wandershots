@@ -384,8 +384,8 @@ def get_image_url(filename, default_url):
 
 def send_contact_message_email(app, name, email, message):
     with app.app_context():
-        SMTP_USER = "enemyslayer0909@gmail.com" 
-        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        SMTP_USER = os.environ.get("SMTP_USER")
+        SMTP_PASS = os.environ.get("SMTP_PASS")
         recipient_email = get_setting('notification_recipient_email', SMTP_USER)
         admin_phone = get_setting('admin_phone_number', '')
 
@@ -423,8 +423,8 @@ def async_send_contact_email(*args):
 
 def send_client_confirmation_email(app, recipient_email, recipient_phone, name, service, date, time, location):
     with app.app_context():
-        SMTP_USER = "enemyslayer0909@gmail.com" 
-        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        SMTP_USER = os.environ.get("SMTP_USER")
+        SMTP_PASS = os.environ.get("SMTP_PASS")
         business_email = get_setting('notification_recipient_email', SMTP_USER)
 
         # --- EMAIL CONTENT ---
@@ -458,8 +458,8 @@ def send_client_confirmation_email(app, recipient_email, recipient_phone, name, 
 
 def send_client_cancellation_email(app, recipient_email, recipient_phone, name, service, date, time, reason):
     with app.app_context():
-        SMTP_USER = "enemyslayer0909@gmail.com" 
-        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        SMTP_USER = os.environ.get("SMTP_USER")
+        SMTP_PASS = os.environ.get("SMTP_PASS")
         business_email = get_setting('notification_recipient_email', SMTP_USER)
 
         subject = f"Booking Cancelled - {service}"
@@ -493,6 +493,10 @@ def send_client_cancellation_email(app, recipient_email, recipient_phone, name, 
         sms_text = f"Hi {name}, your booking for {service} on {date} was cancelled. Reason: {reason[:40]}... Please check your email."
         send_sms(recipient_phone, sms_text)
 
+@views.route('/robots.txt')
+def robots_txt():
+    return current_app.send_static_file('robots.txt')
+
 def async_send_cancellation_email(*args):
     app = current_app._get_current_object()
     thread = threading.Thread(target=send_client_cancellation_email, args=(app, *args))
@@ -500,8 +504,8 @@ def async_send_cancellation_email(*args):
 
 def send_event_reminder_email(app, booking):
     with app.app_context():
-        SMTP_USER = "enemyslayer0909@gmail.com" 
-        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        SMTP_USER = os.environ.get("SMTP_USER")
+        SMTP_PASS = os.environ.get("SMTP_PASS")
         business_email = get_setting('notification_recipient_email', SMTP_USER)
         admin_phone = get_setting('admin_phone_number', '')
 
@@ -601,8 +605,8 @@ def auto_finish_past_bookings(app):
 
 def send_new_booking_email(app, name, email, phone, service, package, date, time, location, notes):
     with app.app_context():
-        SMTP_USER = "enemyslayer0909@gmail.com" 
-        SMTP_PASS = "unma ljgl hmhl pvhv" 
+        SMTP_USER = os.environ.get("SMTP_USER")
+        SMTP_PASS = os.environ.get("SMTP_PASS")
         recipient_email = get_setting('notification_recipient_email', SMTP_USER)
         admin_phone = get_setting('admin_phone_number', '')
 
@@ -2615,7 +2619,7 @@ def admin_settings():
     counts = get_sidebar_counts()
     # Fetch all settings to pass to the template
     settings_data = {
-        'notification_email': get_setting('notification_recipient_email', 'enemyslayer0909@gmail.com'),
+        'notification_email': get_setting('notification_recipient_email', os.environ.get("SMTP_USER")),
         'reminder_hours': get_setting('reminder_hours_before', '24'),
         'admin_phone': get_setting('admin_phone_number', ''),
         # Page 1

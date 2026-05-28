@@ -4,16 +4,16 @@
   "description": "Wandershots Studios Booking & Management App",
   "start_url": "/admin_login",
   "display": "standalone",
-  "background_color": "#4f46e5",
+  "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "icons": [
     {
-      "src": "/static/wslogo.jpg",
+      "src": "/static/wslogo.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/static/wslogo.jpg",
+      "src": "/static/wslogo.png",
       "sizes": "512x512",
       "type": "image/png"
     }

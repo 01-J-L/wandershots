@@ -12,5 +12,7 @@ token.json
 credentials.json
 client_secret.json
 service_account.json
+fb_test.py
+
 # If you make local database backups:
 *.sql
