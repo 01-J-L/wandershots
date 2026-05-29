@@ -12,14 +12,14 @@
     {
       "src": "/static/wslogo.png",
       "sizes": "828x828",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any"
     }
   ],
   "screenshots": [
     {
       "src": "/static/screenshot.png",
-      "sizes": "1080x2160",
+      "sizes": "467x760",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Wandershots Admin Interface"
