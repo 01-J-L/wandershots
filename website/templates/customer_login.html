@@ -56,13 +56,11 @@
         </div>
         
             <!-- Social Logins -->
-        <div class="mt-6 grid grid-cols-2 gap-4">
+        <div class="mt-6 grid grid-cols-1 gap-4">
             <a href="{{ url_for('auth.login_google', next=request.args.get('next', '')) }}" class="w-full flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 transition-all">
                 <i class="ri-google-fill text-red-500 text-xl mr-2"></i> Google
             </a>
-            <a href="{{ url_for('auth.login_facebook', next=request.args.get('next', '')) }}" class="w-full flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 transition-all">
-                <i class="ri-facebook-circle-fill text-blue-600 text-xl mr-2"></i> Facebook
-            </a>
+            
         </div>
 
     </div>

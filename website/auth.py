@@ -116,45 +116,6 @@ def authorize_google():
         flash('Google login failed. See console for details.', 'error') 
         return redirect(url_for('auth.login'))
 
-@auth.route('/login/facebook')
-def login_facebook():
-    if request.args.get('next'):
-        session['next_url'] = request.args.get('next')
-    redirect_uri = url_for('auth.authorize_facebook', _external=True, _scheme='https')
-    return oauth.facebook.authorize_redirect(redirect_uri)
-
-@auth.route('/authorize/facebook')
-def authorize_facebook():
-    try:
-        token = oauth.facebook.authorize_access_token()
-        resp = oauth.facebook.get('me?fields=id,name,email')
-        user_info = resp.json()
-        
-        email = user_info.get('email')
-        name = user_info.get('name')
-        
-        if not email:
-            flash('Email not provided by Facebook. Ensure your account has an email address.', 'error')
-            return redirect(url_for('auth.login'))
-            
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            user = User(email=email, first_name=name, role='customer', password='')
-            db.session.add(user)
-            db.session.commit()
-            
-        login_user(user, remember=True)
-        session.permanent = True
-        flash(f'Welcome, {user.first_name}!', 'success')
-        next_url = session.pop('next_url', None)
-        return redirect(next_url or url_for('views.customer_dashboard'))
-        
-    except Exception as e:
-        print(f"❌ FACEBOOK OAUTH ERROR: {str(e)}") 
-        
-        flash('Facebook login failed or was cancelled.', 'error')
-        return redirect(url_for('auth.login'))
-
 # ===============================================
 
 # --- CUSTOMER LOGIN ---
