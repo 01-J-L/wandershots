@@ -23,6 +23,8 @@ limiter = Limiter(
     storage_uri="memory://", # Use Redis for production if using multiple servers
 )
 
+client_kwargs={'scope': 'email public_profile'}
+
 db = SQLAlchemy()
 oauth = OAuth() # INITIALIZE OAUTH
 
@@ -30,12 +32,13 @@ oauth = OAuth() # INITIALIZE OAUTH
 # On PythonAnywhere, these will be read from the web app's environment variables.
 load_dotenv()
 
+
 def create_app():
     app = Flask(__name__)
     
     # Get SECRET_KEY from environment variable, with a fallback for development if not set
     app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=15)
     app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
     limiter.init_app(app)
@@ -172,6 +175,22 @@ def create_app():
     scheduler.api_enabled = True # Enable the scheduler's API for dashboard views (if applicable)
     scheduler.init_app(app)
     scheduler.start()
+
+    @app.after_request
+    def inject_security_headers(response):
+        # Prevent Clickjacking
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        
+        # Prevent browsers from guessing/sniffing MIME types
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        
+        # Protect referrer information sent to other domains
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        
+        # Enable XSS filtering protection in older browsers
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        
+        return response
 
     @app.errorhandler(429)
     def ratelimit_handler(e):

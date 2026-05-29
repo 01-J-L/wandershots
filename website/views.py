@@ -361,6 +361,25 @@ def send_sms(phone, message):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def verify_image_header(file_stream):
+    """
+    Reads the initial bytes of a file stream to verify it has a valid image header.
+    """
+    header = file_stream.read(12)
+    file_stream.seek(0) # Reset the file stream pointer back to the beginning
+    
+    # Common standard image magic numbers
+    if header.startswith(b'\xff\xd8\xff'):
+        return 'jpeg'
+    elif header.startswith(b'\x89PNG\r\n\x1a\n'):
+        return 'png'
+    elif header.startswith(b'GIF87a') or header.startswith(b'GIF89a'):
+        return 'gif'
+    elif b'WEBP' in header:
+        return 'webp'
+        
+    return None
+
 def get_setting(key, default_value=""):
     setting = SiteSetting.query.filter_by(setting_key=key).first()
     return setting.setting_value if setting else default_value
@@ -2616,6 +2635,9 @@ def admin_delete_package(package_id):
 @views.route('/admin/settings')
 @login_required
 def admin_settings():
+    if current_user.role != 'super_admin':
+        flash('Access denied. Super Admin privileges required.', category='error')
+        return redirect(url_for('views.dashboard'))
     counts = get_sidebar_counts()
     # Fetch all settings to pass to the template
     settings_data = {
@@ -2640,6 +2662,9 @@ def admin_settings():
 @views.route('/admin/system/upload_apk', methods=['POST'])
 @login_required
 def admin_upload_apk():
+    if current_user.role != 'super_admin':
+        flash('Access denied. Super Admin privileges required.', category='error')
+        return redirect(url_for('views.dashboard'))
     """Handles uploading the Android APK file to the static/apps directory."""
     file = request.files.get('apk_file')
     if file and file.filename != '':
@@ -2673,6 +2698,9 @@ def admin_upload_apk():
 @views.route('/admin/system/delete_apk', methods=['POST'])
 @login_required
 def admin_delete_apk():
+    if current_user.role != 'super_admin':
+        flash('Access denied. Super Admin privileges required.', category='error')
+        return redirect(url_for('views.dashboard'))
     """Permanently deletes the uploaded APK file and clears the setting."""
     old_apk = get_setting('admin_apk_filename')
     if old_apk:
@@ -2748,6 +2776,9 @@ def admin_cms():
 @views.route('/admin/system/save_notification_settings', methods=['POST'])
 @login_required
 def save_notification_settings():
+    if current_user.role != 'super_admin':
+        flash('Access denied. Super Admin privileges required.', category='error')
+        return redirect(url_for('views.dashboard'))
     new_email = request.form.get('notification_email')
     new_hours = request.form.get('reminder_hours')
     new_admin_phone = request.form.get('admin_phone')
@@ -3158,6 +3189,9 @@ def admin_restore_db():
 @views.route('/admin/system/save_fb_settings', methods=['POST'])
 @login_required
 def save_fb_settings():
+    if current_user.role != 'super_admin':
+        flash('Access denied. Super Admin privileges required.', category='error')
+        return redirect(url_for('views.dashboard'))
     # Save settings for Page 1 (using original keys for backward compatibility)
     set_setting('fb_page_name', request.form.get('fb_page_name'))
     set_setting('fb_page_id', request.form.get('fb_page_id'))

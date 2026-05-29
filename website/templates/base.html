@@ -68,6 +68,38 @@
 
     </script>
 
+{% if user.is_authenticated %}
+<script>
+    (function() {
+        let idleTime = 0;
+        
+        // Increment the idle counter every minute
+        const idleInterval = setInterval(timerIncrement, 60000); 
+
+        // Reset the idle timer on any user interaction
+        const resetTimer = () => {
+            idleTime = 0;
+        };
+
+        window.onload = resetTimer;
+        window.onmousemove = resetTimer;
+        window.onmousedown = resetTimer; 
+        window.ontouchstart = resetTimer;
+        window.onclick = resetTimer;     
+        window.onkeydown = resetTimer;   
+        window.addEventListener('scroll', resetTimer, true);
+
+        function timerIncrement() {
+            idleTime++;
+            if (idleTime >= 15) { // 15 minutes of inactivity
+                clearInterval(idleInterval);
+                showLoading(); // Triggers the spinner
+                window.location.href = "{{ url_for('auth.logout') }}";
+            }
+        }
+    })();
+</script>
+{% endif %}
 
     <!-- Splash Screen Trigger Logic -->
     <script>
