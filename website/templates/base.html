@@ -16,6 +16,15 @@
     <meta property="og:url" content="https://wandershots.online">
     <meta property="og:type" content="website">
 
+    <!-- Standard Favicon link for modern browsers -->
+    <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='favicon.png') }}">
+    
+    <!-- Legacy Favicon link for older browsers -->
+    <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <!-- Optional: Apple touch icon for mobile home screens -->
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.png') }}">
+
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">

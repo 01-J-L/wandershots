@@ -8,7 +8,7 @@ import tempfile
 import subprocess
 import shutil
 import re 
-from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, session, jsonify, current_app
+from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, session, jsonify, current_app, send_from_directory
 from flask_login import login_required, current_user
 from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem, BlockedDate
 from . import db, limiter
@@ -980,6 +980,14 @@ def chat():
         print(f"Chatbot Error: {e}")
         return jsonify({'reply': "I'm having a little trouble connecting right now. Please reach out to us at hello@wandershots.com if you need immediate assistance."})
     
+@views.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(current_app.root_path, 'static'),
+        'favicon.ico', 
+        mimetype='image/vnd.microsoft.icon'
+    )
+
 @views.route('/')
 def home():
     # Fetch content from database, fallback to defaults if empty
