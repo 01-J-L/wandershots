@@ -5,16 +5,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wandershots Studios</title>
-    <meta name="description" content="Wandershots Studios offers premium photography, on-site studio booths, photoman, and custom photobooth services for weddings, corporate events, and private sessions.">
-    <meta name="keywords" content="Wandershots, Wandershots Studios, photography, photobooth, studio booth, photoman, wedding photography">
-
+    <meta name="description" content="Wandershots Studios (also known as Wandershots Studio) offers premium photography, on-site studio booths, photoman, and custom photobooth services for weddings and events in Batangas.">
+    <meta name="keywords" content="Wandershots, Wandershots Studio, Wandershots Studios, photography, photobooth, studio booth, photoman, wedding photography">
+    
 {% block extra_meta %}{% endblock %}
 
 <!-- Open Graph (For Social Sharing previews) -->
+    <!-- Open Graph (For Social Sharing previews) -->
     <meta property="og:title" content="Wandershots Studios">
     <meta property="og:description" content="Timeless elegance in every frame. Capture your special moments with Wandershots.">
     <meta property="og:url" content="https://wandershots.online">
     <meta property="og:type" content="website">
+    
+    <!-- ADD THESE LINES FOR THE SEARCH ENGINE PICTURE -->
+    <meta property="og:image" content="https://wandershots.online/static/images/wslogo.png">
+    <meta property="og:image:secure_url" content="https://wandershots.online/static/images/wslogo.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <!-- Schema Markup for Google Search (Helps rank for all brand variations) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "Wandershots Studios",
+      "alternateName": [
+        "Wandershots", 
+        "Wandershots Studio", 
+        "Wandershots Studios", 
+        "Wandershots Studios Batangas"
+      ],
+      "image": "https://wandershots.online/static/images/wslogo.png",
+      "url": "https://wandershots.online",
+      "logo": "https://wandershots.online/static/images/wslogo.png",
+      "description": "Wandershots Studios offers premium photography, on-site studio booths, photoman, and custom photobooth services by Wandershots Studio in Batangas."
+    }
+    </script>
 
     <!-- Standard Favicon link for modern browsers -->
     <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='favicon.png') }}">
