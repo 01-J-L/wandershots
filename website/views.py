@@ -801,37 +801,71 @@ def post_portfolio_to_facebook(app, portfolio_id, selected_pages):
             db.session.commit()
 
 def delete_facebook_post(app, fb_post_ids):
-    """Deletes ALL linked posts from Facebook (Photos and Videos)"""
+    """Deletes ALL linked posts from Facebook (Photos and Videos) trying all active page tokens"""
     with app.app_context():
-        token = get_setting('fb_access_token')
-        if not fb_post_ids or not token: return
+        if not fb_post_ids: 
+            return
         
-        # Split the IDs and delete every single post associated with this portfolio
+        # Collect all active credentials
+        tokens = []
+        for i in range(1, 4):
+            tok = get_setting('fb_access_token' if i == 1 else f'fb_access_token_{i}')
+            if tok: 
+                tokens.append(tok)
+                
+        if not tokens:
+            print("❌ FB Delete: No access tokens found in settings.")
+            return
+        
+        # Loop through each post ID and attempt deletion with each available token
         for post_id in fb_post_ids.split(','):
-            try:
-                url = f"https://graph.facebook.com/v19.0/{post_id.strip()}"
-                response = requests.delete(url, params={'access_token': token})
-                if response.status_code == 200:
-                    print(f"✅ Deleted FB post: {post_id}")
-            except Exception as e:
-                print(f"❌ FB Delete Exception: {e}")
+            pid = post_id.strip()
+            success = False
+            for token in tokens:
+                try:
+                    url = f"https://graph.facebook.com/v19.0/{pid}"
+                    response = requests.delete(url, params={'access_token': token})
+                    if response.status_code == 200:
+                        print(f"✅ Deleted FB post: {pid}")
+                        success = True
+                        break # Stop trying other tokens once deletion succeeds
+                except Exception as e:
+                    print(f"⚠️ FB Delete attempt exception for {pid}: {e}")
+            if not success:
+                print(f"❌ Failed to delete FB post {pid} with any available token.")
 
 def update_facebook_post_text(app, fb_post_ids, caption):
-    """Updates the text on ALL linked Facebook posts"""
+    """Updates the text on ALL linked Facebook posts trying all active page tokens"""
     with app.app_context():
-        token = get_setting('fb_access_token')
-        if not fb_post_ids or not token: return
+        if not fb_post_ids: 
+            return
+        
+        tokens = []
+        for i in range(1, 4):
+            tok = get_setting('fb_access_token' if i == 1 else f'fb_access_token_{i}')
+            if tok: 
+                tokens.append(tok)
+                
+        if not tokens:
+            print("❌ FB Update: No access tokens found in settings.")
+            return
         
         for post_id in fb_post_ids.split(','):
-            try:
-                url = f"https://graph.facebook.com/v19.0/{post_id.strip()}"
-                # We send both 'message' and 'description' to ensure it updates both photos and videos
-                payload = {'message': caption, 'description': caption, 'access_token': token}
-                response = requests.post(url, data=payload)
-                if response.status_code == 200:
-                    print(f"✅ Updated text on FB post: {post_id}")
-            except Exception as e:
-                print(f"❌ FB Update Exception: {e}")
+            pid = post_id.strip()
+            success = False
+            for token in tokens:
+                try:
+                    url = f"https://graph.facebook.com/v19.0/{pid}"
+                    payload = {'message': caption, 'description': caption, 'access_token': token}
+                    response = requests.post(url, data=payload)
+                    if response.status_code == 200:
+                        print(f"✅ Updated text on FB post: {pid}")
+                        success = True
+                        break
+                except Exception as e:
+                    print(f"⚠️ FB Update attempt exception for {pid}: {e}")
+            if not success:
+                print(f"❌ Failed to update FB post {pid} with any available token.")
 
 
 # --- 4. UPLOAD ROUTE ---
@@ -2523,25 +2557,31 @@ def admin_edit_portfolio(item_id):
         selected_pages = request.form.getlist('post_to_fb')
         app = current_app._get_current_object()
         
-        if media_changed and selected_pages:
-            # If pictures changed, we MUST delete the old FB post and make a new one
-            old_fb_id = item.fb_post_id
-            item.fb_post_id = None # Reset so the new thread can save the new ID
-            db.session.commit()
-            
-            if old_fb_id:
-                threading.Thread(target=delete_facebook_post, args=(app, old_fb_id)).start()
-            
-            threading.Thread(target=post_portfolio_to_facebook, args=(app, item.id, selected_pages)).start()
-            flash('Portfolio updated. Old Facebook post deleted and re-posted to selected pages!', 'success')
-            
-        elif text_changed and item.fb_post_id:
-            # If only text changed, we update the existing FB post directly
-            new_caption = f"✨ {item.title}\n📂 Category: {item.category}\n\n{item.description}"
-            threading.Thread(target=update_facebook_post_text, args=(app, item.fb_post_id, new_caption)).start()
-            flash('Portfolio text and Facebook post caption updated successfully!', 'success')
-            
+        if selected_pages:
+            # Case A: Media changed, OR this item was never successfully posted to Facebook before
+            if media_changed or not item.fb_post_id:
+                old_fb_id = item.fb_post_id
+                item.fb_post_id = None # Reset so the thread can write new post IDs
+                db.session.commit()
+                
+                # Delete the old out-of-sync post on Facebook if it exists
+                if old_fb_id:
+                    threading.Thread(target=delete_facebook_post, args=(app, old_fb_id)).start()
+                
+                # Create a fresh post with the updated media
+                threading.Thread(target=post_portfolio_to_facebook, args=(app, item.id, selected_pages)).start()
+                flash('Portfolio updated and shared on selected Facebook Page(s)!', 'success')
+                
+            # Case B: Only the text changed, and we have an existing Facebook post to update
+            elif text_changed and item.fb_post_id:
+                new_caption = f"✨ {item.title}\n📂 Category: {item.category}\n\n{item.description}"
+                threading.Thread(target=update_facebook_post_text, args=(app, item.fb_post_id, new_caption)).start()
+                flash('Portfolio text and Facebook post caption updated successfully!', 'success')
+                
+            else:
+                flash('Portfolio updated successfully!', 'success')
         else:
+            # No Facebook pages were checked; keep the local portfolio updates only
             flash('Portfolio updated successfully!', 'success')
         
         return redirect(url_for('views.admin_portfolio'))
