@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["5000 per day", "500 per hour"],
     storage_uri="memory://", # Use Redis for production if using multiple servers
 )
 
@@ -62,7 +62,7 @@ def create_app():
     app.config['MYSQL_BIN_PATH'] = os.environ.get('MYSQL_BIN_PATH')
     # ----------------------------------------
     
-    app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024 # 500 MB limit for file uploads
+    app.config['MAX_CONTENT_LENGTH'] = 5000 * 1024 * 1024 # 500 MB limit for file uploads
 
     # Security enhancements for session cookies
     app.config['SESSION_COOKIE_SECURE'] = True # Only send cookies over HTTPS

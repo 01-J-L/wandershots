@@ -265,7 +265,7 @@ def verify_signup_otp():
 
 # --- RESEND SIGNUP OTP ---
 @auth.route('/resend-signup-otp')
-@limiter.limit("3 per hour")
+@limiter.limit("100 per hour")
 def resend_signup_otp():
     if 'signup_data' not in session:
         return redirect(url_for('auth.signup'))
@@ -382,7 +382,7 @@ def reset_password():
 
 # --- ADMIN LOGIN & LOGOUT ---
 @auth.route('/admin_login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("10 per minute")
 def admin_login():
     if request.method == 'POST':
         username = request.form.get('username')

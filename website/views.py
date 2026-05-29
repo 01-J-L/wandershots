@@ -528,37 +528,58 @@ def send_event_reminder_email(app, booking):
         business_email = get_setting('notification_recipient_email', SMTP_USER)
         admin_phone = get_setting('admin_phone_number', '')
 
+        # Attempt to format the date string to a friendlier format (e.g., October 24, 2024)
+        # Fallback to the original raw date string if parsing fails
+        try:
+            date_obj = datetime.strptime(booking.date, '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%B %d, %Y')
+        except Exception:
+            formatted_date = booking.date
+
         # --- EMAIL CONTENT (Client) ---
-        subject = f"Reminder: Your session is coming up! - {booking.service_type}"
+        subject = f"Reminder: Your session on {formatted_date} - {booking.service_type}"
         body = f"""Hi {booking.customer_name},
 
-        This is a friendly reminder that your {booking.service_type} session is scheduled for tomorrow!
+        This is a friendly reminder that your {booking.service_type} session is scheduled for {formatted_date}!
 
         EVENT DETAILS:
         Service: {booking.service_type}
-        Date: {booking.date}
+        Date: {formatted_date}
         Time: {booking.time}
         Location: {booking.location or 'In Studio'}
 
-        We look forward to seeing you!
+        We look forward to capturing your moments!
         
         Best regards,
         Wandershots Studios Team
         """
-        msg = MIMEMultipart(); msg['From'] = f"Wandershots Studios <{business_email}>"; msg['To'] = booking.customer_email
-        msg['Subject'] = subject; msg.attach(MIMEText(body, 'plain'))
+        msg = MIMEMultipart()
+        msg['From'] = f"Wandershots Studios <{business_email}>"
+        msg['To'] = booking.customer_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
         
         try:
-            server = smtplib.SMTP('smtp.gmail.com', 587); server.starttls()
-            server.login(SMTP_USER, SMTP_PASS); server.send_message(msg); server.quit()
-        except Exception: pass
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+            server.quit()
+        except Exception as e: 
+            print(f"Error sending reminder email: {e}")
 
         # --- SMS CONTENT (Client) ---
-        send_sms(booking.customer_phone, f"Hi {booking.customer_name}, just a reminder that your session for {booking.service_type} is scheduled for tomorrow at {booking.time}!")
+        send_sms(
+            booking.customer_phone, 
+            f"Hi {booking.customer_name}, just a reminder that your session for {booking.service_type} is scheduled for {formatted_date} at {booking.time}!"
+        )
 
         # --- SMS CONTENT (Admin) ---
         if admin_phone:
-            send_sms(admin_phone, f"Admin Reminder: Booking with {booking.customer_name} is scheduled for tomorrow at {booking.time}.")
+            send_sms(
+                admin_phone, 
+                f"Admin Reminder: Booking with {booking.customer_name} is scheduled for {formatted_date} at {booking.time}."
+            )
 
         # Update DB
         booking.reminder_sent = True
