@@ -12,7 +12,7 @@
     {
       "src": "/static/wslogo.png",
       "sizes": "828x828",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "any"
     }
   ],
