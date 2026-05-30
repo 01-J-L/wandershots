@@ -1091,6 +1091,7 @@ def home():
 def services():
     # Fetch all packages from the database
     all_packages = ServicePackage.query.order_by(ServicePackage.package_type).all()
+    all_packages = ServicePackage.query.order_by(ServicePackage.order.asc()).all()
     
     # Group packages by their type (e.g., Photobooth, Events, etc.)
     categorized_services = {}
@@ -1415,6 +1416,7 @@ def booking_success():
 @login_required # <--- NEW: Forces login before booking
 def book():
     packages = ServicePackage.query.order_by(ServicePackage.price).all()
+    packages = ServicePackage.query.order_by(ServicePackage.order.asc(), ServicePackage.name.asc()).all()
     
     if request.method == 'POST':
         name = request.form.get('name')
@@ -2635,10 +2637,35 @@ def admin_delete_portfolio(item_id):
 @views.route('/admin/packages_pricing')
 @login_required
 def admin_packages_pricing():
-    packages = ServicePackage.query.order_by(ServicePackage.name).all()
+    # Get active category filter from URL parameters
+    category_filter = request.args.get('category', 'all')
+    
+    query = ServicePackage.query
+    if category_filter and category_filter != 'all':
+        query = query.filter_by(package_type=category_filter)
+        
+    # Sort packages by our new sequence order field
+    packages = query.order_by(ServicePackage.order.asc(), ServicePackage.name.asc()).all()
+    
+    # Pre-defined categories matching your website selections
+    categories = [
+        "On-site Studio Booth", 
+        "Photobooth", 
+        "Photoman", 
+        "Events Photography", 
+        "Studio Photoshoot"
+    ]
+    
     counts = get_sidebar_counts()
-    return render_template("admin_packages_pricing.html", user=current_user, page='dashboard', 
-                           packages=packages, **counts)
+    return render_template(
+        "admin_packages_pricing.html", 
+        user=current_user, 
+        page='dashboard', 
+        packages=packages, 
+        categories=categories,
+        current_category=category_filter,
+        **counts
+    )
 
 @views.route('/admin/packages_pricing/add', methods=['GET', 'POST'])
 @login_required
@@ -2649,7 +2676,6 @@ def admin_add_package():
         price = request.form.get('price')
         package_type = request.form.get('package_type')
         
-        # Handle Package Image
         file = request.files.get('image_file')
         img = None
         if file and file.filename != '' and allowed_file(file.filename):
@@ -2660,13 +2686,16 @@ def admin_add_package():
         if not name or not price:
             flash('Name and Price are required.', category='error')
         else:
-            # 1. Save to Database
+            # Count existing packages to assign the next order number in sequence
+            current_count = ServicePackage.query.count()
+            
             new_package = ServicePackage(
                 name=name,
                 description=description,
                 price=price,
                 package_type=package_type,
-                image_filename=img
+                image_filename=img,
+                order=current_count # <--- ADD THIS
             )
             db.session.add(new_package)
             db.session.commit()
@@ -2675,6 +2704,56 @@ def admin_add_package():
             return redirect(url_for('views.admin_packages_pricing'))
 
     return render_template("admin_add_edit_package.html", user=current_user, package=None, **get_sidebar_counts())
+
+@views.route('/admin/packages_pricing/reorder/<int:package_id>/<string:direction>', methods=['POST'])
+@login_required
+def admin_reorder_package(package_id, direction):
+    package = ServicePackage.query.get_or_404(package_id)
+    
+    # Query all packages ordered by sequence
+    packages = ServicePackage.query.order_by(ServicePackage.order.asc(), ServicePackage.id.asc()).all()
+    
+    # Reset/normalize the order values to avoid duplication conflicts
+    for index, p in enumerate(packages):
+        p.order = index
+    db.session.commit()
+    
+    # Locate current index in list
+    idx = next((i for i, p in enumerate(packages) if p.id == package.id), None)
+    
+    if idx is not None:
+        if direction == 'up' and idx > 0:
+            # Swap order values with preceding item
+            packages[idx].order, packages[idx-1].order = packages[idx-1].order, packages[idx].order
+        elif direction == 'down' and idx < len(packages) - 1:
+            # Swap order values with succeeding item
+            packages[idx].order, packages[idx+1].order = packages[idx+1].order, packages[idx].order
+            
+        db.session.commit()
+        flash('Sequence order updated.', 'success')
+        
+    return redirect(request.referrer or url_for('views.admin_packages_pricing'))
+
+@views.route('/admin/packages_pricing/reorder_ajax', methods=['POST'])
+@login_required
+def admin_reorder_packages_ajax():
+    data = request.get_json()
+    if not data or 'order' not in data:
+        return jsonify({'success': False, 'message': 'Invalid data'}), 400
+    
+    # 'order' is a list of package IDs in the new sequence, e.g., [5, 2, 8, 1]
+    package_ids = data['order']
+    
+    try:
+        for index, pkg_id in enumerate(package_ids):
+            package = ServicePackage.query.get(int(pkg_id))
+            if package:
+                package.order = index
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'New sequence saved successfully.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @views.route('/admin/packages_pricing/edit/<int:package_id>', methods=['GET', 'POST'])
 @login_required

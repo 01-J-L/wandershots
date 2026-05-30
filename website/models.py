@@ -84,6 +84,7 @@ class ServicePackage(db.Model):
     package_type = db.Column(db.String(50)) 
     image_filename = db.Column(db.String(200))
     created_at = db.Column(db.DateTime(timezone=True), default=func.now())
+    order = db.Column(db.Integer, default=0)
 
 class SiteSetting(db.Model):
     id = db.Column(db.Integer, primary_key=True)

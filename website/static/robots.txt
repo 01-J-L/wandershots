@@ -1,6 +1,9 @@
 User-agent: *
 Allow: /
 Allow: /static/
+Allow: /favicon.ico
+
+Sitemap: https://www.wandershots.online/sitemap.xml
 
 # Prevent Google from indexing your administrative dashboard
 Disallow: /admin/

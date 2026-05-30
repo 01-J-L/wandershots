@@ -1,6 +1,6 @@
 
 import os
-from flask import Flask
+from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from os import path
 from flask_login import LoginManager
@@ -191,6 +191,42 @@ def create_app():
         response.headers['X-XSS-Protection'] = '1; mode=block'
         
         return response
+    
+    ERROR_DETAILS = {
+        400: {"title": "Bad Request", "desc": "Mali o corrupted ang request ng user."},
+        401: {"title": "Unauthorized", "desc": "Kailangan mag-login upang ma-access ang page na ito."},
+        403: {"title": "Forbidden", "desc": "Walang sapat na permission ang iyong account upang tingnan ito."},
+        404: {"title": "Not Found", "desc": "Hindi mahanap ang page o file na iyong hinahanap."},
+        405: {"title": "Method Not Allowed", "desc": "Maling paraan ng pagpapadala ng impormasyon (GET/POST)."},
+        408: {"title": "Request Timeout", "desc": "Naubos ang oras sa paghihintay sa iyong request. Subukang muli."},
+        429: {"title": "Too Many Requests", "desc": "Masyadong mabilis ang iyong pag-request. Mangyaring mag-antay ng kaunti upang iwas spam."},
+        500: {"title": "Internal Server Error", "desc": "May naganap na pagkakamali sa aming server o system."},
+        502: {"title": "Bad Gateway", "desc": "May error sa komunikasyon sa pagitan ng mga server."},
+        503: {"title": "Service Unavailable", "desc": "Kasalukuyang sarado ang system para sa maintenance mode."},
+        504: {"title": "Gateway Timeout", "desc": "Nag-timeout ang koneksyon sa aming backend server."}
+    }
+
+    def make_error_handler(code):
+        def handler(e):
+            details = ERROR_DETAILS.get(code, {"title": "Error", "desc": "May hindi inaasahang pagkakamali."})
+            # Falls back to standard layout context or renders standalone if db isn't reachable
+            try:
+                return render_template('error.html', code=code, title=details['title'], desc=details['desc']), code
+            except Exception:
+                # Standalone fallback block if templates or DB rendering fails completely
+                return f"""
+                <div style="text-align:center; padding-top:100px; font-family:sans-serif; color:#1f2937;">
+                    <h1 style="color:#ef4444; font-size:48px; margin-bottom:10px;">{code}</h1>
+                    <h2 style="margin-bottom:20px;">{details['title']}</h2>
+                    <p style="color:#6b7280; max-width:400px; margin:0 auto 30px auto;">{details['desc']}</p>
+                    <a href="/" style="text-decoration:none; background:#4f46e5; color:white; padding:10px 20px; border-radius:8px; font-weight:bold;">Return Home</a>
+                </div>
+                """, code
+        return handler
+
+    # Register each status code dynamically
+    for code in ERROR_DETAILS.keys():
+        app.register_error_handler(code, make_error_handler(code))
 
     @app.errorhandler(429)
     def ratelimit_handler(e):
