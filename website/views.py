@@ -528,8 +528,6 @@ def send_event_reminder_email(app, booking):
         business_email = get_setting('notification_recipient_email', SMTP_USER)
         admin_phone = get_setting('admin_phone_number', '')
 
-        # Attempt to format the date string to a friendlier format (e.g., October 24, 2024)
-        # Fallback to the original raw date string if parsing fails
         try:
             date_obj = datetime.strptime(booking.date, '%Y-%m-%d')
             formatted_date = date_obj.strftime('%B %d, %Y')
@@ -604,14 +602,28 @@ def check_upcoming_events(app):
                 # Combine b.date (YYYY-MM-DD) and b.time (HH:MM) into a datetime object
                 event_datetime = datetime.strptime(f"{b.date} {b.time}", '%Y-%m-%d %H:%M')
                 
+                # SAFEGUARD: If the event time has already passed, skip sending 
+                # and mark it as processed so it won't be evaluated again.
+                if event_datetime <= current_time:
+                    b.reminder_sent = True
+                    db.session.commit()
+                    print(f"Skipped reminder for past event (Booking ID: {b.id})")
+                    continue
+                
                 # Calculate the difference
                 time_diff = event_datetime - current_time
                 hours_until_event = time_diff.total_seconds() / 3600
 
-                # 3. If the event is within the threshold (but still in the future)
+                # 3. Only send if the event is within the threshold window and strictly in the future
                 if 0 < hours_until_event <= hours_threshold:
                     send_event_reminder_email(app, b)
+                    
+                    # Update and commit state inside the active query session context
+                    b.reminder_sent = True
+                    db.session.commit()
+                    print(f"Reminder status updated in database for booking ID {b.id}")
             except Exception as e:
+                db.session.rollback()
                 print(f"Error processing reminder for booking {b.id}: {e}")
 
 
