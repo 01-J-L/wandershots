@@ -348,25 +348,24 @@ def admin_login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        
+        # Read the state of the checkbox from the form
+        remember = True if request.form.get('remember') else False
+
         user = User.query.filter_by(username=username).first()
 
         if user and user.role in ['admin', 'super_admin']:
             
-            # --- LOCKOUT LOGIC (Bypassed for super_admin) ---
-            # Super admins will never be prompted for email authorization due to failed attempts
             if user.role != 'super_admin' and user.login_attempts >= 5:
                 token = generate_verification_token(user.email)
                 send_verification_email(user.email, token)
                 flash('Account locked due to too many failed attempts. A reset link has been sent to your email.', 'error')
                 return render_template("admin_login.html", user=current_user)
 
-            # --- PASSWORD CHECK ---
             if check_password_hash(user.password, password):
-                user.login_attempts = 0 # Reset attempts on successful login
+                user.login_attempts = 0 
                 db.session.commit()
                 
-                # --- 15-DAY VERIFICATION (Bypassed for super_admin) ---
-                # Super admins bypass the periodic email security check
                 if user.role != 'super_admin':
                     if user.last_verified and (datetime.now() - user.last_verified.replace(tzinfo=None)).days >= 15:
                         token = generate_verification_token(user.email)
@@ -374,19 +373,17 @@ def admin_login():
                         flash('For your security, please verify your email to continue. Link sent!', 'info')
                         return render_template("admin_login.html", user=current_user)
                 
-                # Successful Login
-                login_user(user, remember=True)
+                # Successful Login - Pass the "remember" variable here
+                login_user(user, remember=remember)
 
                 session.permanent = True
 
                 return redirect(url_for('views.dashboard'))
             
             else:
-                # Increment failed attempts
                 user.login_attempts += 1
                 db.session.commit()
                 
-                # Only show remaining attempts for standard admins
                 if user.role != 'super_admin':
                     flash(f'Invalid password. {5 - user.login_attempts} attempts left.', 'error')
                 else:

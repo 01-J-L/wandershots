@@ -47,7 +47,7 @@
                             placeholder="Enter your username">
                     </div>
                 </div>
-
+ 
                 <div>
                     <label for="password" class="block text-sm font-bold text-gray-700 mb-1.5">Password</label>
                     <div class="relative">
@@ -58,6 +58,15 @@
                             class="appearance-none block w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl text-gray-900 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white transition-all sm:text-sm"
                             placeholder="••••••••">
                     </div>
+                </div>
+
+                <!-- ADD THIS BLOCK DIRECTLY BELOW THE PASSWORD INPUT: -->
+                <div class="flex items-center justify-between mt-4">
+                    <label class="flex items-center cursor-pointer select-none">
+                        <input type="checkbox" name="remember"
+                            class="w-4 h-4 text-indigo-600 bg-gray-50 border-gray-300 rounded focus:ring-indigo-500">
+                        <span class="ml-2 text-sm text-gray-600 font-medium">Remember me</span>
+                    </label>
                 </div>
 
 
@@ -91,42 +100,76 @@
         </form>
     </div>
 </section>
-
-<!-- PWA Installation Script -->
 <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const rememberCheckbox = document.querySelector('input[name="remember"]');
+
+        if (!usernameInput || !passwordInput || !rememberCheckbox) return;
+
+        // 1. Automatically fill both fields on load if credentials were saved
+        const savedUsername = localStorage.getItem('remembered_admin_username');
+        const savedPassword = localStorage.getItem('remembered_admin_password');
+        
+        if (savedUsername) {
+            usernameInput.value = savedUsername;
+            rememberCheckbox.checked = true;
+        }
+        if (savedPassword) {
+            passwordInput.value = savedPassword;
+        }
+
+        // 2. Helper function to save or clear credentials in real-time
+        function saveCredentialsRealtime() {
+            if (rememberCheckbox.checked) {
+                localStorage.setItem('remembered_admin_username', usernameInput.value);
+                localStorage.setItem('remembered_admin_password', passwordInput.value);
+            } else {
+                localStorage.removeItem('remembered_admin_username');
+                localStorage.removeItem('remembered_admin_password');
+            }
+        }
+
+        // 3. Listen to input and state changes in real-time
+        usernameInput.addEventListener('input', saveCredentialsRealtime);
+        passwordInput.addEventListener('input', saveCredentialsRealtime);
+        rememberCheckbox.addEventListener('change', saveCredentialsRealtime);
+    });
+</script>
+
+<script>
+    // Existing PWA Installation script (Keep this as is)
     let deferredPrompt;
     const installBtn = document.getElementById('installAppBtn');
 
-    // Check if the app is already installed
     if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-        installBtn.style.display = 'none';
+        if(installBtn) installBtn.style.display = 'none';
     }
 
-    // Capture the install prompt from the browser
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        installBtn.style.display = 'inline-flex'; // Show button when browser says it's installable
-        installBtn.classList.remove('hidden');
-    });
-
-    installBtn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt(); // Show the native browser install prompt
-            const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
-                installBtn.style.display = 'none'; // Hide button if they installed it
-            }
-            deferredPrompt = null;
-        } else {
-            // Fallback for iOS devices (Apple doesn't support automatic prompts)
-            alert("To install the Admin App on iOS:\n\n1. Tap the 'Share' icon at the bottom of Safari.\n2. Scroll down and select 'Add to Home Screen'.");
+        if(installBtn) {
+            installBtn.style.display = 'inline-flex';
+            installBtn.classList.remove('hidden');
         }
     });
 
-    // Hide button automatically if successfully installed
+    if(installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+            } else {
+                alert("To install the Admin App on iOS:\n\n1. Tap the 'Share' icon at the bottom of Safari.\n2. Scroll down and select 'Add to Home Screen'.");
+            }
+        });
+    }
+
     window.addEventListener('appinstalled', () => {
-        installBtn.style.display = 'none';
+        if(installBtn) installBtn.style.display = 'none';
     });
 </script>
 {% endblock %}
