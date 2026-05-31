@@ -25,6 +25,7 @@ import requests
 
 import uuid
 import time
+from datetime import timezone
 # --- GOOGLE DRIVE IMPORTS ---
 from google.oauth2.credentials import Credentials
 from google.oauth2 import service_account
@@ -522,106 +523,103 @@ def async_send_cancellation_email(*args):
     thread.start()
 
 def send_event_reminder_email(app, booking):
-    with app.app_context():
-        SMTP_USER = os.environ.get("SMTP_USER")
-        SMTP_PASS = os.environ.get("SMTP_PASS")
-        business_email = get_setting('notification_recipient_email', SMTP_USER)
-        admin_phone = get_setting('admin_phone_number', '')
+    # REMOVED: with app.app_context() block to prevent session teardown
+    SMTP_USER = os.environ.get("SMTP_USER")
+    SMTP_PASS = os.environ.get("SMTP_PASS")
+    business_email = get_setting('notification_recipient_email', SMTP_USER)
+    admin_phone = get_setting('admin_phone_number', '')
 
-        try:
-            date_obj = datetime.strptime(booking.date, '%Y-%m-%d')
-            formatted_date = date_obj.strftime('%B %d, %Y')
-        except Exception:
-            formatted_date = booking.date
+    try:
+        date_obj = datetime.strptime(booking.date, '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%B %d, %Y')
+    except Exception:
+        formatted_date = booking.date
 
-        # --- EMAIL CONTENT (Client) ---
-        subject = f"Reminder: Your session on {formatted_date} - {booking.service_type}"
-        body = f"""Hi {booking.customer_name},
+    # --- EMAIL CONTENT (Client) ---
+    subject = f"Reminder: Your session on {formatted_date} - {booking.service_type}"
+    body = f"""Hi {booking.customer_name},
 
-        This is a friendly reminder that your {booking.service_type} session is scheduled for {formatted_date}!
+    This is a friendly reminder that your {booking.service_type} session is scheduled for {formatted_date}!
 
-        EVENT DETAILS:
-        Service: {booking.service_type}
-        Date: {formatted_date}
-        Time: {booking.time}
-        Location: {booking.location or 'In Studio'}
+    EVENT DETAILS:
+    Service: {booking.service_type}
+    Date: {formatted_date}
+    Time: {booking.time}
+    Location: {booking.location or 'In Studio'}
 
-        We look forward to capturing your moments!
-        
-        Best regards,
-        Wandershots Studios Team
-        """
-        msg = MIMEMultipart()
-        msg['From'] = f"Wandershots Studios <{business_email}>"
-        msg['To'] = booking.customer_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-        
-        try:
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
-            server.quit()
-        except Exception as e: 
-            print(f"Error sending reminder email: {e}")
+    We look forward to capturing your moments!
+    
+    Best regards,
+    Wandershots Studios Team
+    """
+    msg = MIMEMultipart()
+    msg['From'] = f"Wandershots Studios <{business_email}>"
+    msg['To'] = booking.customer_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+    
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.send_message(msg)
+        server.quit()
+    except Exception as e: 
+        print(f"Error sending reminder email: {e}")
 
-        # --- SMS CONTENT (Client) ---
+    # --- SMS CONTENT (Client) ---
+    send_sms(
+        booking.customer_phone, 
+        f"Hi {booking.customer_name}, just a reminder that your session for {booking.service_type} is scheduled for {formatted_date} at {booking.time}!"
+    )
+
+    # --- SMS CONTENT (Admin) ---
+    if admin_phone:
         send_sms(
-            booking.customer_phone, 
-            f"Hi {booking.customer_name}, just a reminder that your session for {booking.service_type} is scheduled for {formatted_date} at {booking.time}!"
+            admin_phone, 
+            f"Admin Reminder: Booking with {booking.customer_name} is scheduled for {formatted_date} at {booking.time}."
         )
 
-        # --- SMS CONTENT (Admin) ---
-        if admin_phone:
-            send_sms(
-                admin_phone, 
-                f"Admin Reminder: Booking with {booking.customer_name} is scheduled for {formatted_date} at {booking.time}."
-            )
-
-        # Update DB
-        booking.reminder_sent = True
-        db.session.commit()
-
 # --- THE BACKGROUND TASK ---
+
 def check_upcoming_events(app):
     with app.app_context():
-        current_time = datetime.now()
+        # Force current time calculation to Philippine Time (UTC+8) regardless of VPS physical location
+        current_time = (datetime.now(timezone.utc) + timedelta(hours=8)).replace(tzinfo=None)
         
-        # 1. Get the admin's setting for hours (default to 24 if not set)
         try:
             hours_threshold = int(get_setting('reminder_hours_before', '24'))
         except ValueError:
             hours_threshold = 24
 
-        # 2. Get scheduled bookings that haven't received a reminder
+        # Fetch only scheduled bookings where the reminder has not been sent
         bookings = Booking.query.filter_by(status='scheduled', reminder_sent=False).all()
 
         for b in bookings:
             try:
-                # Combine b.date (YYYY-MM-DD) and b.time (HH:MM) into a datetime object
                 event_datetime = datetime.strptime(f"{b.date} {b.time}", '%Y-%m-%d %H:%M')
                 
-                # SAFEGUARD: If the event time has already passed, skip sending 
-                # and mark it as processed so it won't be evaluated again.
+                # 1. If the event is in the past, skip sending and mark completed in database
                 if event_datetime <= current_time:
                     b.reminder_sent = True
                     db.session.commit()
                     print(f"Skipped reminder for past event (Booking ID: {b.id})")
                     continue
                 
-                # Calculate the difference
+                # Calculate hours remaining until the event starts
                 time_diff = event_datetime - current_time
                 hours_until_event = time_diff.total_seconds() / 3600
 
-                # 3. Only send if the event is within the threshold window and strictly in the future
+                # 2. Only send if the event is within the threshold window and in the future
                 if 0 < hours_until_event <= hours_threshold:
-                    send_event_reminder_email(app, b)
-                    
-                    # Update and commit state inside the active query session context
+                    # Update state and commit immediately to act as a lock
                     b.reminder_sent = True
                     db.session.commit()
-                    print(f"Reminder status updated in database for booking ID {b.id}")
+                    
+                    # Fire notifications
+                    send_event_reminder_email(app, b)
+                    print(f"Reminder sent successfully for booking ID {b.id}")
+                    
             except Exception as e:
                 db.session.rollback()
                 print(f"Error processing reminder for booking {b.id}: {e}")

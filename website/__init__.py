@@ -62,7 +62,7 @@ def create_app():
     app.config['MYSQL_BIN_PATH'] = os.environ.get('MYSQL_BIN_PATH')
     # ----------------------------------------
     
-    app.config['MAX_CONTENT_LENGTH'] = 5000 * 1024 * 1024 # 500 MB limit for file uploads
+    app.config['MAX_CONTENT_LENGTH'] = 5120 * 1024 * 1024 # 5 GB limit
 
     # Security enhancements for session cookies
     app.config['SESSION_COOKIE_SECURE'] = True # Only send cookies over HTTPS
