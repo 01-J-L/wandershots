@@ -127,7 +127,7 @@
 
         function timerIncrement() {
             idleTime++;
-            if (idleTime >= 15) { // 15 minutes of inactivity
+            if (idleTime >= 180) { // 2 hours of inactivity
                 clearInterval(idleInterval);
                 showLoading(); // Triggers the spinner
                 window.location.href = "{{ url_for('auth.logout') }}";

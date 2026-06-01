@@ -147,46 +147,111 @@
     </main>
 </div>
 
-<!-- FULL-SCREEN LOADING OVERLAY (Hidden by default) -->
-<div id="loadingOverlay" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[9999] hidden flex-col items-center justify-center transition-opacity">
-    <div class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center animate-fade-in-down border border-gray-200">
-        <!-- Spinner -->
-        <div class="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-6"></div>
+<!-- Locate and replace the entire #loadingOverlay block with this: -->
+<!-- FULL-SCREEN LOADING OVERLAY WITH REAL-TIME PROGRESS BAR -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[9999] hidden flex-col items-center justify-center p-4 transition-opacity">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center w-full max-w-md text-center animate-fade-in-down border border-gray-200">
         
-        <h3 class="text-2xl font-bold text-gray-900 mb-2">Uploading Media...</h3>
-        <p class="text-sm text-gray-500 mb-4">Please wait while your files are uploaded to the server.</p>
+        <!-- Animated Spinner -->
+        <div id="loadingSpinner" class="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-6"></div>
         
-        <div class="bg-indigo-50 text-indigo-700 text-xs font-bold px-4 py-2 rounded-lg flex items-center">
+        <h3 id="loadingTitle" class="text-2xl font-bold text-gray-900 mb-2">Uploading Portfolio Media</h3>
+        
+        <!-- Real-time Progress Bar Container -->
+        <div class="w-full bg-gray-100 rounded-full h-3 mb-3 overflow-hidden relative border border-gray-200">
+            <div id="uploadProgressBar" class="bg-indigo-600 h-full w-0 transition-all duration-100 rounded-full"></div>
+        </div>
+        
+        <!-- Progress Percentage -->
+        <p id="uploadProgressPercent" class="text-sm font-extrabold text-indigo-600 mb-4">0% Complete</p>
+        
+        <!-- Status Stage Indicator -->
+        <p id="uploadStatusStage" class="text-xs text-gray-500 font-bold uppercase tracking-wider">
+            Preparing your files for transfer...
+        </p>
+        
+        <div class="bg-indigo-50 text-indigo-700 text-[11px] font-bold px-4 py-2 rounded-lg flex items-center mt-5">
             <i class="ri-error-warning-fill mr-1.5 text-lg"></i> Do not close or refresh this page.
         </div>
     </div>
 </div>
 
-<!-- JAVASCRIPT TO TRIGGER LOADING SCREEN -->
+<!-- Locate the form script block and replace it with this: -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('portfolioForm');
         const overlay = document.getElementById('loadingOverlay');
         const submitBtn = document.getElementById('submitBtn');
+        
+        // Progress elements
+        const progressBar = document.getElementById('uploadProgressBar');
+        const progressPercent = document.getElementById('uploadProgressPercent');
+        const statusStage = document.getElementById('uploadStatusStage');
+
+        if (!form) return;
 
         form.addEventListener('submit', function(e) {
-            // The submit event only fires if the required HTML fields are filled out.
-            
-            // 1. Show the loading overlay
+            // Prevent standard synchronous form submission
+            e.preventDefault();
+
+            // 1. Show the progress loading overlay
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
             
-            // 2. Change the button appearance so it looks active
-            submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-2"></i> Uploading...';
-            submitBtn.classList.replace('bg-indigo-600', 'bg-indigo-400');
-            submitBtn.classList.remove('hover:bg-indigo-700');
-            
-            // 3. Prevent double-clicking the submit button
-            // We use a tiny timeout to ensure the form submission actually triggers first
-            setTimeout(() => {
-                submitBtn.disabled = true;
-                submitBtn.style.cursor = 'not-allowed';
-            }, 50);
+            // 2. Disable submit button to prevent double submissions
+            submitBtn.disabled = true;
+            submitBtn.style.cursor = 'not-allowed';
+            submitBtn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-2"></i> Processing...';
+
+            // 3. Construct the multipart payload
+            const formData = new FormData(form);
+            const xhr = new XMLHttpRequest();
+
+            // 4. Listen to the real-time upload progress
+            xhr.upload.addEventListener('progress', function(event) {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    
+                    // Update progress bar width and text percentage
+                    progressBar.style.width = percentComplete + '%';
+                    progressPercent.textContent = `${percentComplete}% Complete`;
+                    
+                    if (percentComplete < 100) {
+                        statusStage.textContent = "Transferring media files to server...";
+                    } else {
+                        // When upload hits 100%, the server begins database processing & Facebook background worker initialization
+                        statusStage.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i> Processing upload & sharing on Facebook...';
+                    }
+                }
+            });
+
+            // 5. Handle successful response
+            xhr.addEventListener('load', function() {
+                if (xhr.status >= 200 && xhr.status < 400) {
+                    // Standard Flask redirects are followed automatically by the browser inside the XHR request.
+                    // We simply forward the browser window to the final resolved URL.
+                    window.location.href = xhr.responseURL || '/admin/portfolio';
+                } else {
+                    alert('Upload failed. Please verify your file sizes and try again.');
+                    overlay.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.style.cursor = 'pointer';
+                    submitBtn.innerHTML = '<i class="ri-upload-cloud-2-line mr-2"></i> Publish to Website & Facebook';
+                }
+            });
+
+            // 6. Handle error states
+            xhr.addEventListener('error', function() {
+                alert('An error occurred during file transfer.');
+                overlay.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtn.style.cursor = 'pointer';
+                submitBtn.innerHTML = '<i class="ri-upload-cloud-2-line mr-2"></i> Publish to Website & Facebook';
+            });
+
+            // 7. Open connection and transmit
+            xhr.open('POST', form.action || window.location.href, true);
+            xhr.send(formData);
         });
     });
 </script>
