@@ -323,6 +323,186 @@
 </section>
 
 <!-- Scripts remain identical as before -->
+ <script>
+    let fpInstance = null;
+    let occupancyData = {};
+
+    // 1. Unified initialization for the Date Calendar
+    function updateDatePickerLimits(serviceType = '') {
+        Promise.all([
+            fetch('/api/blocked-dates').then(res => res.json()),
+            fetch(`/api/booking-occupancy?service=${encodeURIComponent(serviceType)}`).then(res => res.json())
+        ])
+        .then(([blockedData, occData]) => {
+            const blockedDict = blockedData.blocked_dates;
+            occupancyData = occData.status_map;
+
+            // Gather dates that are completely booked (or manually blocked)
+            const fullyBookedDates = Object.keys(occupancyData).filter(d => occupancyData[d] === "FULL");
+            const manualBlockedDates = Object.keys(blockedDict);
+            const combinedDisabledDates = Array.from(new Set([...fullyBookedDates, ...manualBlockedDates]));
+
+            if (fpInstance) {
+                fpInstance.destroy(); // Clear old configurations
+            }
+
+            fpInstance = flatpickr("#flatpickr-date", {
+                minDate: "today",
+                disable: combinedDisabledDates,
+                dateFormat: "Y-m-d",
+                altInput: true,
+                altFormat: "F j, Y",
+                disableMobile: "true",
+                onDayCreate: function (dObj, dStr, fp, dayElem) {
+                    const year = dayElem.dateObj.getFullYear();
+                    const month = String(dayElem.dateObj.getMonth() + 1).padStart(2, '0');
+                    const day = String(dayElem.dateObj.getDate()).padStart(2, '0');
+                    const dateString = `${year}-${month}-${day}`;
+
+                    if (blockedDict[dateString]) {
+                        dayElem.title = `BLOCKED: ${blockedDict[dateString]}`;
+                        dayElem.classList.add("blocked-date-style");
+                    } else if (occupancyData[dateString] === "AM_FULL") {
+                        dayElem.title = "Morning Slots Are Fully Booked";
+                        dayElem.style.borderBottom = "3px solid #f59e0b"; // Yellow partial indicator
+                    } else if (occupancyData[dateString] === "PM_FULL") {
+                        dayElem.title = "Afternoon Slots Are Fully Booked";
+                        dayElem.style.borderBottom = "3px solid #f59e0b";
+                    }
+                },
+                onChange: function (selectedDates, dateStr) {
+                    validateTimeInput(dateStr);
+                }
+            });
+        })
+        .catch(err => console.error("Error setting dynamic service limits:", err));
+    }
+
+    const timeInput = document.querySelector('input[name="time"]');
+    function validateTimeInput(dateStr) {
+        timeInput.onchange = function () {
+            const selectedTime = this.value;
+            if (!selectedTime) return;
+            const hour = parseInt(selectedTime.split(':')[0]);
+            const status = occupancyData[dateStr];
+
+            if (status === "AM_FULL" && hour < 12) {
+                alert("Our morning slots for this service are full. Please choose a time after 12:00 PM.");
+                this.value = "";
+            } else if (status === "PM_FULL" && hour >= 12) {
+                alert("Our afternoon slots for this service are full. Please choose a time before 12:00 PM.");
+                this.value = "";
+            }
+        };
+    }
+
+    // Leaflet map initialization logic (unchanged)
+    let map, marker, currentLat = 14.5995, currentLng = 120.9842;
+    function initMap() {
+        if (map) return;
+        map = L.map('map').setView([currentLat, currentLng], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+        marker = L.marker([currentLat, currentLng], { draggable: true }).addTo(map);
+
+        const geocoder = L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "Search for a location...", })
+            .on('markgeocode', function (e) {
+                const latlng = e.geocode.center;
+                marker.setLatLng(latlng); map.setView(latlng, 16); updateLocationFields(latlng.lat, latlng.lng, e.geocode.name);
+            }).addTo(map);
+
+        marker.on('dragend', function (e) { const pos = marker.getLatLng(); updateLocationFields(pos.lat, pos.lng); reverseGeocode(pos.lat, pos.lng); });
+        map.on('click', function (e) { marker.setLatLng(e.latlng); updateLocationFields(e.latlng.lat, e.latlng.lng); reverseGeocode(e.latlng.lat, e.latlng.lng); });
+    }
+
+    function reverseGeocode(lat, lng) {
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+            .then(response => response.json())
+            .then(data => { if (data && data.display_name) document.getElementById('location-input').value = data.display_name; })
+            .catch(err => console.log("Geocoding error:", err));
+    }
+
+    function updateLocationFields(lat, lng, addressName = null) {
+        document.getElementById('map-url-input').value = `https://www.google.com/maps?q=${lat},${lng}`;
+        if (addressName) document.getElementById('location-input').value = addressName;
+    }
+
+    document.getElementById('locate-me-btn').addEventListener('click', function () {
+        if (navigator.geolocation) {
+            this.innerHTML = '<i class="ri-loader-4-line ri-spin mr-1 text-lg"></i> Locating...';
+            navigator.geolocation.getCurrentPosition(function (position) {
+                const lat = position.coords.latitude, lng = position.coords.longitude;
+                marker.setLatLng([lat, lng]); map.setView([lat, lng], 16);
+                updateLocationFields(lat, lng); reverseGeocode(lat, lng);
+                document.getElementById('locate-me-btn').innerHTML = '<i class="ri-check-line mr-1 text-lg text-green-600"></i> Location Found';
+            }, function () {
+                alert("Could not get your location. Please ensure location permissions are enabled.");
+                document.getElementById('locate-me-btn').innerHTML = '<i class="ri-gps-line mr-1 text-lg"></i> Use my current location';
+            });
+        } else alert("Geolocation is not supported by your browser.");
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const serviceRadios = document.querySelectorAll('input[name="service_type"]');
+        const locationContainer = document.getElementById('location-container');
+        const locationInput = document.getElementById('location-input');
+        const mapUrlInput = document.getElementById('map-url-input');
+        const packagesContainer = document.getElementById('packages-container');
+        const packageCards = document.querySelectorAll('.package-card');
+        const locationServices = ['Photobooth', 'Photoman', 'Events Photography', 'On-site Studio Booth'];
+
+        // Initial default layout configuration
+        updateDatePickerLimits('');
+
+        serviceRadios.forEach(radio => {
+            radio.addEventListener('change', function () {
+                const selectedService = this.value;
+
+                // Re-evaluate calendar limits when service is selected or changed
+                updateDatePickerLimits(selectedService);
+
+                // Reset inputs to avoid limit bypasses
+                const dateField = document.getElementById('flatpickr-date');
+                if (dateField) dateField.value = '';
+                if (timeInput) timeInput.value = '';
+
+                if (locationServices.includes(selectedService)) {
+                    locationContainer.classList.remove('hidden');
+                    locationInput.required = true; mapUrlInput.required = true;
+                    initMap(); setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+                } else {
+                    locationContainer.classList.add('hidden');
+                    locationInput.required = false; mapUrlInput.required = false;
+                    locationInput.value = ''; mapUrlInput.value = '';
+                }
+
+                let visiblePackagesCount = 0;
+                packageCards.forEach(card => {
+                    const packageType = card.getAttribute('data-service-type');
+                    const radioInside = card.querySelector('.package-radio');
+                    radioInside.checked = false; radioInside.required = false;
+
+                    if (packageType === selectedService) { card.classList.remove('hidden'); visiblePackagesCount++; }
+                    else { card.classList.add('hidden'); }
+                });
+
+                if (visiblePackagesCount > 0) {
+                    packagesContainer.classList.remove('hidden');
+                    const firstVisibleCard = document.querySelector('.package-card:not(.hidden) .package-radio');
+                    if (firstVisibleCard) firstVisibleCard.required = true;
+                } else packagesContainer.classList.add('hidden');
+            });
+        });
+
+        const consentCheckbox = document.getElementById('consent_data_processing');
+        const submitButton = document.getElementById('submit_booking_request_btn');
+        submitButton.disabled = true; submitButton.classList.add('btn-disabled');
+
+        consentCheckbox.addEventListener('change', function () {
+            if (this.checked) { submitButton.disabled = false; submitButton.classList.remove('btn-disabled'); }
+            else { submitButton.disabled = true; submitButton.classList.add('btn-disabled'); }
+        });
+    });
+</script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         fetch('/api/blocked-dates')

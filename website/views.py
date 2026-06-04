@@ -258,7 +258,7 @@ def process_gallery_upload(app, booking_id, saved_files):
             if folder_link:
                 booking.gallery_link = folder_link
                 booking.gallery_folder_id = folder_id # SAVE THIS
-                booking.gallery_updated_at = datetime.now() # SAVE THIS
+                booking.gallery_updated_at = datetime.now(timezone.utc)
                 db.session.commit()
                 print(f"DEBUG: Database updated with gallery_link: {folder_link}")
                 send_gallery_email(app, booking, folder_link)
@@ -278,16 +278,40 @@ def process_gallery_upload(app, booking_id, saved_files):
 
 def auto_delete_expired_galleries(app):
     with app.app_context():
-        # Define the expiration limit (14 days ago)
-        expiration_date = datetime.now() - timedelta(days=14)
+        # Helper to safely convert any datetime to naive UTC for safe comparison
+        def make_naive_utc(dt):
+            if dt is None:
+                return None
+            if dt.tzinfo is not None:
+                return dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt
+
+        # Calculate expiration threshold (14 days ago in UTC)
+        current_utc_time = datetime.now(timezone.utc).replace(tzinfo=None)
+        expiration_cutoff = current_utc_time - timedelta(days=14)
         
-        # Find bookings where a gallery exists and it was updated more than 14 days ago
-        expired_bookings = Booking.query.filter(
-            Booking.gallery_folder_id != None,
-            Booking.gallery_updated_at <= expiration_date
-        ).all()
+        # Fetch bookings with active Google Drive folders
+        bookings_with_galleries = Booking.query.filter(Booking.gallery_folder_id != None).all()
+
+        expired_bookings = []
+        for b in bookings_with_galleries:
+            updated_at_naive = make_naive_utc(b.gallery_updated_at)
+            
+            # FALLBACK: If delivery timestamp is NULL, use the booking event date as reference
+            if not updated_at_naive and b.date:
+                try:
+                    # Parse the YYYY-MM-DD string format
+                    event_datetime = datetime.strptime(b.date, '%Y-%m-%d')
+                    updated_at_naive = event_datetime
+                except Exception as parse_error:
+                    print(f"⚠️ Could not parse event date fallback for booking {b.id}: {parse_error}")
+            
+            # If we found a valid timestamp (or fallback event date), evaluate expiration
+            if updated_at_naive and updated_at_naive <= expiration_cutoff:
+                expired_bookings.append(b)
 
         if not expired_bookings:
+            print("📅 No expired galleries found for cleanup.")
             return
 
         try:
@@ -295,17 +319,28 @@ def auto_delete_expired_galleries(app):
             for b in expired_bookings:
                 try:
                     # Delete the folder from Google Drive
-                    service.files().delete(fileId=b.gallery_folder_id).execute()
+                    service.files().delete(fileId=b.gallery_folder_id, supportsAllDrives=True).execute()
                     print(f"🗑️ Deleted expired folder for {b.customer_name}")
-                except Exception as e:
-                    print(f"⚠️ Could not delete GDrive folder {b.gallery_folder_id}: {e}")
+                except Exception as e_delete:
+                    print(f"⚠️ Permanent delete failed: {e_delete}. Trying to move to Trash...")
+                    try:
+                        # Fallback: Move to Trash (highly compatible with personal My Drive folders)
+                        service.files().update(
+                            fileId=b.gallery_folder_id,
+                            body={'trashed': True},
+                            supportsAllDrives=True
+                        ).execute()
+                        print(f"♻️ Moved expired folder for {b.customer_name} to Trash.")
+                    except Exception as e_trash:
+                        print(f"❌ Both permanent delete and Trash failed for GDrive folder {b.gallery_folder_id}: {e_trash}")
 
-                # Clear the links in our database so we don't try to delete again
+                # Always clear database references so the UI updates
                 b.gallery_link = None
                 b.gallery_folder_id = None
                 b.gallery_updated_at = None
             
             db.session.commit()
+            print("✅ Expired gallery database records cleared.")
         except Exception as e:
             print(f"❌ Critical Error in auto-delete task: {e}")
 
@@ -512,6 +547,23 @@ def send_client_cancellation_email(app, recipient_email, recipient_phone, name, 
         # --- SMS CONTENT (Client) ---
         sms_text = f"Hi {name}, your booking for {service} on {date} was cancelled. Reason: {reason[:40]}... Please check your email."
         send_sms(recipient_phone, sms_text)
+
+@views.route('/admin/system/trigger_cleanup', methods=['POST'])
+@login_required
+def trigger_cleanup():
+    # Only allow administrators to trigger the cleanup
+    if current_user.role not in ['admin', 'super_admin']:
+        flash('Access denied.', 'error')
+        return redirect(url_for('views.dashboard'))
+        
+    app = current_app._get_current_object()
+    try:
+        auto_delete_expired_galleries(app)
+        flash('Expired gallery cleanup task executed successfully!', 'success')
+    except Exception as e:
+        flash(f'Cleanup failed: {e}', 'error')
+        
+    return redirect(request.referrer or url_for('views.admin_settings'))
 
 @views.route('/robots.txt')
 def robots_txt():
@@ -1816,30 +1868,48 @@ from datetime import datetime, timedelta
 
 @views.route('/api/booking-occupancy')
 def api_booking_occupancy():
-    # 1. Get Global Limits from settings (default to 1 if not set)
-    am_limit = int(get_setting('global_am_limit', '1'))
-    pm_limit = int(get_setting('global_pm_limit', '1'))
+    service_type = request.args.get('service', '').strip()
 
-    # 2. Get all active bookings
-    active_bookings = Booking.query.filter(Booking.status.in_(['scheduled', 'pending'])).all()
+    # Get Global Limits safely
+    global_am = get_setting('global_am_limit', '1')
+    global_pm = get_setting('global_pm_limit', '1')
+    global_am_limit = int(global_am) if (global_am and global_am.strip().isdigit()) else 1
+    global_pm_limit = int(global_pm) if (global_pm and global_pm.strip().isdigit()) else 1
 
-    # 3. Count AM/PM per date
-    # Format: {'2024-10-25': {'am': 1, 'pm': 0}}
+    # Resolve AM/PM capacity limits with Normalized Lowercase Keys
+    if service_type:
+        safe_service_key = service_type.lower().replace(' ', '_').replace('-', '_')
+        am_val = get_setting(f'limit_am_{safe_service_key}')
+        pm_val = get_setting(f'limit_pm_{safe_service_key}')
+        
+        am_limit = int(am_val) if (am_val and am_val.strip().isdigit()) else global_am_limit
+        pm_limit = int(pm_val) if (pm_val and pm_val.strip().isdigit()) else global_pm_limit
+    else:
+        am_limit = global_am_limit
+        pm_limit = global_pm_limit
+
+    # Fetch active bookings
+    query = Booking.query.filter(Booking.status.in_(['scheduled', 'pending']))
+    if service_type:
+        query = query.filter(Booking.service_type == service_type)
+    active_bookings = query.all()
+
+    # Count AM/PM bookings per date
     counts = {}
     for b in active_bookings:
         if b.date not in counts:
             counts[b.date] = {'am': 0, 'pm': 0}
         
-        # Check if time is AM (before 12:00) or PM (12:00 and later)
         try:
             hour = int(b.time.split(':')[0])
             if hour < 12:
                 counts[b.date]['am'] += 1
             else:
                 counts[b.date]['pm'] += 1
-        except: continue
+        except: 
+            continue
 
-    # 4. Determine status for each date
+    # Determine status mapping for each date
     occupancy_status = {}
     for date, occ in counts.items():
         am_full = occ['am'] >= am_limit
@@ -1852,15 +1922,15 @@ def api_booking_occupancy():
         elif pm_full:
             occupancy_status[date] = "PM_FULL"
 
-    # 5. Add manually blocked dates from the Admin
+    # Block manually selected dates
     blocked_dates = BlockedDate.query.all()
     for b in blocked_dates:
         occupancy_status[b.date] = "FULL"
 
     return jsonify({
         "status_map": occupancy_status,
-        "global_am_limit": am_limit,
-        "global_pm_limit": pm_limit
+        "am_limit": am_limit,
+        "pm_limit": pm_limit
     })
 
 @views.route('/api/blocked-dates')
@@ -2797,11 +2867,13 @@ def admin_settings():
         flash('Access denied. Super Admin privileges required.', category='error')
         return redirect(url_for('views.dashboard'))
     counts = get_sidebar_counts()
-    # Fetch all settings to pass to the template
+    
     settings_data = {
         'notification_email': get_setting('notification_recipient_email', os.environ.get("SMTP_USER")),
         'reminder_hours': get_setting('reminder_hours_before', '24'),
         'admin_phone': get_setting('admin_phone_number', ''),
+        'global_am_limit': get_setting('global_am_limit', '1'),
+        'global_pm_limit': get_setting('global_pm_limit', '1'),
         # Page 1
         'fb_page_name': get_setting('fb_page_name', ''),
         'fb_page_id': get_setting('fb_page_id', ''),
@@ -2815,6 +2887,14 @@ def admin_settings():
         'fb_page_id_3': get_setting('fb_page_id_3', ''),
         'fb_access_token_3': get_setting('fb_access_token_3', ''),
     }
+
+    # Load service-specific limit configurations
+    services = ["On-site Studio Booth", "Photobooth", "Photoman", "Events Photography", "Studio Photoshoot"]
+    for s in services:
+        safe_key = s.replace(' ', '_')
+        settings_data[f'limit_am_{safe_key}'] = get_setting(f'limit_am_{safe_key}', '')
+        settings_data[f'limit_pm_{safe_key}'] = get_setting(f'limit_pm_{safe_key}', '')
+
     return render_template("admin_settings.html", user=current_user, page='dashboard', settings=settings_data, **counts)
 
 @views.route('/admin/system/upload_apk', methods=['POST'])
@@ -2934,35 +3014,45 @@ def admin_cms():
 @views.route('/admin/system/save_notification_settings', methods=['POST'])
 @login_required
 def save_notification_settings():
-    if current_user.role != 'super_admin':
-        flash('Access denied. Super Admin privileges required.', category='error')
+    if current_user.role not in ['admin', 'super_admin']:
+        flash('Access denied.', category='error')
         return redirect(url_for('views.dashboard'))
-    new_email = request.form.get('notification_email')
-    new_hours = request.form.get('reminder_hours')
-    new_admin_phone = request.form.get('admin_phone')
-    
-    # NEW: Get Capacity Limits
+
+    if current_user.role == 'super_admin':
+        new_email = request.form.get('notification_email')
+        new_hours = request.form.get('reminder_hours')
+        new_admin_phone = request.form.get('admin_phone')
+        
+        if new_email:
+            set_setting('notification_recipient_email', new_email.strip())
+        if new_hours:
+            set_setting('reminder_hours_before', new_hours.strip())
+        if new_admin_phone:
+            set_setting('admin_phone_number', new_admin_phone.strip())
+
     am_limit = request.form.get('global_am_limit')
     pm_limit = request.form.get('global_pm_limit')
     
-    if new_email:
-        set_setting('notification_recipient_email', new_email)
-    if new_hours:
-        set_setting('reminder_hours_before', new_hours)
-    if new_admin_phone:
-        set_setting('admin_phone_number', new_admin_phone)
+    if am_limit is not None:
+        set_setting('global_am_limit', am_limit.strip())
+    if pm_limit is not None:
+        set_setting('global_pm_limit', pm_limit.strip())
+
+    # Save Service-Specific Overrides with Normalized Lowercase Keys
+    services = ["On-site Studio Booth", "Photobooth", "Photoman", "Events Photography", "Studio Photoshoot"]
+    for s in services:
+        safe_key = s.lower().replace(' ', '_').replace('-', '_')
+        am_val = request.form.get(f'limit_am_{safe_key}')
+        pm_val = request.form.get(f'limit_pm_{safe_key}')
         
-    # NEW: Save Capacity Limits if they exist in the submitted form
-    if am_limit:
-        set_setting('global_am_limit', am_limit)
-    if pm_limit:
-        set_setting('global_pm_limit', pm_limit)
+        if am_val is not None:
+            set_setting(f'limit_am_{safe_key}', am_val.strip())
+        if pm_val is not None:
+            set_setting(f'limit_pm_{safe_key}', pm_val.strip())
 
     db.session.commit()
-    flash('Settings updated successfully!', 'success')
-    
-    # Redirect back to the page the user was on (Calendar or Settings)
-    return redirect(request.referrer or url_for('views.admin_settings'))
+    flash('Capacity limits updated successfully!', 'success')
+    return redirect(request.referrer or url_for('views.calendar'))
 
 @views.route('/admin/super_admin')
 @login_required

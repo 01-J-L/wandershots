@@ -5,18 +5,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wandershots Studios</title>
-    <meta name="description" content="Wandershots Studios (also known as Wandershots Studio) offers premium photography, on-site studio booths, photoman, and custom photobooth services for weddings and events in Batangas.">
-    <meta name="keywords" content="Wandershots, Wandershots Studio, Wandershots Studios, photography, photobooth, studio booth, photoman, wedding photography">
-    
-{% block extra_meta %}{% endblock %}
+    <meta name="description"
+        content="Wandershots Studios (also known as Wandershots Studio) offers premium photography, on-site studio booths, photoman, and custom photobooth services for weddings and events in Batangas.">
+    <meta name="keywords"
+        content="Wandershots, Wandershots Studio, Wandershots Studios, photography, photobooth, studio booth, photoman, wedding photography">
 
-<!-- Open Graph (For Social Sharing previews) -->
+    {% block extra_meta %}{% endblock %}
+
+    <!-- Open Graph (For Social Sharing previews) -->
     <!-- Open Graph (For Social Sharing previews) -->
     <meta property="og:title" content="Wandershots Studios">
-    <meta property="og:description" content="Timeless elegance in every frame. Capture your special moments with Wandershots.">
+    <meta property="og:description"
+        content="Timeless elegance in every frame. Capture your special moments with Wandershots.">
     <meta property="og:url" content="https://wandershots.online">
     <meta property="og:type" content="website">
-    
+
     <!-- ADD THESE LINES FOR THE SEARCH ENGINE PICTURE -->
     <meta property="og:image" content="https://wandershots.online/static/images/wslogo.png">
     <meta property="og:image:secure_url" content="https://wandershots.online/static/images/wslogo.png">
@@ -45,10 +48,10 @@
 
     <!-- Standard Favicon link for modern browsers -->
     <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='favicon.png') }}">
-    
+
     <!-- Legacy Favicon link for older browsers -->
     <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    
+
     <!-- Optional: Apple touch icon for mobile home screens -->
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.png') }}">
 
@@ -104,38 +107,38 @@
 
     </script>
 
-{% if user.is_authenticated %}
-<script>
-    (function() {
-        let idleTime = 0;
-        
-        // Increment the idle counter every minute
-        const idleInterval = setInterval(timerIncrement, 60000); 
+    {% if user.is_authenticated %}
+    <script>
+            (function () {
+                let idleTime = 0;
 
-        // Reset the idle timer on any user interaction
-        const resetTimer = () => {
-            idleTime = 0;
-        };
+                // Increment the idle counter every minute
+                const idleInterval = setInterval(timerIncrement, 60000);
 
-        window.onload = resetTimer;
-        window.onmousemove = resetTimer;
-        window.onmousedown = resetTimer; 
-        window.ontouchstart = resetTimer;
-        window.onclick = resetTimer;     
-        window.onkeydown = resetTimer;   
-        window.addEventListener('scroll', resetTimer, true);
+                // Reset the idle timer on any user interaction
+                const resetTimer = () => {
+                    idleTime = 0;
+                };
 
-        function timerIncrement() {
-            idleTime++;
-            if (idleTime >= 180) { // 2 hours of inactivity
-                clearInterval(idleInterval);
-                showLoading(); // Triggers the spinner
-                window.location.href = "{{ url_for('auth.logout') }}";
-            }
-        }
-    })();
-</script>
-{% endif %}
+                window.onload = resetTimer;
+                window.onmousemove = resetTimer;
+                window.onmousedown = resetTimer;
+                window.ontouchstart = resetTimer;
+                window.onclick = resetTimer;
+                window.onkeydown = resetTimer;
+                window.addEventListener('scroll', resetTimer, true);
+
+                function timerIncrement() {
+                    idleTime++;
+                    if (idleTime >= 180) { // 2 hours of inactivity
+                        clearInterval(idleInterval);
+                        showLoading(); // Triggers the spinner
+                        window.location.href = "{{ url_for('auth.logout') }}";
+                    }
+                }
+            })();
+    </script>
+    {% endif %}
 
     <!-- Splash Screen Trigger Logic -->
     <script>
@@ -644,18 +647,17 @@
 
     <!-- Chat Window Container (Initially Hidden) -->
     <div id="ai-chat-box"
-        class="chat-window chat-window-closed fixed bottom-24 right-4 sm:right-6 w-full max-w-[90vw] sm:w-96 h-[60vh] sm:h-[32rem] bg-white rounded-2xl shadow-2xl border border-gray-100 z-[9998] flex flex-col overflow-hidden">
+        class="chat-window chat-window-closed fixed bottom-24 right-4 left-4 sm:left-auto sm:right-6 w-auto sm:w-96 h-[60vh] sm:h-[32rem] bg-white rounded-2xl shadow-2xl border border-gray-100 z-[9998] flex flex-col overflow-hidden">
         <!-- Header -->
         <div class="bg-primary p-4 text-white flex justify-between items-center flex-shrink-0">
             <div class="flex items-center gap-3">
-                <!-- CHANGE: Avatar from 'AI' to 'T' for Theo -->
                 <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg">T
                 </div>
-                <!-- CHANGE: Header text -->
                 <span class="font-bold text-base">Theo Wander</span>
             </div>
-            <button onclick="toggleChat()" class="text-indigo-200 hover:text-white transition-colors"><i
-                    class="ri-close-line text-xl"></i></button>
+            <button onclick="toggleChat()" class="text-indigo-200 hover:text-white transition-colors">
+                <i class="ri-close-line text-xl"></i>
+            </button>
         </div>
 
         <!-- Messages Area -->
@@ -665,7 +667,8 @@
                 <div
                     class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg text-white flex-shrink-0">
                     T</div>
-                <div class="bg-white p-3 rounded-lg rounded-bl-none border border-gray-200 max-w-xs">
+                <div
+                    class="bg-white p-3 rounded-lg rounded-bl-none border border-gray-200 max-w-[78%] sm:max-w-xs break-words shadow-sm text-gray-800 leading-relaxed">
                     <p>Hello! I'm the Wandershots virtual assistant. How can I help you with our photography services
                         today?</p>
                 </div>
@@ -713,7 +716,8 @@
                 if (!url.match(/^https?:\/\//i)) {
                     fullUrl = 'http://' + url;
                 }
-                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700">${url}</a>`;
+                // ADDED break-all class to prevent links from breaking layouts
+                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all font-medium">${url}</a>`;
             });
         }
 

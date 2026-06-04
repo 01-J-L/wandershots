@@ -132,14 +132,21 @@ def create_app():
         especially for critical background jobs.
         """
         with app.app_context():
-            from .views import check_upcoming_events, auto_finish_past_bookings
-            # datetime.now() is now correctly imported
-            print(f"Running scheduled event reminders at {datetime.now()}...")
+            # Import all three background workers
+            from .views import check_upcoming_events, auto_finish_past_bookings, auto_delete_expired_galleries
+            
+            print(f"Running scheduled tasks at {datetime.now()}...")
+            
+            # 1. Process upcoming event email & SMS reminders
             check_upcoming_events(app)
-            print("Scheduled event reminders complete.")
+            
+            # 2. Automatically complete past event statuses
             auto_finish_past_bookings(app)
-            print("Auto finished status complete.")
-    
+            
+            # 3. Permanently delete Google Drive folders and references for expired galleries (> 14 days)
+            auto_delete_expired_galleries(app)
+            
+            print("Scheduled tasks execution complete.")
     # Initialize SQLAlchemy with the Flask app
     db.init_app(app)
 
