@@ -18,6 +18,39 @@
             </a>
         </div>
 
+        <!-- NEW: FILTER TOOLBAR -->
+        <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm mb-6">
+            <form method="GET" class="flex flex-wrap items-center gap-4">
+                <div class="w-full sm:w-auto">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Category</label>
+                    <select name="category" onchange="this.form.submit()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 outline-none bg-gray-50 min-w-[180px]">
+                        <option value="all" {% if filters.category == 'all' %}selected{% endif %}>All Categories</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="w-full sm:w-auto">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Stock Status</label>
+                    <select name="status" onchange="this.form.submit()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 outline-none bg-gray-50 min-w-[180px]">
+                        <option value="all" {% if filters.status == 'all' %}selected{% endif %}>All Statuses</option>
+                        <option value="in_stock" {% if filters.status == 'in_stock' %}selected{% endif %}>In Stock</option>
+                        <option value="low_stock" {% if filters.status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+                    </select>
+                </div>
+
+                {% if filters.category != 'all' or filters.status != 'all' %}
+                <div class="flex items-center self-end mb-1">
+                    <a href="{{ url_for('views.admin_inventory') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+                        Clear Filters
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+        
+
         <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto w-full">
                 <table class="w-full text-left text-gray-600 min-w-[800px]">

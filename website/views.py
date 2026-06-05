@@ -3464,9 +3464,43 @@ def save_fb_settings():
 @views.route('/admin/inventory')
 @login_required
 def admin_inventory():
-    items = InventoryItem.query.order_by(InventoryItem.category).all()
+    category_filter = request.args.get('category', 'all')
+    status_filter = request.args.get('status', 'all')
+
+    query = InventoryItem.query
+
+    # 1. Filter by Category
+    if category_filter and category_filter != 'all':
+        query = query.filter(InventoryItem.category == category_filter)
+
+    # 2. Filter by Stock Status
+    if status_filter == 'low_stock':
+        # Stock is low if quantity is less than or equal to minimum stock
+        query = query.filter(InventoryItem.quantity <= InventoryItem.min_stock)
+    elif status_filter == 'in_stock':
+        # Stock is healthy if quantity exceeds minimum stock
+        query = query.filter(InventoryItem.quantity > InventoryItem.min_stock)
+
+    items = query.order_by(InventoryItem.category).all()
     counts = get_sidebar_counts()
-    return render_template("admin_inventory.html", user=current_user, items=items, page='dashboard', **counts)
+
+    # Pre-defined list of available categories
+    categories = ["Paper", "Ink", "Props", "Equipment"]
+    
+    active_filters = {
+        'category': category_filter,
+        'status': status_filter
+    }
+
+    return render_template(
+        "admin_inventory.html", 
+        user=current_user, 
+        items=items, 
+        page='dashboard', 
+        categories=categories,
+        filters=active_filters,
+        **counts
+    )
 
 @views.route('/admin/inventory/add', methods=['GET', 'POST'])
 @login_required

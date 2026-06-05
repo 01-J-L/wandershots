@@ -11,6 +11,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+
 # NEW: Import load_dotenv
 from dotenv import load_dotenv
 
