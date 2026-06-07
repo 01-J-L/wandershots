@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Manage Events | Admin{% endblock %}
+
+{% block head %}
+<style>
+    .default-nav {
+        display: none !important;
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav
+    class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 h-16 flex items-center px-8 justify-between shadow-sm">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('views.dashboard') }}" class="text-slate-500 hover:text-slate-800"><i
+                class="ri-arrow-left-line text-xl"></i></a>
+        <h1 class="font-bold text-slate-800">Manage Events</h1>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="pt-24 pb-20 px-8 max-w-4xl mx-auto">
+
+    <!-- Add Form -->
+    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-8">
+        <h3 class="font-bold mb-4 text-slate-700 flex items-center gap-2"><i
+                class="ri-calendar-event-line text-blue-600"></i> Add New Event</h3>
+        <form method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="add_event" value="true">
+            <input type="text" name="title" placeholder="Event Title" required
+                class="border p-2 rounded text-sm outline-none focus:border-blue-500">
+            <input type="date" name="date" class="border p-2 rounded text-sm outline-none focus:border-blue-500">
+            <div class="flex items-center gap-2 px-2">
+                <input type="checkbox" name="show_date" id="add_show_date" checked class="w-4 h-4 text-blue-600">
+                <label for="add_show_date" class="text-xs font-bold text-slate-600 uppercase">Show date on
+                    website</label>
+            </div>
+            <input type="text" name="loc" placeholder="Location"
+                class="border p-2 rounded text-sm outline-none focus:border-blue-500">
+            <input type="file" name="img" accept="image/*"
+                class="border p-2 rounded text-sm file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700">
+            <textarea name="desc" placeholder="Description"
+                class="md:col-span-2 border p-2 rounded text-sm outline-none focus:border-blue-500 h-24"></textarea>
+            <button type="submit"
+                class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded font-bold transition shadow-md">Add
+                Event</button>
+        </form>
+    </div>
+
+    <!-- Existing List -->
+    <div class="space-y-4">
+        <h3 class="font-bold text-slate-500 uppercase text-xs tracking-wider">Scheduled Events</h3>
+        {% for ev in events %}
+        <div
+            class="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                    {% if ev.image_url %}
+                    <img src="{{ url_for('static', filename=ev.image_url.replace('static/', '')) }}"
+                        class="w-full h-full object-cover">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center text-slate-300"><i
+                            class="ri-image-line"></i></div>
+                    {% endif %}
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800">{{ ev.title }}</p>
+                    <p class="text-xs text-slate-500">
+                        {% if ev.date %}{{ ev.date.strftime('%B %d, %Y') }}{% else %}No Date{% endif %}
+                        {% if not ev.show_date %}
+                        <span
+                            class="ml-2 text-red-500 font-bold uppercase text-[10px] bg-red-50 px-1 rounded">[HIDDEN]</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <!-- Edit Button -->
+                <button type="button"
+                    onclick="openEditModal('{{ ev.id }}', '{{ ev.title|replace("'", "\\'") }}', '{{ ev.date }}', '{{ ev.location|replace("'", "\\'") }}', `{{ ev.description|replace("
+                    `", "\\`" ) }}`)"
+                    class="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition">
+                    <i class="ri-pencil-line"></i>
+                </button>
+
+                <!-- Delete Button -->
+                <form method="POST" onsubmit="return confirm('Delete this event?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="delete_event" value="true">
+                    <input type="hidden" name="id" value="{{ ev.id }}">
+                    <button type="submit"
+                        class="w-8 h-8 rounded bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-600 hover:text-white transition">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-center py-10 text-slate-400 italic text-sm">No events scheduled.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- =========================
+     EDIT MODAL
+========================== -->
+<div id="editModal"
+    class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+        <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2"><i class="ri-edit-box-line text-blue-600"></i>
+                Edit Event</h3>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 transition"><i
+                    class="ri-close-line text-2xl"></i></button>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="edit_event" value="true">
+            <input type="hidden" id="editId" name="id" value="">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Title</label>
+                    <input type="text" id="editTitle" name="title" required
+                        class="w-full border rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Date</label>
+                    <input type="date" id="editDate" name="date"
+                        class="w-full border rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-2">
+                <input type="checkbox" name="show_date" id="editShowDate" class="w-4 h-4 text-blue-600">
+                <label for="editShowDate" class="text-xs font-bold text-slate-600 uppercase">Show date on
+                    website</label>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Location</label>
+                <input type="text" id="editLoc" name="loc"
+                    class="w-full border rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Description</label>
+                <textarea id="editDesc" name="desc" rows="4"
+                    class="w-full border rounded px-3 py-2 text-sm focus:border-blue-500 outline-none h-32"></textarea>
+            </div>
+
+            <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <label class="block text-xs font-bold text-blue-700 mb-1 uppercase">Replace Image (Optional)</label>
+                <input type="file" name="img" accept="image/*"
+                    class="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-white file:text-blue-700">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeModal()"
+                    class="px-4 py-2 border rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button type="submit"
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md">Save
+                    Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditModal(id, title, date, loc, desc, showDate) {
+        document.getElementById('editId').value = id;
+        document.getElementById('editTitle').value = title;
+        document.getElementById('editDate').value = (date === 'None' || !date) ? '' : date;
+        document.getElementById('editLoc').value = loc === 'None' ? '' : loc;
+        document.getElementById('editDesc').value = desc === 'None' ? '' : desc;
+
+        // Handle the checkbox state
+        // In JS/Jinja, showDate will come in as 'True' or 'False'
+        document.getElementById('editShowDate').checked = (showDate === 'True');
+
+        document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
+
+    window.onclick = function (event) {
+        if (event.target == document.getElementById('editModal')) closeModal();
+    }
+</script>
+{% endblock %}

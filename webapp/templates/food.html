@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Local Delicacies | Padre Garcia{% endblock %}
+
+{% block head %}
+<style>
+    /* Food Hero */
+    .food-hero {
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)),
+        url("{{ url_for('static', filename=content.food_hero_bg.replace('static/', '')) if 'static/uploads' in content.food_hero_bg else content.food_hero_bg }}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .serif-head { font-family: 'Cinzel', serif; }
+    .serif-text { font-family: 'Playfair Display', serif; }
+
+    /* This ensures cards in a row have the same height */
+    .pasalubong-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .pasalubong-card .card-content {
+        flex-grow: 1; /* Allows the content div to fill remaining space */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HERO HEADER -->
+<header class="food-hero min-h-[400px] h-[60vh] flex items-center justify-center relative pt-20">
+    <div class="text-center text-white z-10 px-4" data-aos="zoom-in">
+        <span class="text-orange-400 uppercase tracking-[0.2em] text-xs font-bold mb-3 block">{{ content.food_hero_sub }}</span>
+        <h1 class="text-4xl sm:text-5xl md:text-7xl font-bold serif-head mb-4">{{ content.food_hero_title }}</h1>
+        <p class="text-slate-200 text-base sm:text-lg max-w-2xl mx-auto italic serif-text">
+            {{ content.food_hero_desc }}
+        </p>
+    </div>
+</header>
+
+<!-- === SECTION 1: DYNAMIC MAIN DISHES === -->
+<div class="bg-white">
+    {% if dishes %}
+        {% for dish in dishes %}
+        <!-- Alternating backgrounds (Orange-50 / White) -->
+        <section class="py-16 md:py-24 {{ 'bg-orange-50/50' if loop.index0 % 2 == 0 else 'bg-white' }} overflow-hidden">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16 items-center">
+                    
+                    <!-- IMAGE (No longer a link) -->
+                    <div class="relative group {{ 'order-1' if loop.index0 % 2 == 0 else 'order-1 lg:order-2' }}" data-aos="{{ 'fade-right' if loop.index0 % 2 == 0 else 'fade-left' }}">
+                        <div class="absolute -inset-2 md:-inset-4 {{ 'bg-orange-200' if loop.index0 % 2 == 0 else 'bg-purple-100' }} rounded-2xl transform {{ 'rotate-2' if loop.index0 % 2 == 0 else '-rotate-2' }}"></div>
+                        <div class="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-white aspect-square">
+                            <img src="{{ url_for('static', filename=dish.image_url.replace('static/', '')) if 'static/uploads' in dish.image_url else dish.image_url }}" class="w-full h-full object-cover transform group-hover:scale-105 transition duration-700">
+                        </div>
+                    </div>
+
+                    <!-- TEXT CONTENT -->
+                    <div class="text-center md:text-left {{ 'order-2' if loop.index0 % 2 == 0 else 'order-2 lg:order-1' }}" data-aos="{{ 'fade-left' if loop.index0 % 2 == 0 else 'fade-right' }}">
+                        {% if dish.tagline %}
+                        <div class="flex items-center justify-center md:justify-start gap-2 mb-2">
+                            <i class="ri-fire-fill text-orange-500 text-xl"></i>
+                            <span class="text-orange-600 font-bold uppercase text-xs tracking-widest">{{ dish.tagline }}</span>
+                        </div>
+                        {% endif %}
+
+                        <h2 class="text-3xl md:text-4xl font-bold text-slate-900 serif-head mb-4">{{ dish.name }}</h2>
+                        <p class="text-slate-600 leading-relaxed text-base md:text-lg mb-6 text-justify md:text-left whitespace-pre-wrap">{{ dish.description }}</p>
+
+                        <!-- **** NEW: CONDITIONAL BUTTON **** -->
+                        {% if dish.link_url and dish.link_url != 'None' %}
+                        <div class="mt-8">
+                            <a href="{{ dish.link_url }}" target="_blank" class="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">
+                                Learn More <i class="ri-external-link-line"></i>
+                            </a>
+                        </div>
+                        {% endif %}
+                        <!-- ******************************* -->
+                    </div>
+                </div>
+            </div>
+        </section>
+        {% endfor %}
+    {% else %}
+        <section class="py-20 text-center bg-white">
+            <p class="text-slate-500 italic">More main dishes will be featured here soon.</p>
+        </section>
+    {% endif %}
+</div>
+
+<!-- === SECTION 2: SWEETS & PASALUBONG === -->
+<section class="py-16 md:py-24 bg-yellow-50 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
+        <!-- Header -->
+        <div class="text-center mb-12 md:mb-16" data-aos="fade-up">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 serif-head mb-4">{{ content.food_s3_title }}</h2>
+            <p class="text-slate-600 text-base md:text-lg max-w-2xl mx-auto">{{ content.food_s3_desc }}</p>
+            <div class="h-1 w-24 bg-yellow-400 mx-auto mt-6"></div>
+        </div>
+
+        <!-- Dynamic Grid of Sweets -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {% if sweets %}
+                {% for sweet in sweets %}
+                <div class="pasalubong-card bg-white rounded-2xl shadow-md border border-yellow-100 overflow-hidden group hover:-translate-y-2 hover:shadow-xl transition duration-300" data-aos="fade-up" data-aos-delay="{{ loop.index0 * 50 }}">
+                    
+                    <div class="h-48 bg-slate-200 relative overflow-hidden shrink-0">
+                        {% if sweet.link_url and sweet.link_url != 'None' %}
+                            <a href="{{ sweet.link_url }}" target="_blank" class="block w-full h-full relative cursor-pointer">
+                                <img src="{{ url_for('static', filename=sweet.image_url.replace('static/', '')) if 'static/uploads' in sweet.image_url else sweet.image_url }}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
+                                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition duration-300 flex items-center justify-center">
+                                    <div class="bg-white text-slate-800 w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition duration-300">
+                                        <i class="ri-link text-xl"></i>
+                                    </div>
+                                </div>
+                            </a>
+                        {% else %}
+                            <img src="{{ url_for('static', filename=sweet.image_url.replace('static/', '')) if 'static/uploads' in sweet.image_url else sweet.image_url }}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
+                        {% endif %}
+                    </div>
+
+                    <div class="p-5 flex flex-col card-content">
+                        <h3 class="font-bold text-lg text-slate-800 mb-2">{{ sweet.name }}</h3>
+                        <p class="text-sm text-slate-500 leading-relaxed">{{ sweet.description }}</p>
+                    </div>
+
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-span-full text-center py-10">
+                    <p class="text-slate-500 italic">No sweets added yet.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{% endblock %}

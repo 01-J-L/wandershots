@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block title %}Editor: About Us | Admin Panel{% endblock %}
+
+{% block head %}
+<style>
+    .default-nav {
+        display: none !important;
+    }
+
+    textarea::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    textarea::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+
+    textarea::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    textarea::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('views.dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition" title="Back to Dashboard">
+            <i class="ri-arrow-left-line text-xl"></i>
+        </a>
+        <div class="h-8 w-[1px] bg-slate-200 mx-2 hidden md:block"></div>
+        <div>
+            <h1 class="text-lg font-bold text-slate-800 leading-tight">Edit About Page</h1>
+            <p class="text-xs text-slate-400 hidden md:block">Changes reflect immediately upon saving</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('views.about') }}" target="_blank" class="hidden md:flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition px-3 py-2">
+            <i class="ri-eye-line"></i> Preview
+        </a>
+        <button type="submit" form="editForm" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg hover:shadow-blue-500/30 transition flex items-center gap-2">
+            <i class="ri-save-3-fill"></i> Save Changes
+        </button>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50 pt-24 pb-20 px-4 md:px-8">
+    <div class="max-w-7xl mx-auto space-y-8">
+
+        <!-- Dynamic form wrapper for standard page properties -->
+        <form id="editForm" method="POST" enctype="multipart/form-data" class="hidden">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        </form>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- LEFT COLUMN (Standard Content Fields) -->
+            <div class="lg:col-span-2 space-y-8">
+
+                <!-- CARD 1: HERO SECTION -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-layout-top-line text-blue-500"></i>
+                        <h2 class="font-bold text-slate-700">Hero Section</h2>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Small Badge Text</label>
+                            <input type="text" form="editForm" name="about_hero_badge" value="{{ content.about_hero_badge }}" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Main Headline</label>
+                            <input type="text" form="editForm" name="about_hero_h1" value="{{ content.about_hero_h1 }}" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Subtitle</label>
+                            <textarea form="editForm" name="about_hero_sub" rows="2" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none">{{ content.about_hero_sub }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 2: INTRODUCTION -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-article-line text-blue-500"></i>
+                        <h2 class="font-bold text-slate-700">Introduction & Story</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Section Badge</label>
+                                <input type="text" form="editForm" name="about_intro_badge" value="{{ content.about_intro_badge }}" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Headline</label>
+                                <input type="text" form="editForm" name="about_title" value="{{ content.about_title }}" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-blue-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Main Story Text</label>
+                            <textarea form="editForm" name="about_text" rows="12" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-slate-700 leading-relaxed focus:bg-white focus:outline-none focus:border-blue-500 resize-y">{{ content.about_text }}</textarea>
+                        </div>
+
+                        <!-- Mini Features -->
+                        <div class="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Feature 1</label>
+                                <input type="text" form="editForm" name="about_feat1_title" value="{{ content.about_feat1_title }}" class="w-full border border-slate-300 rounded px-2 py-1 mb-1 text-sm font-bold">
+                                <input type="text" form="editForm" name="about_feat1_desc" value="{{ content.about_feat1_desc }}" class="w-full border border-slate-300 rounded px-2 py-1 text-xs text-slate-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Feature 2</label>
+                                <input type="text" form="editForm" name="about_feat2_title" value="{{ content.about_feat2_title }}" class="w-full border border-slate-300 rounded px-2 py-1 mb-1 text-sm font-bold">
+                                <input type="text" form="editForm" name="about_feat2_desc" value="{{ content.about_feat2_desc }}" class="w-full border border-slate-300 rounded px-2 py-1 text-xs text-slate-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 3: MISSION & VISION -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-compass-3-line text-yellow-600"></i>
+                        <h2 class="font-bold text-slate-700">Strategic Direction</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="text" form="editForm" name="about_dir_title" value="{{ content.about_dir_title }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 font-bold focus:outline-none focus:border-yellow-500" placeholder="Section Title">
+                            <input type="text" form="editForm" name="about_dir_sub" value="{{ content.about_dir_sub }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-yellow-500" placeholder="Subtitle">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Mission</label>
+                                <textarea form="editForm" name="mission_text" rows="5" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 focus:bg-white focus:outline-none focus:border-yellow-500">{{ content.mission_text }}</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Vision</label>
+                                <textarea form="editForm" name="vision_text" rows="5" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 focus:bg-white focus:outline-none focus:border-yellow-500">{{ content.vision_text }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==============================================
+                     DYNAMIC OFFICIALS & MEMBERS CONFIGURATION
+                =============================================== -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="ri-team-line text-indigo-500"></i>
+                            <h2 class="font-bold text-slate-700">Officials & Staff directory</h2>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6 space-y-8">
+                        
+                        <!-- 1. CATEGORIES MANAGEMENT -->
+                        <div>
+                            <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">1. Manage Categories</h3>
+                            <div class="space-y-3 mb-4 max-h-48 overflow-y-auto border p-3 rounded">
+                                {% for cat in categories %}
+                                <div class="flex items-center justify-between bg-slate-50 px-3 py-2 border rounded">
+                                    <div>
+                                        <span class="font-bold text-sm">{{ cat.name }}</span>
+                                        <span class="text-xs text-slate-400 ml-2">Order Position: {{ cat.order }}</span>
+                                    </div>
+                                    <div class="flex gap-1">
+                                        <button type="button" onclick="openEditCatModal('{{ cat.id }}', '{{ cat.name }}', '{{ cat.order }}')" class="text-blue-500 p-1"><i class="ri-pencil-line"></i></button>
+                                        <form method="POST" class="inline" onsubmit="return confirm('Deleting category will remove all members. Proceed?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="delete_category" value="true">
+                                            <input type="hidden" name="cat_id" value="{{ cat.id }}">
+                                            <button type="submit" class="text-red-500 p-1"><i class="ri-delete-bin-line"></i></button>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <p class="text-xs italic text-slate-400 text-center py-2">No directories created yet.</p>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Add Category Block -->
+                            <form method="POST" class="bg-indigo-50/50 p-4 border border-indigo-100 rounded-lg flex flex-col sm:flex-row gap-3">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="add_category" value="true">
+                                <input type="text" name="cat_name" required placeholder="Category Name (e.g. Leadership & Deans)" class="flex-grow border rounded px-3 py-1.5 text-xs">
+                                <input type="number" name="cat_order" placeholder="Sort Order" value="0" class="w-20 border rounded px-3 py-1.5 text-xs">
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded">Create</button>
+                            </form>
+                        </div>
+
+                        <!-- 2. MEMBERS DIRECTORY -->
+                        <div class="border-t pt-6">
+                            <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">2. Manage Personnel & Cards</h3>
+                            
+                            <div class="space-y-3 mb-6 max-h-64 overflow-y-auto border p-3 rounded">
+                                {% for cat in categories %}
+                                    {% if cat.members %}
+                                        <div class="mb-4">
+                                            <h4 class="text-xs font-bold text-indigo-600 border-b pb-1 mb-2">{{ cat.name }}</h4>
+                                            {% for mem in cat.members|sort(attribute='order') %}
+                                            <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded border mb-1 last:mb-0">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 border bg-white">
+                                                        {% if mem.image_url %}
+                                                            <img src="{{ url_for('static', filename=mem.image_url.replace('static/', '')) }}" class="w-full h-full object-cover">
+                                                        {% else %}
+                                                            <div class="w-full h-full flex items-center justify-center text-slate-300"><i class="ri-user-line"></i></div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-sm font-bold leading-tight">{{ mem.name }}</p>
+                                                        <p class="text-[10px] text-slate-500 uppercase font-medium mt-0.5">{{ mem.title }}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="flex gap-1 shrink-0">
+                                                    <button type="button" onclick="openEditMemberModal('{{ mem.id }}', '{{ mem.category_id }}', '{{ mem.name }}', '{{ mem.title }}', '{{ mem.order }}')" class="text-blue-500 p-1"><i class="ri-pencil-line"></i></button>
+                                                    <form method="POST" class="inline" onsubmit="return confirm('Remove member?');">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                        <input type="hidden" name="delete_member" value="true">
+                                                        <input type="hidden" name="mem_id" value="{{ mem.id }}">
+                                                        <button type="submit" class="text-red-500 p-1"><i class="ri-delete-bin-line"></i></button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <!-- Add Member Block -->
+                            <div class="bg-indigo-50/50 p-5 border border-indigo-100 rounded-lg">
+                                <h4 class="text-xs font-bold text-indigo-700 uppercase mb-3">Add Personnel Member</h4>
+                                <form method="POST" enctype="multipart/form-data" class="space-y-3">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="add_member" value="true">
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Select Group Category</label>
+                                            <select name="category_id" required class="w-full bg-white border rounded px-3 py-1.5 text-xs focus:outline-none">
+                                                {% for cat in categories %}
+                                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Full Name</label>
+                                            <input type="text" name="mem_name" required placeholder="ROMY C. DIAZ" class="w-full border rounded px-3 py-1.5 text-xs">
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Subtitle Title/Role</label>
+                                        <input type="text" name="mem_title" required placeholder="VICE PRESIDENT FOR FINANCE" class="w-full border rounded px-3 py-1.5 text-xs">
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Card Order</label>
+                                            <input type="number" name="mem_order" value="0" class="w-full border rounded px-3 py-1.5 text-xs">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Headshot Photo (No Watermark)</label>
+                                            <input type="file" name="mem_image" accept="image/*" class="text-[10px] w-full mt-1">
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 rounded uppercase tracking-wider">Add Member</button>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN (Media, Stats, CTA) -->
+            <div class="lg:col-span-1 space-y-8">
+                <!-- Featured Image Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-image-line text-green-500"></i>
+                        <h2 class="font-bold text-slate-700">Featured Image</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="mb-4">
+                            {% if content.about_image_path %}
+                            <div class="relative rounded-lg overflow-hidden border border-slate-200 shadow-sm group">
+                                <img src="{{ url_for('static', filename=content.about_image_path.replace('static/', '')) if 'static/uploads' in content.about_image_path else content.about_image_path }}" class="w-full h-48 object-cover">
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Image Caption</label>
+                            <input type="text" form="editForm" name="about_img_caption" value="{{ content.about_img_caption }}" class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs italic text-slate-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Upload New</label>
+                            <input type="file" form="editForm" name="about_image_file" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fast Facts Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-bar-chart-box-line text-purple-500"></i>
+                        <h2 class="font-bold text-slate-700">Fast Facts</h2>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <!-- Fact 1 -->
+                        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Founding Year</label>
+                                <input type="text" form="editForm" name="fact_year" value="{{ content.fact_year }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Link URL</label>
+                                <input type="text" form="editForm" name="fact_year_link" value="{{ content.fact_year_link }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm">
+                            </div>
+                        </div>
+
+                        <!-- Fact 2 -->
+                        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">No. of Barangays</label>
+                                <input type="text" form="editForm" name="fact_barangays" value="{{ content.fact_barangays }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Link URL</label>
+                                <input type="text" form="editForm" name="fact_barangays_link" value="{{ content.fact_barangays_link }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm">
+                            </div>
+                        </div>
+
+                        <!-- Fact 3 -->
+                        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Population</label>
+                                <input type="text" form="editForm" name="fact_population" value="{{ content.fact_population }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Link URL</label>
+                                <input type="text" form="editForm" name="fact_population_link" value="{{ content.fact_population_link }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm">
+                            </div>
+                        </div>
+
+                        <!-- Fact 4 -->
+                        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Festival Date</label>
+                                <input type="text" form="editForm" name="fact_festival" value="{{ content.fact_festival }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Link URL</label>
+                                <input type="text" form="editForm" name="fact_festival_link" value="{{ content.fact_festival_link }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Call To Action -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-megaphone-line text-orange-500"></i>
+                        <h2 class="font-bold text-slate-700">Bottom CTA</h2>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">CTA Headline</label>
+                            <input type="text" form="editForm" name="about_cta_title" value="{{ content.about_cta_title }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 font-bold text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">CTA Text</label>
+                            <textarea form="editForm" name="about_cta_text" rows="3" class="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs resize-none">{{ content.about_cta_text }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tourism Arrivals Chart -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-bar-chart-fill text-blue-500"></i>
+                        <h2 class="font-bold text-slate-700">Tourism Arrivals Chart</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="mb-4">
+                            {% if content.about_chart_path %}
+                            <div class="relative rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+                                <img src="{{ url_for('static', filename=content.about_chart_path.replace('static/', '')) if 'static/uploads' in content.about_chart_path else content.about_chart_path }}" class="w-full h-auto object-contain bg-slate-100">
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Upload Growth Chart</label>
+                            <input type="file" form="editForm" name="about_chart_file" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==============================================
+     MODALS FOR DYNAMIC DIRECTORY EDITING
+=============================================== -->
+
+<!-- 1. EDIT CATEGORY MODAL -->
+<div id="editCatModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/55 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+        <div class="flex justify-between items-center mb-4 border-b pb-3">
+            <h3 class="font-bold text-indigo-700 flex items-center gap-2"><i class="ri-edit-box-line"></i> Edit Category Group</h3>
+            <button onclick="closeModal('editCatModal')" class="text-slate-400 hover:text-red-500"><i class="ri-close-line text-xl"></i></button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="edit_category" value="true">
+            <input type="hidden" id="editCatId" name="cat_id">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Category Name</label>
+                    <input type="text" id="editCatName" name="cat_name" required class="w-full border rounded px-3 py-1.5 text-xs focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Order Index</label>
+                    <input type="number" id="editCatOrder" name="cat_order" class="w-full border rounded px-3 py-1.5 text-xs focus:outline-none">
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="closeModal('editCatModal')" class="px-4 py-2 border rounded text-xs">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded text-xs font-bold">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 2. EDIT MEMBER MODAL -->
+<div id="editMemberModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/55 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+        <div class="flex justify-between items-center mb-4 border-b pb-3">
+            <h3 class="font-bold text-indigo-700 flex items-center gap-2"><i class="ri-user-settings-line"></i> Edit Member Profile</h3>
+            <button onclick="closeModal('editMemberModal')" class="text-slate-400 hover:text-red-500"><i class="ri-close-line text-xl"></i></button>
+        </div>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="edit_member" value="true">
+            <input type="hidden" id="editMemId" name="mem_id">
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Select Group Category</label>
+                    <select id="editMemCategory" name="category_id" required class="w-full bg-white border rounded px-3 py-1.5 text-xs focus:outline-none">
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Full Name</label>
+                    <input type="text" id="editMemName" name="mem_name" required class="w-full border rounded px-3 py-1.5 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Subtitle Title/Role</label>
+                    <input type="text" id="editMemTitle" name="mem_title" required class="w-full border rounded px-3 py-1.5 text-xs">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Sort Order</label>
+                        <input type="number" id="editMemOrder" name="mem_order" class="w-full border rounded px-3 py-1.5 text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Replace Image (Optional)</label>
+                        <input type="file" name="mem_image" accept="image/*" class="text-[10px] w-full mt-1">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="closeModal('editMemberModal')" class="px-4 py-2 border rounded text-xs">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded text-xs font-bold">Update Details</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditCatModal(id, name, order) {
+        document.getElementById('editCatId').value = id;
+        document.getElementById('editCatName').value = name;
+        document.getElementById('editCatOrder').value = order;
+        document.getElementById('editCatModal').classList.remove('hidden');
+    }
+
+    function openEditMemberModal(id, catId, name, title, order) {
+        document.getElementById('editMemId').value = id;
+        document.getElementById('editMemCategory').value = catId;
+        document.getElementById('editMemName').value = name;
+        document.getElementById('editMemTitle').value = title;
+        document.getElementById('editMemOrder').value = order;
+        document.getElementById('editMemberModal').classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+    }
+
+    window.onclick = function(event) {
+        if (event.target.id === 'editCatModal') closeModal('editCatModal');
+        if (event.target.id === 'editMemberModal') closeModal('editMemberModal');
+    }
+</script>
+{% endblock %}
+
+{% block footer %}{% endblock %}

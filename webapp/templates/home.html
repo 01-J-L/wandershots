@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+
+{% block title %}Home | Padre Garcia{% endblock %}
+
+{% block head %}
+<style>
+    /* 
+       Responsive Hero Background 
+       On touch devices, 'fixed' attachment can be jittery. 
+       We use a media query to enable the parallax effect only on larger screens/mouse devices.
+    */
+    .hero-section {
+        background: linear-gradient(to bottom, rgba(30, 59, 138, 0.611), rgba(15, 23, 42, 0.695)),
+        url("{{ url_for('static', filename=content.hero_image.replace('static/', '')) if content.hero_image and 'static/uploads' in content.hero_image else content.hero_image }}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+
+    @media (min-width: 1024px) {
+        .hero-section {
+            background-attachment: fixed;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<!-- HERO -->
+<header class="relative min-h-[85vh] md:min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-10">
+
+    <!-- Hero Background Media -->
+    <div class="absolute inset-0 z-0">
+        {% set hero_media = content.hero_image %}
+
+        {% if hero_media.lower().endswith(('.mp4', '.webm', '.ogg')) %}
+        <!-- Video Background -->
+        <video autoplay muted loop playsinline class="w-full h-full object-cover">
+            <source
+                src="{{ url_for('static', filename=hero_media.replace('static/', '')) if 'static/uploads' in hero_media else hero_media }}"
+                type="video/mp4">
+        </video>
+        {% else %}
+        <!-- Image Background (Fallback) -->
+        <div class="w-full h-full bg-cover bg-center"
+            style="background-image: url('{{ url_for('static', filename=hero_media.replace('static/', '')) if 'static/uploads' in hero_media else hero_media }}');">
+        </div>
+        {% endif %}
+
+        <!-- Dark Overlay for Readability -->
+        <div class="absolute inset-0 bg-blue-900/50"></div>
+    </div>
+
+    <!-- Content -->
+    <div class="text-center relative z-10 px-4 sm:px-6 max-w-5xl mx-auto w-full" data-aos="zoom-in">
+
+        <!-- Badge -->
+        <div
+            class="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 rounded-full bg-white/10 border border-white/20 backdrop-blur-md mb-6 shadow-lg">
+            <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+            <span class="text-blue-100 text-[10px] md:text-xs font-semibold tracking-widest uppercase">Municipal
+                Tourism</span>
+        </div>
+
+        <!-- Main Title -->
+        <h1 class="text-4xl sm:text-5xl md:text-7xl font-bold text-white leading-tight mb-4 md:mb-6 drop-shadow-lg">
+            {{ content.hero_title_1 }} <br class="sm:hidden" />
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500">{{
+                content.hero_title_2 }}</span>
+        </h1>
+
+        <!-- Subtitle -->
+        <p
+            class="text-base sm:text-lg md:text-2xl text-blue-100/90 font-light tracking-wide max-w-xl md:max-w-2xl mx-auto mb-8 md:mb-10 leading-relaxed">
+            {{ content.hero_subtitle }}
+        </p>
+
+        <!-- CTA Button -->
+        {% if content.hero_cta_video_path %}
+        <button onclick="openHeroVideoModal()"
+            class="bg-white text-primary px-6 py-3 md:px-8 md:py-3.5 rounded-full font-bold text-sm md:text-base shadow-xl hover:shadow-2xl transition hover:-translate-y-1 inline-flex items-center gap-2 group focus:outline-none">
+            Explore Destinations
+            <i class="ri-arrow-right-line group-hover:translate-x-1 transition-transform"></i>
+        </button>
+        {% else %}
+        <a href="#spots"
+            class="bg-white text-primary px-6 py-3 md:px-8 md:py-3.5 rounded-full font-bold text-sm md:text-base shadow-xl hover:shadow-2xl transition hover:-translate-y-1 inline-flex items-center gap-2 group">
+            Explore Destinations
+            <i class="ri-arrow-right-line group-hover:translate-x-1 transition-transform"></i>
+        </a>
+        {% endif %}
+    </div>
+</header>
+
+<!-- TOURIST SPOTS -->
+<section id="spots" class="py-16 md:py-24 bg-white scroll-mt-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Section Header -->
+        <div class="text-center mb-12 md:mb-16" data-aos="fade-up">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Discover Padre Garcia</h2>
+            <div class="h-1 w-20 bg-secondary mx-auto rounded-full mb-3"></div>
+            <p class="text-slate-500 text-sm md:text-base">Explore our pride, heritage, and natural wonders</p>
+        </div>
+
+        <!-- SPOTS GRID -->
+        <!-- 
+           grid-cols-1: Mobile (1 card per row)
+           sm:grid-cols-2: Small Tablets (2 cards per row)
+           lg:grid-cols-4: Desktop (4 cards per row)
+        -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+            {% for spot in spots.items %}
+            <a href="{{ url_for('views.spot_detail', id=spot.id) }}" class="group block h-full flex flex-col"
+                data-aos="fade-up" data-aos-delay="{{ loop.index0 * 50 }}">
+                <div class="aspect-[4/3] bg-gray-200 rounded-2xl overflow-hidden mb-4 relative shadow-md">
+                    <img src="{{ url_for('static', filename=spot.image_url.replace('static/', '')) if 'static/uploads' in spot.image_url else spot.image_url }}"
+                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        alt="{{ spot.name }}">
+
+                    <!-- Hover Overlay -->
+                    <div
+                        class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                        <span
+                            class="text-white border border-white/80 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium">View
+                            Details</span>
+                    </div>
+                </div>
+                <h3 class="font-bold text-slate-800 text-lg group-hover:text-primary transition leading-tight">{{
+                    spot.name }}</h3>
+                <p class="text-slate-500 text-sm mt-1 line-clamp-2">{{ spot.description | striptags }}</p>
+            </a>
+            {% else %}
+            <div class="col-span-1 sm:col-span-2 lg:col-span-4 text-center py-10">
+                <div class="inline-block p-4 rounded-full bg-slate-100 text-slate-400 mb-3">
+                    <i class="ri-image-line text-3xl"></i>
+                </div>
+                <p class="text-slate-500">No tourist spots added yet.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- PAGINATION CONTROLS -->
+        {% if spots.pages > 1 %}
+        <div class="mt-12 md:mt-16 flex flex-wrap justify-center items-center gap-2" data-aos="fade-up">
+
+            <!-- Previous Button -->
+            {% if spots.has_prev %}
+            <a href="{{ url_for('views.home', page=spots.prev_num, _anchor='spots') }}"
+                class="px-3 py-2 md:px-4 md:py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition shadow-sm font-medium text-xs md:text-sm flex items-center gap-1">
+                <i class="ri-arrow-left-line"></i> Prev
+            </a>
+            {% else %}
+            <span
+                class="px-3 py-2 md:px-4 md:py-2 bg-slate-50 border border-slate-100 text-slate-300 rounded-lg cursor-not-allowed font-medium text-xs md:text-sm flex items-center gap-1 opacity-60">
+                <i class="ri-arrow-left-line"></i> Prev
+            </span>
+            {% endif %}
+
+            <!-- Page Numbers -->
+            {% for page_num in spots.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+            {% if page_num %}
+            {% if spots.page == page_num %}
+            <span
+                class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center bg-primary text-white rounded-lg font-bold shadow-md shadow-blue-500/30 text-xs md:text-sm">
+                {{ page_num }}
+            </span>
+            {% else %}
+            <a href="{{ url_for('views.home', page=page_num, _anchor='spots') }}"
+                class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition text-xs md:text-sm font-medium">
+                {{ page_num }}
+            </a>
+            {% endif %}
+            {% else %}
+            <span class="text-slate-400 px-1 text-sm">...</span>
+            {% endif %}
+            {% endfor %}
+
+            <!-- Next Button -->
+            {% if spots.has_next %}
+            <a href="{{ url_for('views.home', page=spots.next_num, _anchor='spots') }}"
+                class="px-3 py-2 md:px-4 md:py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition shadow-sm font-medium text-xs md:text-sm flex items-center gap-1">
+                Next <i class="ri-arrow-right-line"></i>
+            </a>
+            {% else %}
+            <span
+                class="px-3 py-2 md:px-4 md:py-2 bg-slate-50 border border-slate-100 text-slate-300 rounded-lg cursor-not-allowed font-medium text-xs md:text-sm flex items-center gap-1 opacity-60">
+                Next <i class="ri-arrow-right-line"></i>
+            </span>
+            {% endif %}
+
+        </div>
+        {% endif %}
+
+    </div>
+</section>
+
+<!-- ABOUT TEASER -->
+<section class="py-16 md:py-24 bg-slate-50 overflow-hidden">
+    <!-- 
+       Flex-col-reverse for mobile (Text on top? No, usually Image top or bottom. 
+       Here we use Grid stacking. Image first, then text is default in HTML order.
+       We can swap order with 'order-last' if needed on mobile.
+    -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+
+        <!-- Image Container -->
+        <div class="relative mx-auto w-full max-w-md lg:max-w-full" data-aos="fade-right">
+            <!-- Decorative BG element -->
+            <div class="absolute inset-0 bg-secondary/10 transform translate-x-3 translate-y-3 rounded-2xl"></div>
+            <img src="{{ url_for('static', filename=content.about_image.replace('static/', '')) if 'static/uploads' in content.about_image else content.about_image }}"
+                class="relative z-10 w-full h-auto rounded-2xl shadow-xl rotate-1 hover:rotate-0 transition duration-500 object-cover aspect-[4/3] lg:aspect-auto"
+                alt="About Padre Garcia">
+        </div>
+
+        <!-- Text Content -->
+        <div class="text-center lg:text-left" data-aos="fade-left">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-900 mb-4 md:mb-6">{{ content.about_title }}</h2>
+            <p
+                class="text-slate-600 text-base md:text-lg mb-6 md:mb-8 leading-relaxed line-clamp-6 md:line-clamp-none text-justify lg:text-left">
+                {{ content.about_text }}
+            </p>
+            <a href="{{ url_for('views.about') }}"
+                class="inline-flex items-center text-primary font-bold hover:underline gap-1 group">
+                Read Full Story
+                <i class="ri-arrow-right-line group-hover:translate-x-1 transition-transform"></i>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- TRAVEL ESSENTIALS -->
+<section class="py-16 md:py-20 bg-primary text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-2xl md:text-3xl font-bold mb-10 md:mb-12 relative inline-block">
+            Travel Essentials
+            <span
+                class="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-yellow-400 rounded-full"></span>
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            <!-- Card 1 -->
+            <div class="relative group bg-white/10 p-6 md:p-8 rounded-2xl backdrop-blur-sm border border-white/10 hover:bg-white/20 transition duration-300 flex flex-col"
+                data-aos="fade-up" data-aos-delay="100">
+                {% if content.travel_link_1 %}
+                <a href="{{ content.travel_link_1 }}" class="absolute inset-0 z-10 rounded-2xl"></a>
+                {% endif %}
+                <div
+                    class="w-14 h-14 mx-auto bg-yellow-500/20 rounded-full flex items-center justify-center mb-4 text-yellow-400 shrink-0">
+                    <i class="ri-calendar-event-line text-3xl"></i>
+                </div>
+                <h3 class="text-lg md:text-xl font-bold mb-2">{{ content.travel_title_1 }}</h3>
+                <p class="text-sm text-blue-100 opacity-90 leading-relaxed flex-grow relative z-0">{{
+                    content.travel_text_1 }}</p>
+                {% if content.travel_link_1 %}
+                <div
+                    class="mt-4 text-yellow-400 text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-1 relative z-0">
+                    Learn More <i class="ri-arrow-right-line"></i>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Card 2 -->
+            <div class="relative group bg-white/10 p-6 md:p-8 rounded-2xl backdrop-blur-sm border border-white/10 hover:bg-white/20 transition duration-300 flex flex-col"
+                data-aos="fade-up" data-aos-delay="200">
+                {% if content.travel_link_2 %}
+                <a href="{{ content.travel_link_2 }}" class="absolute inset-0 z-10 rounded-2xl"></a>
+                {% endif %}
+                <div
+                    class="w-14 h-14 mx-auto bg-yellow-500/20 rounded-full flex items-center justify-center mb-4 text-yellow-400 shrink-0">
+                    <i class="ri-map-pin-line text-3xl"></i>
+                </div>
+                <h3 class="text-lg md:text-xl font-bold mb-2">{{ content.travel_title_2 }}</h3>
+                <p class="text-sm text-blue-100 opacity-90 leading-relaxed flex-grow relative z-0">{{
+                    content.travel_text_2 }}</p>
+                {% if content.travel_link_2 %}
+                <div
+                    class="mt-4 text-yellow-400 text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-1 relative z-0">
+                    Learn More <i class="ri-arrow-right-line"></i>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Card 3 -->
+            <div class="relative group bg-white/10 p-6 md:p-8 rounded-2xl backdrop-blur-sm border border-white/10 hover:bg-white/20 transition duration-300 flex flex-col"
+                data-aos="fade-up" data-aos-delay="300">
+                {% if content.travel_link_3 %}
+                <a href="{{ content.travel_link_3 }}" class="absolute inset-0 z-10 rounded-2xl"></a>
+                {% endif %}
+                <div
+                    class="w-14 h-14 mx-auto bg-yellow-500/20 rounded-full flex items-center justify-center mb-4 text-yellow-400 shrink-0">
+                    <i class="ri-hotel-bed-line text-3xl"></i>
+                </div>
+                <h3 class="text-lg md:text-xl font-bold mb-2">{{ content.travel_title_3 }}</h3>
+                <p class="text-sm text-blue-100 opacity-90 leading-relaxed flex-grow relative z-0">{{
+                    content.travel_text_3 }}</p>
+                {% if content.travel_link_3 %}
+                <div
+                    class="mt-4 text-yellow-400 text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-1 relative z-0">
+                    Learn More <i class="ri-arrow-right-line"></i>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+<!-- HERO VIDEO POPUP MODAL -->
+{% if content.hero_cta_video_path %}
+<div id="heroVideoModal" class="fixed inset-0 z-[999] hidden flex items-center justify-center p-4 bg-black/85 backdrop-blur-md opacity-0 transition-opacity duration-300" onclick="closeHeroVideoModal()">
+    <div class="relative bg-black rounded-2xl overflow-hidden max-w-4xl w-full aspect-video shadow-2xl border border-white/10" onclick="event.stopPropagation()">
+        <!-- Close Button -->
+        <button onclick="closeHeroVideoModal()" class="absolute top-4 right-4 z-50 text-white/70 hover:text-white bg-black/40 hover:bg-black/60 w-10 h-10 rounded-full flex items-center justify-center transition focus:outline-none">
+            <i class="ri-close-line text-2xl"></i>
+        </button>
+        <!-- Video Player -->
+        <video id="heroPopupVideo" class="w-full h-full object-contain" controls>
+            <source src="{{ url_for('static', filename=content.hero_cta_video_path.replace('static/', '')) if 'static/uploads' in content.hero_cta_video_path else content.hero_cta_video_path }}" type="video/mp4">
+            Your browser does not support HTML5 video.
+        </video>
+    </div>
+</div>
+
+<script>
+    function openHeroVideoModal() {
+        const modal = document.getElementById('heroVideoModal');
+        const video = document.getElementById('heroPopupVideo');
+        const bgAudio = document.getElementById('bgAudio');
+        
+        // Pause background music if it is currently playing
+        if (bgAudio && !bgAudio.paused) {
+            window.musicWasPlayingBeforeVideo = true;
+            bgAudio.pause();
+            if (typeof window.updateMusicUI === 'function') {
+                window.updateMusicUI(false);
+            }
+        } else {
+            window.musicWasPlayingBeforeVideo = false;
+        }
+
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            if (video) video.play();
+        }, 10);
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeHeroVideoModal() {
+        const modal = document.getElementById('heroVideoModal');
+        const video = document.getElementById('heroPopupVideo');
+        const bgAudio = document.getElementById('bgAudio');
+        
+        modal.classList.add('opacity-0');
+        if (video) {
+            video.pause();
+            video.currentTime = 0;
+        }
+
+        // Resume background music only if it was playing before opening the video
+        if (bgAudio && window.musicWasPlayingBeforeVideo) {
+            bgAudio.play().then(() => {
+                if (typeof window.updateMusicUI === 'function') {
+                    window.updateMusicUI(true);
+                }
+            }).catch(err => console.log("Audio playback failed to resume:", err));
+        }
+
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }, 300);
+    }
+
+    // Escape Key Handler
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const modal = document.getElementById('heroVideoModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                closeHeroVideoModal();
+            }
+        }
+    });
+</script>
+{% endif %}
+
+<!-- BACKGROUND MUSIC MODULE -->
+{% if content.bg_music_path %}
+<audio id="bgAudio" loop>
+    <source src="{{ url_for('static', filename=content.bg_music_path.replace('static/', '')) if 'static/uploads' in content.bg_music_path else content.bg_music_path }}" type="audio/mpeg">
+</audio>
+
+<!-- Floating Audio Controller Button -->
+<div class="fixed bottom-6 left-6 z-[90]" data-aos="fade-right">
+    <button id="musicToggleBtn" class="w-12 h-12 rounded-full bg-slate-900/90 text-white border-2 border-white/20 hover:border-yellow-500 shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 focus:outline-none" title="Mute/Play Background Music">
+        <i id="musicIcon" class="ri-music-2-line text-xl text-slate-400"></i>
+    </button>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const audio = document.getElementById('bgAudio');
+        const toggleBtn = document.getElementById('musicToggleBtn');
+        const musicIcon = document.getElementById('musicIcon');
+
+        if (!audio || !toggleBtn) return;
+
+        // Fetch configurable settings
+        const configVolume = parseFloat("{{ content.bg_music_volume | default('0.5') }}");
+        audio.volume = configVolume;
+
+        // Check user mute preference
+        const musicIsMuted = localStorage.getItem('bg_music_muted') === 'true';
+
+        function updateUI(isPlaying) {
+            if (isPlaying && !audio.muted) {
+                musicIcon.className = "ri-volume-up-fill text-xl text-yellow-500";
+                toggleBtn.classList.remove('border-white/20');
+                toggleBtn.classList.add('border-yellow-500');
+            } else {
+                musicIcon.className = "ri-volume-mute-line text-xl text-slate-400";
+                toggleBtn.classList.remove('border-yellow-500');
+                toggleBtn.classList.add('border-white/20');
+            }
+        }
+
+        // Expose UI update function globally for modal integration
+        window.updateMusicUI = updateUI;
+
+        // Try playing the audio on load
+        if (!musicIsMuted) {
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    updateUI(true);
+                }).catch(error => {
+                    // Autoplay blocked by browser. Set up automated listeners for standard page interactions.
+                    const startAudioImplicitly = () => {
+                        if (audio.paused && localStorage.getItem('bg_music_muted') !== 'true') {
+                            audio.play().then(() => {
+                                updateUI(true);
+                            }).catch(err => console.log("Implicit playback prevented:", err));
+                        }
+                        
+                        // Safely remove listeners once playback is initiated
+                        interactionEvents.forEach(event => {
+                            document.removeEventListener(event, startAudioImplicitly);
+                        });
+                    };
+
+                    const interactionEvents = ['click', 'touchstart', 'scroll', 'mousemove', 'keydown'];
+                    interactionEvents.forEach(event => {
+                        document.addEventListener(event, startAudioImplicitly, { once: true, passive: true });
+                    });
+                });
+            }
+        } else {
+            updateUI(false);
+        }
+
+        // Manual button toggles
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (audio.paused) {
+                audio.muted = false;
+                audio.play().then(() => {
+                    localStorage.setItem('bg_music_muted', 'false');
+                    updateUI(true);
+                });
+            } else {
+                audio.pause();
+                localStorage.setItem('bg_music_muted', 'true');
+                updateUI(false);
+            }
+        });
+    });
+</script>
+{% endif %}
+
+
+
+{% endblock %}

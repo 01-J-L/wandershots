@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard | Padre Garcia{% endblock %}
+
+{% block head %}
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.1.0/remixicon.min.css" rel="stylesheet">
+<style>
+    /* Hide Public Nav */
+    .default-nav {
+        display: none !important;
+    }
+
+    /* Hide scrollbar for sidebar */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    /* Sidebar Overlay */
+    .sidebar-overlay {
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50 font-sans text-slate-800 relative">
+
+    <!-- 1. MOBILE HEADER (Visible < md) -->
+    <header
+        class="md:hidden fixed top-0 left-0 right-0 h-16 bg-slate-900 text-white z-40 flex items-center justify-between px-4 shadow-md">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleSidebar()"
+                class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 active:bg-white/20 transition">
+                <i class="ri-menu-line text-2xl"></i>
+            </button>
+            <span class="font-bold text-lg tracking-wide">Admin Panel</span>
+        </div>
+        <div
+            class="w-8 h-8 rounded-full bg-yellow-500 text-slate-900 flex items-center justify-center font-bold text-sm uppercase">
+            {{ user.first_name[0] }}
+        </div>
+    </header>
+
+    <!-- 2. SIDEBAR OVERLAY -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()"
+        class="fixed inset-0 z-40 sidebar-overlay hidden transition-opacity duration-300 opacity-0 md:hidden"></div>
+
+    <!-- 3. SIDEBAR -->
+    <aside id="sidebar"
+        class="fixed top-0 left-0 h-full w-72 bg-slate-900 text-white z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none flex flex-col border-r border-slate-800">
+
+        <!-- Sidebar Header -->
+        <div class="h-20 flex items-center justify-between px-6 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center text-slate-900 font-bold shadow-lg shadow-yellow-500/20">
+                    <i class="ri-settings-4-fill text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-lg leading-none tracking-tight">Dashboard</h2>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider mt-1">Tourism Admin</p>
+                </div>
+            </div>
+            <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white"><i
+                    class="ri-close-line text-2xl"></i></button>
+        </div>
+
+        <!-- Sidebar Links -->
+        <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-1 no-scrollbar">
+
+            <div class="px-2 mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Navigation</div>
+
+            <a href="#home-modules"
+                class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
+                <i class="ri-layout-masonry-line text-lg text-blue-400 group-hover:text-white"></i>
+                <span class="font-medium">Home Page</span>
+            </a>
+
+            <a href="#global-resources"
+                class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
+                <i class="ri-global-line text-lg text-pink-400 group-hover:text-white"></i>
+                <span class="font-medium">Global Settings</span>
+            </a>
+
+            <a href="#page-editors"
+                class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
+                <i class="ri-pages-line text-lg text-emerald-400 group-hover:text-white"></i>
+                <span class="font-medium">Full Pages</span>
+            </a>
+
+            <div class="border-t border-slate-800 my-4 mx-2"></div>
+
+            <div class="px-2 mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider">External</div>
+            <a href="{{ url_for('views.home') }}" target="_blank"
+                class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                <i class="ri-external-link-line text-lg"></i>
+                <span class="font-medium">View Live Website</span>
+            </a>
+        </nav>
+
+        <!-- Sidebar Footer -->
+        <div class="p-4 border-t border-slate-800 bg-slate-950">
+            <div class="flex items-center gap-3 px-2 mb-4">
+                <div
+                    class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold uppercase text-slate-300 border border-slate-700">
+                    {{ user.first_name[0] }}
+                </div>
+                <div class="overflow-hidden">
+                    <p class="text-sm font-bold text-white truncate">{{ user.first_name }}</p>
+                    <p class="text-xs text-slate-500 truncate">Administrator</p>
+                </div>
+            </div>
+            <a href="{{ url_for('auth.logout') }}"
+                class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-600/10 text-red-400 hover:bg-red-600 hover:text-white transition border border-red-900/30 text-sm font-bold w-full">
+                <i class="ri-logout-box-r-line"></i> Sign Out
+            </a>
+        </div>
+    </aside>
+
+    <!-- 4. MAIN CONTENT AREA -->
+    <main class="md:ml-72 pt-20 md:pt-10 p-6 md:p-10 min-h-screen transition-all">
+        <div class="max-w-7xl mx-auto">
+
+            <!-- Title Section -->
+            <div class="mb-10">
+                <h1 class="text-3xl font-bold text-slate-900">Content Manager</h1>
+                <p class="text-slate-500 mt-1">Select a module below to edit your website's content.</p>
+            </div>
+
+            <!-- SECTION: HOME PAGE MODULES -->
+            <div id="home-modules" class="mb-12 scroll-mt-24">
+                <h3
+                    class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">
+                    Home Page Modules</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                    <!-- Home Hero -->
+                    <a href="{{ url_for('views.edit_home_hero') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-blue-300 hover:shadow-md transition group h-full">
+                        <div class="flex items-center gap-4 mb-3">
+                            <div
+                                class="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="ri-layout-top-2-fill"></i>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-lg">Home Hero</h4>
+                        </div>
+                        <p class="text-sm text-slate-500 leading-relaxed">Edit the main banner title, subtitle, and
+                            background image.</p>
+                    </a>
+
+                    <!-- About Teaser -->
+                    <a href="{{ url_for('views.edit_about_teaser') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-purple-300 hover:shadow-md transition group h-full">
+                        <div class="flex items-center gap-4 mb-3">
+                            <div
+                                class="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="ri-file-info-line"></i>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-lg">About Teaser</h4>
+                        </div>
+                        <p class="text-sm text-slate-500 leading-relaxed">Update the short introduction summary on the
+                            front page.</p>
+                    </a>
+
+                    <!-- Tourist Spots -->
+                    <a href="{{ url_for('views.manage_spots') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-300 hover:shadow-md transition group h-full">
+                        <div class="flex items-center gap-4 mb-3">
+                            <div
+                                class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="ri-map-pin-user-fill"></i>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-lg">Tourist Spots</h4>
+                        </div>
+                        <p class="text-sm text-slate-500 leading-relaxed">Add, edit, or delete tourist destination
+                            cards.</p>
+                    </a>
+
+                    <!-- Travel Info -->
+                    <a href="{{ url_for('views.edit_travel') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-cyan-300 hover:shadow-md transition group h-full">
+                        <div class="flex items-center gap-4 mb-3">
+                            <div
+                                class="w-12 h-12 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                                <i class="ri-suitcase-2-line"></i>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-lg">Travel Info</h4>
+                        </div>
+                        <p class="text-sm text-slate-500 leading-relaxed">Manage "Best Time", "Getting Here", and "Where
+                            to Stay".</p>
+                    </a>
+                </div>
+            </div>
+
+            <!-- SECTION: GLOBAL & RESOURCES -->
+            <div id="global-resources" class="mb-12 scroll-mt-24">
+                <h3
+                    class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">
+                    Global & Resources</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    <a href="{{ url_for('views.manage_analytics') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition group flex items-start gap-5">
+                        <div
+                            class="w-14 h-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition">
+                            <i class="ri-bar-chart-2-fill"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg mb-1">Visitor Analytics</h4>
+                            <p class="text-sm text-slate-500">Track page hits and analyze traffic metrics over time.</p>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('views.edit_header') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-yellow-300 hover:shadow-md transition group flex items-start gap-5">
+                        <div
+                            class="w-14 h-14 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition">
+                            <i class="ri-layout-top-line"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg mb-1">Edit Header</h4>
+                            <p class="text-sm text-slate-500">Upload or change the main website logo.</p>
+                        </div>
+                    </a>
+                    <!-- Edit Footer -->
+                    <a href="{{ url_for('views.edit_footer') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-pink-300 hover:shadow-md transition group flex items-start gap-5">
+                        <div
+                            class="w-14 h-14 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition">
+                            <i class="ri-layout-bottom-line"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg mb-1">Edit Footer</h4>
+                            <p class="text-sm text-slate-500">Manage Global Footer, Contact Information, Social Media
+                                Links, and Copyright.</p>
+                        </div>
+                    </a>
+
+                    <!-- Site Settings (Super Admin Only) -->
+                    {% if user.is_super_admin %}
+                    <a href="{{ url_for('views.site_settings') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-red-300 hover:shadow-md transition group flex items-start gap-5 relative overflow-hidden">
+                        <div
+                            class="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">
+                            SUPER ADMIN</div>
+                        <div
+                            class="w-14 h-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition">
+                            <i class="ri-settings-5-fill"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg mb-1">Site Settings</h4>
+                            <p class="text-sm text-slate-500">Toggle Maintenance Mode and system configurations.</p>
+                        </div>
+                    </a>
+                    {% endif %}
+
+                    <!-- Ordinances -->
+                    <a href="{{ url_for('views.manage_ordinances') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-orange-300 hover:shadow-md transition group flex items-start gap-5">
+                        <div
+                            class="w-14 h-14 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition">
+                            <i class="ri-government-fill"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg mb-1">Ordinances</h4>
+                            <p class="text-sm text-slate-500">Upload and manage PDF/Image files for municipal
+                                ordinances.</p>
+                        </div>
+                    </a>
+
+                </div>
+            </div>
+
+            <!-- SECTION: FULL PAGE EDITORS -->
+            <div id="page-editors" class="scroll-mt-24">
+                <h3
+                    class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">
+                    Full Page Editors</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+
+                    <a href="{{ url_for('views.edit_about') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-article-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit About Page</span>
+                    </a>
+
+                    <a href="{{ url_for('views.edit_history') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-amber-500 hover:ring-1 hover:ring-amber-500 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-hourglass-2-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit History</span>
+                    </a>
+
+                    <a href="{{ url_for('views.edit_commerce') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-teal-500 hover:ring-1 hover:ring-teal-500 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-store-3-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit Commerce</span>
+                    </a>
+
+                    <a href="{{ url_for('views.edit_attractions') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-emerald-500 hover:ring-1 hover:ring-emerald-500 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-map-pin-range-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit Attractions</span>
+                    </a>
+
+                    <a href="{{ url_for('views.edit_culture') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-stone-500 hover:ring-1 hover:ring-stone-500 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-stone-100 text-stone-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-bank-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit Culture</span>
+                    </a>
+
+                    <a href="{{ url_for('views.edit_festival') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-orange-500 hover:ring-1 hover:ring-orange-500 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-fire-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit Festival</span>
+                    </a>
+
+                    <a href="{{ url_for('views.edit_food') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-red-500 hover:ring-1 hover:ring-red-500 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-restaurant-2-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit Food</span>
+                    </a>
+
+                    <a href="{{ url_for('views.edit_contact') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-phone-find-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit Contact</span>
+                    </a>
+                    <a href="{{ url_for('views.edit_events') }}"
+                        class="bg-white p-5 rounded-lg border hover:border-red-500 flex items-center gap-4">
+                        <i class="ri-calendar-event-line text-2xl text-red-600"></i>
+                        <span class="font-bold text-slate-700">Manage Events</span>
+                    </a>
+                    <a href="{{ url_for('views.edit_charter') }}"
+                        class="bg-white p-5 rounded-lg border border-slate-200 hover:border-slate-800 hover:ring-1 hover:ring-slate-800 transition group flex items-center gap-4">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center text-xl shrink-0">
+                            <i class="ri-shield-user-line"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">Edit Citizen's Charter</span>
+                    </a>
+
+                    <!-- Backup & Restore Tool (Super Admin Only) -->
+                    <a href="{{ url_for('views.manage_backup') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition group flex items-start gap-5 relative overflow-hidden">
+                        
+                        <div
+                            class="w-14 h-14 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition">
+                            <i class="ri-database-2-line"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg mb-1">Backup & Restore</h4>
+                            
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('views.site_settings') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-red-300 hover:shadow-md transition group flex items-start gap-5 relative overflow-hidden">
+                        <div
+                            class="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">
+                            SUPER ADMIN</div>
+                        <div
+                            class="w-14 h-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition">
+                            <i class="ri-settings-5-fill"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg mb-1">Site Settings</h4>
+                            <p class="text-sm text-slate-500">Toggle Maintenance Mode and system configurations.</p>
+                        </div>
+                    </a>
+
+                    
+
+                    {% if user.is_super_admin %}
+                    <a href="{{ url_for('views.manage_users') }}"
+                        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition group flex items-start gap-5 relative overflow-hidden">
+                        <div
+                            class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">
+                            SUPER ADMIN</div>
+                        <div
+                            class="w-14 h-14 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl shrink-0 group-hover:scale-110 transition">
+                            <i class="ri-admin-fill"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg mb-1">Manage Admins</h4>
+                            <p class="text-sm text-slate-500">Create sub-admins, delete accounts, and reset passwords.
+                            </p>
+                        </div>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<!-- Sidebar JS Logic -->
+<script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+
+        if (sidebar.classList.contains('-translate-x-full')) {
+            // Open Sidebar
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+            setTimeout(() => { overlay.classList.remove('opacity-0'); }, 10);
+        } else {
+            // Close Sidebar
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('opacity-0');
+            setTimeout(() => { overlay.classList.add('hidden'); }, 300);
+        }
+    }
+</script>
+{% endblock %}
+
+{% block footer %}{% endblock %}

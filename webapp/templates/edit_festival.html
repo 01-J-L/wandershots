@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+
+{% block title %}Editor: Kabakahan Festival | Admin Panel{% endblock %}
+
+{% block head %}
+<style>
+    .default-nav {
+        display: none !important;
+    }
+
+    textarea::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    textarea::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+
+    textarea::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    textarea::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+
+    .img-preview-box {
+        position: relative;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        border: 1px solid #e2e8f0;
+        background-color: #f8fafc;
+    }
+
+    .img-preview-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .file-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.2s;
+        color: white;
+        cursor: pointer;
+    }
+
+    .img-preview-box:hover .file-overlay {
+        opacity: 1;
+    }
+
+    .custom-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav
+    class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('views.dashboard') }}"
+            class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition"
+            title="Back to Dashboard">
+            <i class="ri-arrow-left-line text-xl"></i>
+        </a>
+        <div class="h-8 w-[1px] bg-slate-200 mx-2 hidden md:block"></div>
+        <div>
+            <h1 class="text-lg font-bold text-slate-800 leading-tight">Edit Festival Page</h1>
+            <p class="text-xs text-slate-400 hidden md:block">Managing Program, Events, and Gallery</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('views.festival') }}" target="_blank"
+            class="hidden md:flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition px-3 py-2">
+            <i class="ri-eye-line"></i> Preview
+        </a>
+        <button type="submit" form="staticForm"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg hover:shadow-blue-500/30 transition flex items-center gap-2">
+            <i class="ri-save-3-fill"></i> Save Static Header
+        </button>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<!-- Master Form for Static Text/Images (Hidden wrapper) -->
+<form id="staticForm" method="POST" enctype="multipart/form-data" class="hidden">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+
+<div class="min-h-screen bg-slate-50 pt-24 pb-20 px-4 md:px-8">
+    <div class="max-w-7xl mx-auto">
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- LEFT COLUMN (Main Content) -->
+            <div class="lg:col-span-2 space-y-8">
+
+                <!-- CARD 1: Hero & Intro -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-flag-line text-yellow-600"></i>
+                        <h2 class="font-bold text-slate-700">Hero & Introduction</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Festival
+                                    Name</label>
+                                <input type="text" form="staticForm" name="fest_hero_title"
+                                    value="{{ content.fest_hero_title }}"
+                                    class="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Date Badge
+                                    Text</label>
+                                <input type="text" form="staticForm" name="fest_date_badge"
+                                    value="{{ content.fest_date_badge }}"
+                                    class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Subtitle /
+                                Slogan</label>
+                            <input type="text" form="staticForm" name="fest_hero_sub"
+                                value="{{ content.fest_hero_sub }}"
+                                class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
+                        </div>
+
+                        <div class="border-t border-slate-100 pt-6">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Intro
+                                Headline</label>
+                            <input type="text" form="staticForm" name="fest_intro_title"
+                                value="{{ content.fest_intro_title }}"
+                                class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 mb-4 font-bold outline-none focus:bg-white">
+
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Intro
+                                Paragraph</label>
+                            <textarea form="staticForm" name="fest_intro_text" rows="4"
+                                class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">{{ content.fest_intro_text }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 2: Three Pillars -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-layout-3-line text-blue-500"></i>
+                        <h2 class="font-bold text-slate-700">Festival Pillars</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Card 1 -->
+                            <div class="p-4 border border-slate-200 rounded-lg">
+                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Pillar
+                                    1</label>
+                                <input type="text" form="staticForm" name="fest_c1_title"
+                                    value="{{ content.fest_c1_title }}"
+                                    class="w-full border-b border-slate-200 py-1 mb-2 font-bold focus:outline-none focus:border-blue-500">
+                                <textarea form="staticForm" name="fest_c1_desc" rows="2"
+                                    class="w-full text-xs text-slate-500 focus:outline-none resize-none">{{ content.fest_c1_desc }}</textarea>
+                            </div>
+                            <!-- Card 2 -->
+                            <div class="p-4 border border-slate-200 rounded-lg">
+                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Pillar
+                                    2</label>
+                                <input type="text" form="staticForm" name="fest_c2_title"
+                                    value="{{ content.fest_c2_title }}"
+                                    class="w-full border-b border-slate-200 py-1 mb-2 font-bold focus:outline-none focus:border-blue-500">
+                                <textarea form="staticForm" name="fest_c2_desc" rows="2"
+                                    class="w-full text-xs text-slate-500 focus:outline-none resize-none">{{ content.fest_c2_desc }}</textarea>
+                            </div>
+                            <!-- Card 3 -->
+                            <div class="p-4 border border-slate-200 rounded-lg">
+                                <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Pillar
+                                    3</label>
+                                <input type="text" form="staticForm" name="fest_c3_title"
+                                    value="{{ content.fest_c3_title }}"
+                                    class="w-full border-b border-slate-200 py-1 mb-2 font-bold focus:outline-none focus:border-blue-500">
+                                <textarea form="staticForm" name="fest_c3_desc" rows="2"
+                                    class="w-full text-xs text-slate-500 focus:outline-none resize-none">{{ content.fest_c3_desc }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 3: Legal Basis -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-government-line text-slate-700"></i>
+                        <h2 class="font-bold text-slate-700">Legal Basis</h2>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <input type="text" form="staticForm" name="fest_legal_title"
+                            value="{{ content.fest_legal_title }}"
+                            class="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 font-bold focus:bg-white outline-none">
+                        <textarea form="staticForm" name="fest_legal_desc" rows="3"
+                            class="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:bg-white outline-none">{{ content.fest_legal_desc }}</textarea>
+
+                        <label class="block text-xs font-bold uppercase text-slate-500 mt-2">Ordinance Text (Simulated
+                            Paper)</label>
+                        <textarea form="staticForm" name="fest_ord_text" rows="5"
+                            class="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-sm font-serif focus:bg-white outline-none">{{ content.fest_ord_text }}</textarea>
+                    </div>
+                </div>
+
+                <!-- CARD 4: Program & Activities (Dynamic) -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-calendar-event-line text-orange-500"></i>
+                        <h2 class="font-bold text-slate-700">Program & Activities</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+
+                        <!-- Header Inputs -->
+                        <div class="flex gap-4 border-b border-slate-100 pb-4">
+                            <input type="text" form="staticForm" name="fest_prog_title"
+                                value="{{ content.fest_prog_title }}"
+                                class="w-full bg-white border border-slate-300 rounded px-3 py-2 font-bold focus:ring-2 focus:ring-orange-400 outline-none"
+                                placeholder="Section Title">
+                            <input type="text" form="staticForm" name="fest_prog_sub"
+                                value="{{ content.fest_prog_sub }}"
+                                class="w-full bg-white border border-slate-300 rounded px-3 py-2 focus:ring-2 focus:ring-orange-400 outline-none"
+                                placeholder="Subtitle">
+                        </div>
+
+                        <!-- Existing Events List -->
+                        <div class="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scroll">
+                            {% if events %}
+                            {% for event in events %}
+                            <div
+                                class="border border-slate-200 rounded-lg p-3 bg-slate-50 flex justify-between items-start">
+                                <div class="flex gap-3">
+                                    <!-- Thumbnail -->
+                                    <div
+                                        class="w-12 h-12 rounded bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
+                                        {% if event.image_url %}
+                                        <img src="{{ url_for('static', filename=event.image_url.replace('static/', '')) }}"
+                                            class="w-full h-full object-cover">
+                                        {% else %}
+                                        <div class="w-full h-full flex items-center justify-center text-slate-400"><i
+                                                class="ri-image-line"></i></div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div>
+                                        <h4 class="font-bold text-sm text-slate-800">{{ event.title }}</h4>
+                                        <p class="text-[10px] text-slate-500">
+                                            {% if event.month %}{{ event.month }} {{ event.day }}{% else %}No Date Set{%
+                                            endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 shrink-0">
+                                    <button type="button"
+                                        onclick="openEventModal('{{ event.id }}', '{{ event.month or "" }}', '{{ event.day or "" }}', '{{ event.title|replace("'", "\\'") }}', '{{ event.location|replace("'", "\\'") }}', `{{ event.description|replace("
+                                        `", "\\`" ) }}`, '{{ event.image_url or "" }}' )"
+                                        class="text-blue-500 hover:text-blue-700 bg-blue-100 p-1.5 rounded">
+                                        <i class="ri-pencil-line"></i>
+                                    </button>
+                                    <form method="POST" onsubmit="return confirm('Delete {{ event.title }}?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="delete_event" value="true">
+                                        <input type="hidden" name="event_id" value="{{ event.id }}">
+                                        <button type="submit"
+                                            class="text-red-500 hover:text-red-700 bg-red-100 p-1.5 rounded"><i
+                                                class="ri-delete-bin-line"></i></button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <p class="text-sm text-slate-400 italic text-center">No events added yet.</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Add Event Form -->
+                        <div class="bg-orange-50/50 p-4 rounded-lg border border-orange-100">
+                            <p class="text-xs font-bold text-orange-600 uppercase mb-3">Add New Activity</p>
+                            <form method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="add_event" value="true">
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <input type="text" name="ev_month" placeholder="Month (Optional)"
+                                        class="border rounded px-2 py-1.5 text-xs uppercase">
+                                    <input type="text" name="ev_day" placeholder="Day (Optional)"
+                                        class="border rounded px-2 py-1.5 text-xs">
+                                </div>
+                                <input type="text" name="ev_title" placeholder="Event Name" required
+                                    class="w-full border rounded px-2 py-1.5 text-xs mb-2">
+                                <input type="file" name="ev_img" accept="image/*" class="w-full text-xs mb-2">
+                                <input type="text" name="ev_loc" placeholder="Location (e.g. Town Plaza)"
+                                    class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs mb-2">
+                                <textarea name="ev_desc" rows="2" placeholder="Description..."
+                                    class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs resize-none mb-2"></textarea>
+
+                                <button type="submit"
+                                    class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold py-2 rounded transition">
+                                    <i class="ri-add-circle-line"></i> Add Activity
+                                </button>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN (Visuals & Dynamic Gallery) -->
+            <div class="lg:col-span-1 space-y-8">
+
+                <!-- CARD 5: Hero Image -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-image-2-line text-blue-500"></i>
+                        <h2 class="font-bold text-slate-700">Hero Background</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="img-preview-box h-32 w-full mb-2">
+                            {% if content.fest_hero_bg %}
+                            <img
+                                src="{{ url_for('static', filename=content.fest_hero_bg.replace('static/', '')) if 'static/uploads' in content.fest_hero_bg else content.fest_hero_bg }}">
+                            {% endif %}
+                            <label class="file-overlay">
+                                <i class="ri-upload-cloud-2-line text-2xl mb-1"></i>
+                                <span class="text-[10px] uppercase font-bold">Update Banner</span>
+                                <input type="file" form="staticForm" name="fest_hero_bg_file" class="hidden"
+                                    accept="image/*">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 6: Legal Image -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-camera-lens-line text-green-500"></i>
+                        <h2 class="font-bold text-slate-700">Legal Section Photo</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="img-preview-box h-40 w-full mb-2">
+                            <img
+                                src="{{ url_for('static', filename=content.fest_legal_img.replace('static/', '')) if 'static/uploads' in content.fest_legal_img else content.fest_legal_img }}">
+                            <label class="file-overlay">
+                                <i class="ri-upload-line text-xl mb-1"></i>
+                                <span class="text-[10px] uppercase font-bold">Update Image</span>
+                                <input type="file" form="staticForm" name="fest_legal_img_file" class="hidden"
+                                    accept="image/*">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 7: Dynamic Gallery Images -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-gallery-line text-purple-500"></i>
+                        <h2 class="font-bold text-slate-700">Captured Moments</h2>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <input type="text" form="staticForm" name="fest_gal_title" value="{{ content.fest_gal_title }}"
+                            class="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1.5 text-sm font-bold mb-4"
+                            placeholder="Gallery Title">
+
+                        <!-- Existing Gallery List -->
+                        <div class="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scroll">
+                            {% if gallery %}
+                            {% for gal in gallery %}
+                            <div class="flex items-center gap-3 border border-slate-200 rounded p-2 bg-slate-50">
+                                <div class="w-12 h-12 bg-slate-200 rounded shrink-0 overflow-hidden">
+                                    <img src="{{ url_for('static', filename=gal.image_url.replace('static/', '')) if 'static/uploads' in gal.image_url else gal.image_url }}"
+                                        class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-grow min-w-0">
+                                    <p class="text-xs font-bold text-slate-700 truncate">{{ gal.caption or 'No Caption'
+                                        }}</p>
+                                    <p class="text-[10px] text-blue-500 truncate"><i class="ri-link"></i> {{
+                                        gal.link_url or 'No Link' }}</p>
+                                </div>
+                                <div class="flex flex-col gap-1 shrink-0">
+                                    <button type="button"
+                                        onclick="openGalModal('{{ gal.id }}', '{{ gal.caption|replace("'", "\\'") }}', '{{ gal.link_url }}')"
+                                        class="w-6 h-6 rounded bg-blue-100 text-blue-600 flex items-center justify-center"><i
+                                            class="ri-pencil-line text-xs"></i></button>
+                                    <form method="POST" onsubmit="return confirm('Delete this image?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="delete_gal" value="true">
+                                        <input type="hidden" name="gal_id" value="{{ gal.id }}">
+                                        <button type="submit"
+                                            class="w-6 h-6 rounded bg-red-100 text-red-600 flex items-center justify-center"><i
+                                                class="ri-delete-bin-line text-xs"></i></button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <p class="text-xs text-slate-400 italic text-center">No images uploaded.</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Add Gallery Form -->
+                        <div class="bg-purple-50/50 p-4 rounded-lg border border-purple-100">
+                            <p class="text-[10px] font-bold text-purple-600 uppercase mb-2">Upload New Image(s)</p>
+                            <form method="POST" enctype="multipart/form-data" class="space-y-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="add_gal" value="true">
+                                <input type="file" name="gal_img" multiple
+                                    class="text-[10px] text-slate-500 w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-purple-100 file:text-purple-700 cursor-pointer">
+                                <input type="text" name="gal_cap" placeholder="Caption for all new images (optional)"
+                                    class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                <input type="url" name="gal_link" placeholder="Link URL for all new images (optional)"
+                                    class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs font-mono">
+                                <button type="submit"
+                                    class="w-full bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold py-1.5 rounded transition"><i
+                                        class="ri-upload-2-line"></i> Add to Gallery</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================
+     MODALS
+========================== -->
+
+<!-- EVENT MODAL -->
+<div id="eventModal"
+    class="fixed inset-0 z-[99] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+        <div class="flex justify-between items-center mb-4 border-b border-orange-100 pb-3">
+            <h3 class="font-bold text-orange-600 flex items-center gap-2"><i class="ri-edit-box-line"></i> Edit Activity
+            </h3>
+            <button type="button" onclick="closeModal('eventModal')" class="text-slate-400 hover:text-red-500"><i
+                    class="ri-close-line text-xl"></i></button>
+        </div>
+
+        <!-- ENCTYPE IS REQUIRED FOR FILES -->
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="edit_event" value="true">
+            <input type="hidden" id="editEvId" name="event_id" value="">
+
+            <div class="space-y-3">
+                <div class="flex gap-2">
+                    <div class="w-1/2">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Month</label>
+                        <input type="text" id="editEvMonth" name="ev_month"
+                            class="w-full border rounded px-3 py-2 text-sm uppercase">
+                    </div>
+                    <div class="w-1/2">
+                        <label class="text-[10px] font-bold uppercase text-slate-400">Day</label>
+                        <input type="text" id="editEvDay" name="ev_day" class="w-full border rounded px-3 py-2 text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold uppercase text-slate-400">Title</label>
+                    <input type="text" id="editEvTitle" name="ev_title" required
+                        class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <label class="block text-[10px] font-bold uppercase text-blue-600 mb-1">Replace Poster/Image
+                        (Optional)</label>
+                    <input type="file" name="ev_img" accept="image/*" class="w-full text-xs cursor-pointer">
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold uppercase text-slate-400">Location</label>
+                    <input type="text" id="editEvLoc" name="ev_loc" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold uppercase text-slate-400">Description</label>
+                    <textarea id="editEvDesc" name="ev_desc" rows="3"
+                        class="w-full border rounded px-3 py-2 text-sm resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="closeModal('eventModal')"
+                    class="px-4 py-2 border rounded-lg text-sm font-bold text-slate-600">Cancel</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 font-bold shadow-md">Update
+                    Activity</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- GALLERY MODAL -->
+<div id="galModal"
+    class="fixed inset-0 z-[99] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+        <div class="flex justify-between items-center mb-4 border-b border-purple-100 pb-3">
+            <h3 class="font-bold text-purple-600 flex items-center gap-2"><i class="ri-image-edit-line"></i> Edit Image
+                Link</h3>
+            <button type="button" onclick="closeModal('galModal')" class="text-slate-400 hover:text-red-500"><i
+                    class="ri-close-line text-xl"></i></button>
+        </div>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="edit_gal" value="true">
+            <input type="hidden" id="editGalId" name="gal_id" value="">
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Caption</label>
+                    <input type="text" id="editGalCap" name="gal_cap" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Link URL</label>
+                    <input type="url" id="editGalLink" name="gal_link"
+                        class="w-full border rounded px-3 py-2 text-sm font-mono">
+                </div>
+                <div class="bg-purple-50 p-3 rounded border border-purple-100">
+                    <label class="block text-xs font-bold text-purple-700 mb-1">Replace Image (Optional)</label>
+                    <input type="file" name="gal_img"
+                        class="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-white file:text-purple-700 cursor-pointer">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="closeModal('galModal')"
+                    class="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50 font-bold text-slate-600">Cancel</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 font-bold shadow-md">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEventModal(id, m, d, t, l, desc, img) {
+        document.getElementById('editEvId').value = id;
+        document.getElementById('editEvMonth').value = m;
+        document.getElementById('editEvDay').value = d;
+        document.getElementById('editEvTitle').value = t;
+        document.getElementById('editEvLoc').value = l;
+        document.getElementById('editEvDesc').value = desc === 'None' ? '' : desc;
+        document.getElementById('eventModal').classList.remove('hidden');
+    }
+
+    function openGalModal(id, cap, link) {
+        document.getElementById('editGalId').value = id;
+        document.getElementById('editGalCap').value = cap === 'None' ? '' : cap;
+        document.getElementById('editGalLink').value = link === 'None' ? '' : link;
+        document.getElementById('galModal').classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+    }
+
+    window.onclick = function (event) {
+        if (event.target.id === 'eventModal') closeModal('eventModal');
+        if (event.target.id === 'galModal') closeModal('galModal');
+    }
+</script>
+{% endblock %}
+
+{% block footer %}{% endblock %}

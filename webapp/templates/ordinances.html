@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Municipal Ordinances | Padre Garcia{% endblock %}
+
+{% block head %}
+<style>
+    /* Official Government Header Style - USING THE GAVEL IMAGE */
+    .ordinance-hero {
+        background: linear-gradient(to right, rgba(15, 23, 42, 0.90), rgba(30, 58, 138, 0.85)),
+        url("{{ url_for('static', filename='images/gavel.jpg') }}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+
+    /* Table Styling for Desktop */
+    .legis-table th {
+        font-family: 'Cinzel', serif;
+        letter-spacing: 0.05em;
+    }
+
+    .legis-table .legis-row:hover {
+        background-color: #f8fafc;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HERO HEADER -->
+<header class="ordinance-hero h-[45vh] flex items-center justify-center relative pt-20">
+    <div class="text-center text-white z-10 px-4" data-aos="fade-up">
+        <div class="inline-block border border-yellow-500 px-4 py-1 rounded-full mb-4 bg-black/40 backdrop-blur-md">
+            <span class="text-yellow-400 uppercase tracking-[0.2em] text-xs font-bold">Sangguniang Bayan</span>
+        </div>
+        <h1 class="text-4xl md:text-6xl font-bold font-serif mb-4 drop-shadow-lg">Legislative Records</h1>
+        <p class="text-slate-200 font-light max-w-2xl mx-auto text-lg">
+            Official repository of Municipal Ordinances, Resolutions, and Executive Orders governing Padre Garcia.
+        </p>
+    </div>
+</header>
+
+<!-- ORDINANCES SECTION -->
+<section class="py-12 md:py-20 bg-slate-50 min-h-[60vh]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+
+        <!-- Search & Filter Bar -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800 font-serif">Ordinances</h2>
+                <p class="text-sm text-slate-500">Total Records: <span class="font-bold text-blue-600">{{ ordinances|length }}</span></p>
+            </div>
+            <!-- LIVE SEARCH INPUT -->
+            <div class="relative w-full md:w-96">
+                <i class="ri-search-line absolute left-3 top-3 text-slate-400"></i>
+                <input type="text" id="ordinanceLocalSearch" placeholder="Search by title or number..."
+                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+            </div>
+        </div>
+
+        {% if ordinances %}
+            <!-- =============================== -->
+            <!-- DESKTOP TABLE (HIDDEN ON MOBILE) -->
+            <!-- =============================== -->
+            <div class="hidden md:block bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse legis-table">
+                        <thead>
+                            <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 uppercase text-xs">
+                                <th class="px-6 py-4 w-32">Ord. No.</th>
+                                <th class="px-6 py-4">Title & Description</th>
+                                <th class="px-6 py-4 min-w-[200px] text-right">Attached Files</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="ordinanceTableBody">
+                            {% for ord in ordinances %}
+                            <tr class="legis-row transition duration-200">
+                                <td class="px-6 py-5 align-top">
+                                    <span class="bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1 rounded text-xs font-bold whitespace-nowrap shadow-sm">
+                                        {{ ord.number }}
+                                    </span>
+                                </td>
+                                
+                                <!-- Title & Desc WITH GAVEL IMAGE -->
+                                <td class="px-6 py-5 align-top">
+                                    <div class="flex gap-4 items-start">
+                                        <!-- GAVEL THUMBNAIL (Classes updated to be always visible) -->
+                                        <div class="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+                                            <img src="{{ url_for('static', filename='images/gavel.jpg') }}" alt="Gavel" class="w-full h-full object-cover">
+                                        </div>
+                                        <!-- Text Content -->
+                                        <div>
+                                            <h3 class="text-lg font-bold text-slate-800 mb-2 leading-tight">{{ ord.title }}</h3>
+                                            <p class="text-sm text-slate-500 leading-relaxed line-clamp-2">
+                                                {{ ord.description }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td class="px-6 py-5 align-top text-right">
+                                    {% if ord.file_url %}
+                                        {% set files = ord.file_url.split('|') %}
+                                        <div class="flex flex-col gap-2 items-end mt-1">
+                                            {% for f in files %}
+                                            {% set clean_name = f.split('/')[-1].split('_', 1)[-1] %}
+                                            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1.5 shadow-sm w-max hover:bg-slate-100 transition">
+                                                <span class="text-[11px] text-slate-600 truncate max-w-[120px] px-2 font-medium" title="{{ clean_name }}">{{ clean_name }}</span>
+                                                <a href="{{ url_for('views.download_watermarked', filename=f.replace('static/', ''), dl=1) }}" class="inline-flex items-center justify-center h-7 px-3 bg-slate-800 hover:bg-blue-600 text-white rounded transition font-bold text-[10px] uppercase tracking-wide shadow-sm" title="Download Document">
+                                                    <i class="ri-download-2-line mr-1"></i> Download
+                                                </a>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="inline-flex items-center gap-2 bg-slate-100 text-slate-400 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wide cursor-not-allowed mt-1">
+                                            <i class="ri-file-forbid-line"></i> No Files
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            <tr id="noRecordsRow" style="display: none;">
+                                <td colspan="3" class="px-6 py-12 text-center text-slate-500 italic">No ordinances found matching your search.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- =============================== -->
+            <!-- MOBILE CARDS (VISIBLE ON MOBILE) -->
+            <!-- =============================== -->
+            <div class="block md:hidden space-y-4">
+                {% for ord in ordinances %}
+                <div class="legis-card bg-white p-5 rounded-xl shadow-md border border-slate-200">
+                    <!-- Card Header (NOW INCLUDES GAVEL IMAGE) -->
+                    <div class="flex gap-4 items-start border-b border-slate-100 pb-4 mb-4">
+                        <div class="w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+                            <img src="{{ url_for('static', filename='images/gavel.jpg') }}" alt="Gavel" class="w-full h-full object-cover">
+                        </div>
+                        <div>
+                             <span class="bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1 rounded-md text-xs font-bold shadow-sm">
+                                {{ ord.number }}
+                            </span>
+                            <h3 class="text-lg font-bold text-slate-800 mt-2">{{ ord.title }}</h3>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p class="text-sm text-slate-500 leading-relaxed mb-5">
+                        {{ ord.description }}
+                    </p>
+
+                    <!-- Files -->
+                    {% if ord.file_url %}
+                        <h4 class="text-xs font-bold uppercase text-slate-400 mb-2">Attached Files</h4>
+                        {% set files = ord.file_url.split('|') %}
+                        <div class="flex flex-col gap-2">
+                            {% for f in files %}
+                            {% set clean_name = f.split('/')[-1].split('_', 1)[-1] %}
+                            <a href="{{ url_for('views.download_watermarked', filename=f.replace('static/', ''), dl=1) }}" class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-slate-100 transition group">
+                                <div class="flex items-center gap-3 overflow-hidden">
+                                    <i class="{{ f | get_file_icon }} text-2xl text-blue-600 shrink-0"></i>
+                                    <span class="text-sm font-medium text-slate-700 truncate" title="{{ clean_name }}">{{ clean_name }}</span>
+                                </div>
+                                <div class="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md group-hover:bg-blue-600 transition shrink-0">
+                                    <i class="ri-download-2-line"></i>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                            <p class="text-xs text-slate-400 italic">No files attached to this record.</p>
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <div id="noRecordsCard" class="hidden bg-white text-center py-12 text-slate-500 italic rounded-xl shadow-md">
+                    No ordinances found matching your search.
+                </div>
+            </div>
+
+        {% else %}
+            <!-- Empty State (When DB is completely empty) -->
+            <div class="text-center py-24 bg-white rounded-xl shadow-sm border border-dashed border-slate-300">
+                <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300 text-4xl mb-4">
+                    <i class="ri-file-list-3-line"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-600 mb-1">No Ordinances Published</h3>
+                <p class="text-slate-400 text-sm">Please check back later for legislative updates.</p>
+            </div>
+        {% endif %}
+
+    </div>
+</section>
+
+<!-- UPDATED LIVE SEARCH SCRIPT -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById("ordinanceLocalSearch");
+        if(searchInput) {
+            searchInput.addEventListener("input", function(e) {
+                const term = e.target.value.toLowerCase();
+
+                // Handle table rows (Desktop)
+                const rows = document.querySelectorAll(".legis-row");
+                const noRecordsRow = document.getElementById("noRecordsRow");
+                let tableHasVisible = false;
+                if(rows.length > 0) {
+                    rows.forEach(row => {
+                        if(row.innerText.toLowerCase().includes(term)) {
+                            row.style.display = ""; // Default display for <tr>
+                            tableHasVisible = true;
+                        } else {
+                            row.style.display = "none";
+                        }
+                    });
+                    if (noRecordsRow) {
+                        noRecordsRow.style.display = tableHasVisible ? "none" : "";
+                    }
+                }
+
+                // Handle mobile cards
+                const cards = document.querySelectorAll(".legis-card");
+                const noRecordsCard = document.getElementById("noRecordsCard");
+                let cardHasVisible = false;
+                if(cards.length > 0) {
+                    cards.forEach(card => {
+                        if(card.innerText.toLowerCase().includes(term)) {
+                            card.style.display = "block";
+                            cardHasVisible = true;
+                        } else {
+                            card.style.display = "none";
+                        }
+                    });
+                    if (noRecordsCard) {
+                        noRecordsCard.style.display = cardHasVisible ? "none" : "block";
+                    }
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

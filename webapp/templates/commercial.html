@@ -1,0 +1,1314 @@
+{% extends "base.html" %}
+
+{% block title %}Commercial & Establishments | Padre Garcia{% endblock %}
+
+{% block head %}
+<style>
+    /* Commerce Hero */
+    .commerce-hero {
+        background: linear-gradient(to right, rgba(15, 23, 42, 0.9), rgba(30, 58, 138, 0.8)),
+        url("{{ url_for('static', filename=content.comm_hero_bg.replace('static/', '')) if 'static/uploads' in content.comm_hero_bg else content.comm_hero_bg }}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+
+    @media (min-width: 1024px) {
+        .commerce-hero {
+            background-attachment: fixed;
+        }
+    }
+
+    .serif-head {
+        font-family: 'Cinzel', serif;
+    }
+
+    .biz-card {
+        transition: all 0.3s ease;
+    }
+
+    .biz-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .leaflet-popup-content-wrapper {
+        border-radius: 12px;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .leaflet-popup-content {
+        margin: 12px;
+    }
+
+    /* GIS Style Map Board */
+    .map-board {
+        background-color: white;
+        border: 8px solid #0f172a;
+        position: relative;
+        box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.3);
+    }
+
+    #cuisine-map {
+        width: 100%;
+        height: 450px;
+        z-index: 1;
+    }
+
+    .gis-footer {
+        background-color: #fdf6d3;
+        border-top: 2px solid #000;
+        display: grid;
+        grid-template-columns: 220px 1fr 280px 300px;
+        min-height: 180px;
+        color: #000;
+        font-family: Arial, sans-serif;
+    }
+
+    .gis-footer>div {
+        border-right: 2px solid #000;
+        padding: 12px;
+    }
+
+    .gis-footer>div:last-child {
+        border-right: none;
+    }
+
+    .gis-legend {
+        background-color: #9dc3e6;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .gis-legend h3 {
+        text-align: center;
+        font-weight: 900;
+        font-size: 1.25rem;
+        border-bottom: 2px solid #000;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        font-weight: bold;
+        font-size: 13px;
+    }
+
+    .box-mun {
+        width: 30px;
+        height: 18px;
+        border: 2px solid #000;
+        background: transparent;
+    }
+
+    .star-icon {
+        color: #f97316;
+        font-size: 18px;
+    }
+
+    /* Orange for cuisine */
+
+    .gis-title {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        text-align: center;
+    }
+
+    .gis-title h1 {
+        font-size: 1.6rem;
+        font-weight: 900;
+        letter-spacing: -0.5px;
+    }
+
+    .gis-title h2 {
+        font-size: 1rem;
+        font-weight: bold;
+        margin-top: 5px;
+    }
+
+    .gis-logos {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 10px;
+    }
+
+    .gis-logos img {
+        height: 45px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    .gis-notes {
+        font-size: 10px;
+        line-height: 1.2;
+    }
+
+    .gis-notes strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 11px;
+        text-decoration: underline;
+    }
+
+    .gis-insets {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        background-color: #fff;
+        padding: 5px !important;
+    }
+
+    .inset-box {
+        border: 1px solid #000;
+        height: 100%;
+        background-color: #e0f2fe;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .inset-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    @media (max-width: 1024px) {
+        .gis-footer {
+            grid-template-columns: 1fr;
+        }
+
+        .gis-footer>div {
+            border-right: none;
+            border-bottom: 2px solid #000;
+        }
+    }
+
+    .map-side-list {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 240px;
+        background: rgba(255, 252, 232, 0.95);
+        border: 2px solid #854d0e;
+        z-index: 1000;
+        padding: 12px;
+        box-shadow: 4px 4px 0px #854d0e;
+        max-height: 400px;
+        /* Prevents it from going off-screen if the list is long */
+        overflow-y: auto;
+    }
+
+    /* Custom scrollbar for the side list */
+    .map-side-list::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .map-side-list::-webkit-scrollbar-thumb {
+        background: #854d0e;
+        border-radius: 10px;
+    }
+
+    .map-side-list {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 240px;
+        background: rgba(255, 252, 232, 0.95);
+        border: 2px solid #854d0e;
+        z-index: 1000;
+        padding: 12px;
+        box-shadow: 4px 4px 0px #854d0e;
+        max-height: 350px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HERO -->
+<header class="commerce-hero min-h-[45vh] md:min-h-[55vh] flex items-center justify-center relative pt-20 pb-10">
+    <div class="text-center text-white z-10 px-4 sm:px-6 max-w-5xl mx-auto" data-aos="fade-up">
+        <span class="text-blue-400 uppercase tracking-[0.2em] text-[10px] md:text-xs font-bold mb-3 block">
+            {{ content.comm_hero_sub }}
+        </span>
+        <h1 class="text-4xl sm:text-5xl md:text-7xl font-bold serif-head mb-4 md:mb-6 leading-tight">
+            {{ content.comm_hero_title }}
+        </h1>
+        <p class="text-slate-300 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+            {{ content.comm_hero_desc }}
+        </p>
+    </div>
+</header>
+
+<!-- === INTRO SECTION === -->
+<section class="py-12 md:py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-2xl md:text-3xl font-bold text-slate-800 serif-head mb-4 md:mb-6">
+            {{ content.comm_intro_title }}
+        </h2>
+        <div class="h-1 w-16 bg-blue-600 mx-auto rounded mb-6"></div>
+        <p class="text-slate-600 max-w-4xl mx-auto leading-relaxed text-base md:text-lg text-justify md:text-center">
+            {{ content.comm_intro_text }}
+        </p>
+    </div>
+</section>
+
+<!-- === CATEGORY 1: SHOPPING & MARKETS === -->
+<section class="py-12 md:py-20 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Section Header -->
+        <div class="flex items-center gap-4 mb-8 md:mb-12 border-b border-slate-200 pb-4">
+            <div
+                class="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-xl md:text-2xl shrink-0">
+                <i class="ri-store-2-fill"></i>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-bold text-slate-800 serif-head">{{ content.comm_shop_title }}</h2>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
+
+            <!-- Text Content -->
+            <div class="order-2 lg:order-1" data-aos="fade-right">
+                <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-4">{{ content.comm_shop_head }}</h3>
+                <p class="text-slate-600 leading-relaxed mb-6 text-justify lg:text-left text-sm md:text-base">
+                    {{ content.comm_shop_text }}
+                </p>
+                <ul class="space-y-3 mb-6 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <li class="flex items-center gap-3 text-slate-700 text-sm md:text-base">
+                        <i class="ri-shopping-basket-line text-green-500 text-lg"></i> {{ content.comm_shop_li1 }}
+                    </li>
+                    <li class="flex items-center gap-3 text-slate-700 text-sm md:text-base">
+                        <i class="ri-t-shirt-line text-purple-500 text-lg"></i> {{ content.comm_shop_li2 }}
+                    </li>
+                    <li class="flex items-center gap-3 text-slate-700 text-sm md:text-base">
+                        <i class="ri-tools-line text-slate-500 text-lg"></i> {{ content.comm_shop_li3 }}
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Image OR Video -->
+            <div class="order-1 lg:order-2 rounded-xl overflow-hidden shadow-xl aspect-video lg:aspect-auto"
+                data-aos="fade-left">
+                {% set shop_media = content.comm_shop_img %}
+                {% if shop_media and (shop_media.endswith('.mp4') or shop_media.endswith('.webm')) %}
+                <video
+                    src="{{ url_for('static', filename=shop_media.replace('static/', '')) if 'static/uploads' in shop_media else shop_media }}"
+                    class="w-full h-full object-cover hover:scale-105 transition duration-700" autoplay muted loop
+                    playsinline controls>
+                </video>
+                {% else %}
+                <img src="{{ url_for('static', filename=shop_media.replace('static/', '')) if 'static/uploads' in shop_media else shop_media }}"
+                    class="w-full h-full object-cover hover:scale-105 transition duration-700"
+                    alt="Shopping in Padre Garcia">
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- === CATEGORY 2: DYNAMIC ESTABLISHMENTS === -->
+<!-- === LOCAL CUISINE (ESTABLISHMENTS) === -->
+<section id="establishments" class="py-12 md:py-20 bg-white scroll-mt-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Section Header -->
+        <div class="flex items-center gap-4 mb-8 md:mb-12 border-b border-slate-100 pb-4" data-aos="fade-up">
+            <div
+                class="w-10 h-10 md:w-12 md:h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 text-xl md:text-2xl shrink-0">
+                <i class="ri-restaurant-2-fill"></i>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-bold text-slate-800 serif-head">{{ content.comm_dine_title }}</h2>
+        </div>
+
+        <!-- NEW GIS-STYLE MAP BOARD -->
+        <div class="map-board mt-8" data-aos="zoom-in">
+
+            <!-- FLOATING SIDE LIST -->
+            <div class="map-side-list hidden md:block">
+                <h3
+                    class="font-bold border-b border-amber-900 pb-1 mb-2 text-amber-900 uppercase text-[10px] tracking-widest">
+                    Directory
+                </h3>
+                <ul class="space-y-1">
+                    {% for est in establishments %}
+                    {% if est.lat and est.lng %} <!-- Only create button if coords exist -->
+                    <li class="text-[10px] font-bold flex gap-2 items-start">
+                        <span class="text-orange-600">{{ loop.index }}.</span>
+                        <button onclick="zoomToAttr({{ est.lat }}, {{ est.lng }})"
+                            class="hover:underline text-left leading-tight text-slate-800 uppercase">
+                            {{ est.name }}
+                        </button>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- THE MAP -->
+            <div id="cuisine-map"></div>
+
+            <!-- THE GIS FOOTER -->
+            <div class="gis-footer">
+                <!-- 1. LEGEND -->
+                <div class="gis-legend">
+                    <h3>LEGEND</h3>
+                    <div class="legend-item">
+                        <div class="box-mun"></div> <span>Town Boundary</span>
+                    </div>
+                    <div class="legend-item">
+                        <i class="ri-map-pin-2-fill star-icon"></i> <span>Establishments</span>
+                    </div>
+                </div>
+
+                <!-- 2. TITLE & LOGOS -->
+                <div class="gis-title">
+                    <div>
+                        <h1 class="uppercase">{{ content.comm_cuisine_map_title }}</h1>
+                        <h2>{{ content.comm_cuisine_map_subtitle }}</h2>
+                    </div>
+                    <div class="gis-logos">
+                        {% for i in range(1, 5) %}
+                        {% set logo_key = 'attr_map_logo' ~ i %}
+                        <img
+                            src="{{ url_for('static', filename=content[logo_key].replace('static/', '')) if 'static/uploads' in content[logo_key] else content[logo_key] }}">
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 3. TECHNICAL NOTES -->
+                <div class="gis-notes">
+                    <strong>Technical Note:</strong>
+                    <p class="mb-2">{{ content.comm_cuisine_map_note }}</p>
+                    <strong>Data Source:</strong>
+                    <p class="mb-2 whitespace-pre-wrap">{{ content.comm_cuisine_map_source }}</p>
+                    <strong>Disclaimer:</strong>
+                    <p>{{ content.comm_cuisine_map_disclaimer }}</p>
+                </div>
+
+                <!-- 4. INSET MAPS -->
+                <div class="gis-insets">
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset1.replace('static/', '')) if 'static/uploads' in content.attr_map_inset1 else content.attr_map_inset1 }}">
+                    </div>
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset2.replace('static/', '')) if 'static/uploads' in content.attr_map_inset2 else content.attr_map_inset2 }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8" id="cuisineGrid">
+            {% if establishments %}
+            {% for est in establishments %}
+            <!-- Show only first 6, hide others with custom class 'extra-cuisine' -->
+            <div class="biz-card cuisine-card bg-white border border-slate-100 p-5 md:p-6 rounded-xl shadow-sm flex flex-col h-full hidden {% if loop.index > 6 %}cuisine-extra{% endif %}"
+                data-aos="fade-up">
+
+                <div class="h-48 md:h-56 rounded-lg bg-slate-200 mb-4 overflow-hidden relative shrink-0">
+                    {% if est.image_url %}
+                    <img src="{{ url_for('static', filename=est.image_url.replace('static/', '')) if 'static/uploads' in est.image_url else est.image_url }}"
+                        class="w-full h-full object-cover" alt="{{ est.name }}">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center text-slate-400"><i
+                            class="ri-image-line text-4xl"></i></div>
+                    {% endif %}
+                </div>
+
+                <h3 class="font-bold text-lg md:text-xl text-slate-800 mb-2">{{ est.name }}</h3>
+                <p class="text-slate-500 text-sm leading-relaxed flex-grow">{{ est.description }}</p>
+
+                <div class="mt-5 border-t border-slate-100 pt-4">
+                    <button
+                        onclick="triggerInfoModal('{{ est.name|escape }}', '{{ est.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=est.image_url.replace('static/', '')) if est.image_url else '' }}', '{{ est.map_url }}')"
+                        class="w-full bg-orange-50 text-orange-600 font-bold py-2 rounded-lg text-sm hover:bg-orange-600 hover:text-white transition">
+                        View Details
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+
+        <div class="mt-12 text-center">
+            <button
+                onclick="toggleCategory('establishments', '.cuisine-card', '.cuisine-extra', 'toggleCuisineText', 'toggleCuisineIcon')"
+                class="inline-flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 text-orange-600 font-bold text-sm rounded-full hover:bg-orange-50 transition shadow-sm">
+                <span id="toggleCuisineText">Show List</span>
+                <i id="toggleCuisineIcon" class="ri-list-check text-lg"></i>
+            </button>
+        </div>
+
+
+
+    </div>
+</section>
+
+<!-- === CATEGORY 3: DYNAMIC ACCOMMODATIONS (Stay & Relax) === -->
+<!-- === STAY & RELAX (ACCOMMODATIONS) === -->
+<section id="accommodations" class="py-12 md:py-20 bg-blue-50 scroll-mt-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Section Header -->
+        <div class="flex items-center gap-4 mb-4 border-b border-blue-200/50 pb-4" data-aos="fade-up">
+            <div
+                class="w-10 h-10 md:w-12 md:h-12 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 text-xl md:text-2xl shrink-0">
+                <i class="ri-hotel-bed-fill"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-800 serif-head leading-tight">{{
+                    content.comm_stay_title }}</h2>
+                <p class="text-slate-500 font-serif italic">{{ content.comm_stay_head }}</p>
+            </div>
+        </div>
+        <p class="text-slate-600 mb-8 md:mb-12 max-w-3xl leading-relaxed text-sm md:text-base" data-aos="fade-up">{{
+            content.comm_stay_text }}</p>
+
+        <!-- GIS-STYLE MAP BOARD FOR STAY -->
+        <div class="map-board mt-8 relative" data-aos="zoom-in">
+
+            <!-- FLOATING SIDE LIST (Directory for Stay) -->
+            <div class="map-side-list hidden md:block" style="border-color: #0d9488; box-shadow: 4px 4px 0px #0d9488;">
+                <h3
+                    class="font-bold border-b border-teal-900 pb-1 mb-2 text-teal-900 uppercase text-[10px] tracking-widest">
+                    Resort Directory
+                </h3>
+                <ul class="space-y-1">
+                    {% for acc in accommodations %}
+                    {% if acc.lat and acc.lng %}
+                    <li class="text-[10px] font-bold flex gap-2 items-start">
+                        <span class="text-teal-600">{{ loop.index }}.</span>
+                        <button onclick="zoomToStay({{ acc.lat }}, {{ acc.lng }})"
+                            class="hover:underline text-left leading-tight text-slate-800 uppercase">
+                            {{ acc.name }}
+                        </button>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- THE MAP -->
+            <!-- STAY MAP CONTAINER -->
+            <div id="stay-map" style="height: 450px; width: 100%;" data-aos="zoom-in"></div>
+
+            <!-- THE GIS FOOTER -->
+            <div class="gis-footer" style="background-color: #f0fdfa;">
+                <!-- 1. LEGEND -->
+                <div class="gis-legend" style="background-color: #99f6e4;">
+                    <h3>LEGEND</h3>
+                    <div class="legend-item">
+                        <div class="box-mun"></div> <span>Town Boundary</span>
+                    </div>
+                    <div class="legend-item">
+                        <i class="ri-map-pin-2-fill" style="color: #6366f1; font-size: 18px;"></i> <span>Resorts &
+                            Inns</span>
+                    </div>
+                </div>
+
+                <!-- 2. TITLE & LOGOS -->
+                <div class="gis-title">
+                    <div>
+                        <h1 class="uppercase">{{ content.comm_stay_map_title }}</h1>
+                        <h2>{{ content.comm_stay_map_subtitle }}</h2>
+                    </div>
+                    <div class="gis-logos">
+                        {% for i in range(1, 5) %}
+                        {% set logo_key = 'attr_map_logo' ~ i %}
+                        <img
+                            src="{{ url_for('static', filename=content[logo_key].replace('static/', '')) if 'static/uploads' in content[logo_key] else content[logo_key] }}">
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 3. TECHNICAL NOTES -->
+                <div class="gis-notes">
+                    <strong>Technical Note:</strong>
+                    <p class="mb-2">{{ content.comm_stay_map_note }}</p>
+
+                    <strong>Data Source:</strong>
+                    <p class="mb-2 whitespace-pre-wrap">{{ content.comm_stay_map_source }}</p>
+
+                    <strong>Disclaimer:</strong>
+                    <p>{{ content.comm_stay_map_disclaimer }}</p>
+                </div>
+
+                <!-- 4. INSET MAPS -->
+                <div class="gis-insets">
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset1.replace('static/', '')) if 'static/uploads' in content.attr_map_inset1 else content.attr_map_inset1 }}">
+                    </div>
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset2.replace('static/', '')) if 'static/uploads' in content.attr_map_inset2 else content.attr_map_inset2 }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <br>
+
+        <!-- Dynamic Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8" id="stayGrid">
+            {% if accommodations %}
+            {% for acc in accommodations %}
+            <!-- Logic: Hide items beyond 6 with 'extra-stay' class -->
+            <div class="biz-card stay-card bg-white border border-slate-100 p-5 md:p-6 rounded-xl shadow-sm flex flex-col h-full hidden {% if loop.index > 6 %}stay-extra{% endif %}"
+                data-aos="fade-up">
+
+                <div class="h-48 md:h-56 rounded-lg bg-slate-200 mb-4 overflow-hidden relative shrink-0">
+                    {% if acc.image_url %}
+                    <img src="{{ url_for('static', filename=acc.image_url.replace('static/', '')) if 'static/uploads' in acc.image_url else acc.image_url }}"
+                        class="w-full h-full object-cover" alt="{{ acc.name }}">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center text-slate-400"><i
+                            class="ri-image-line text-4xl"></i></div>
+                    {% endif %}
+                </div>
+
+                <h3 class="font-bold text-lg md:text-xl text-slate-800 mb-2">{{ acc.name }}</h3>
+                <p class="text-slate-500 text-sm leading-relaxed flex-grow">{{ acc.description }}</p>
+
+                <div class="mt-5 border-t border-slate-100 pt-4">
+                    <button
+                        onclick="triggerInfoModal('{{ acc.name|escape }}', '{{ acc.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=acc.image_url.replace('static/', '')) if acc.image_url else '' }}', '{{ acc.map_url }}')"
+                        class="w-full bg-teal-50 text-teal-600 font-bold py-2 rounded-lg text-sm hover:bg-teal-600 hover:text-white transition">
+                        View Details
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="col-span-full text-center py-10 text-slate-400 italic">More resorts and accommodations will be
+                featured here soon.</div>
+            {% endif %}
+        </div>
+
+        <div class="mt-12 text-center">
+            <button
+                onclick="toggleCategory('accommodations', '.stay-card', '.stay-extra', 'toggleStayText', 'toggleStayIcon')"
+                class="inline-flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 text-teal-600 font-bold text-sm rounded-full hover:bg-blue-50 transition shadow-sm">
+                <span id="toggleStayText">Show List</span>
+                <i id="toggleStayIcon" class="ri-list-check text-lg"></i>
+            </button>
+        </div>
+
+    </div>
+</section>
+
+
+<!-- === DEPARTMENT STORES === -->
+<section id="department-stores" class="py-12 md:py-20 bg-purple-50 scroll-mt-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <div class="flex items-center gap-4 mb-8 md:mb-12 border-b border-purple-200 pb-4" data-aos="fade-up">
+            <div
+                class="w-10 h-10 md:w-12 md:h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 text-xl md:text-2xl shrink-0">
+                <i class="ri-shopping-bag-3-fill"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-800 serif-head leading-tight">{{
+                    content.comm_dept_title }}</h2>
+                <p class="text-slate-500 font-serif italic">{{ content.comm_dept_head }}</p>
+            </div>
+        </div>
+        <p class="text-slate-600 mb-8 md:mb-12 max-w-3xl leading-relaxed text-sm md:text-base" data-aos="fade-up">{{
+            content.comm_dept_text }}</p>
+
+        <!-- GIS-STYLE MAP BOARD FOR DEPARTMENT STORES -->
+        <div class="map-board mt-8 relative" data-aos="zoom-in">
+
+            <!-- FLOATING SIDE LIST (Directory for Dept) -->
+            <div class="map-side-list hidden md:block" style="border-color: #9333ea; box-shadow: 4px 4px 0px #9333ea;">
+                <h3
+                    class="font-bold border-b border-purple-900 pb-1 mb-2 text-purple-900 uppercase text-[10px] tracking-widest">
+                    Retail Directory
+                </h3>
+                <ul class="space-y-1">
+                    {% for dept in department_stores %}
+                    {% if dept.lat and dept.lng %}
+                    <li class="text-[10px] font-bold flex gap-2 items-start">
+                        <span class="text-purple-600">{{ loop.index }}.</span>
+                        <button onclick="zoomToDept({{ dept.lat }}, {{ dept.lng }})"
+                            class="hover:underline text-left leading-tight text-slate-800 uppercase">
+                            {{ dept.name }}
+                        </button>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- DEPT MAP CONTAINER -->
+            <div id="dept-map" style="height: 450px; width: 100%;" data-aos="zoom-in"></div>
+
+            <!-- THE GIS FOOTER -->
+            <div class="gis-footer" style="background-color: #faf5ff;">
+                <!-- 1. LEGEND -->
+                <div class="gis-legend" style="background-color: #e9d5ff;">
+                    <h3>LEGEND</h3>
+                    <div class="legend-item">
+                        <div class="box-mun"></div> <span>Town Boundary</span>
+                    </div>
+                    <div class="legend-item">
+                        <i class="ri-map-pin-2-fill" style="color: #ef4444; font-size: 18px;"></i> <span>Retail
+                            Centers</span>
+                    </div>
+                </div>
+
+                <!-- 2. TITLE & LOGOS -->
+                <div class="gis-title">
+                    <div>
+                        <h1 class="uppercase">{{ content.comm_dept_map_title }}</h1>
+                        <h2>{{ content.comm_dept_map_subtitle }}</h2>
+                    </div>
+                    <div class="gis-logos">
+                        {% for i in range(1, 5) %}
+                        {% set logo_key = 'attr_map_logo' ~ i %}
+                        <img
+                            src="{{ url_for('static', filename=content[logo_key].replace('static/', '')) if 'static/uploads' in content[logo_key] else content[logo_key] }}">
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 3. TECHNICAL NOTES -->
+                <div class="gis-notes">
+                    <strong>Technical Note:</strong>
+                    <p class="mb-2">{{ content.comm_dept_map_note }}</p>
+
+                    <strong>Data Source:</strong>
+                    <p class="mb-2 whitespace-pre-wrap">{{ content.comm_dept_map_source }}</p>
+
+                    <strong>Disclaimer:</strong>
+                    <p>{{ content.comm_dept_map_disclaimer }}</p>
+                </div>
+
+                <!-- 4. INSET MAPS -->
+                <div class="gis-insets">
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset1.replace('static/', '')) if 'static/uploads' in content.attr_map_inset1 else content.attr_map_inset1 }}">
+                    </div>
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset2.replace('static/', '')) if 'static/uploads' in content.attr_map_inset2 else content.attr_map_inset2 }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <br>
+
+        <!-- Dynamic Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8" id="deptGrid">
+            {% if department_stores %}
+            {% for dept in department_stores %}
+            <!-- Logic: Hide items beyond 6 with 'extra-dept' class -->
+            <div class="biz-card dept-card bg-white border border-slate-100 p-5 md:p-6 rounded-xl shadow-sm flex flex-col h-full hidden {% if loop.index > 6 %}dept-extra{% endif %}"
+                data-aos="fade-up">
+
+                <div class="h-48 md:h-56 rounded-lg bg-slate-200 mb-4 overflow-hidden relative shrink-0">
+                    {% if dept.image_url %}
+                    <img src="{{ url_for('static', filename=dept.image_url.replace('static/', '')) if 'static/uploads' in dept.image_url else dept.image_url }}"
+                        class="w-full h-full object-cover" alt="{{ dept.name }}">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center text-slate-400"><i
+                            class="ri-image-line text-4xl"></i></div>
+                    {% endif %}
+                </div>
+
+                <h3 class="font-bold text-lg md:text-xl text-slate-800 mb-2">{{ dept.name }}</h3>
+                <p class="text-slate-500 text-sm leading-relaxed flex-grow">{{ dept.description }}</p>
+
+                <div class="mt-5 border-t border-slate-100 pt-4">
+                    <button
+                        onclick="triggerInfoModal('{{ dept.name|escape }}', '{{ dept.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=dept.image_url.replace('static/', '')) if dept.image_url else '' }}', '{{ dept.map_url }}')"
+                        class="w-full bg-purple-50 text-purple-600 font-bold py-2 rounded-lg text-sm hover:bg-purple-600 hover:text-white transition">
+                        View Details
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="col-span-full text-center py-10 text-slate-400 italic">No department stores added yet.</div>
+            {% endif %}
+        </div>
+
+        <div class="mt-12 text-center">
+            <button
+                onclick="toggleCategory('department-stores', '.dept-card', '.dept-extra', 'toggleDeptText', 'toggleDeptIcon')"
+                class="inline-flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 text-purple-600 font-bold text-sm rounded-full hover:bg-purple-50 transition shadow-sm">
+                <span id="toggleDeptText">Show List</span>
+                <i id="toggleDeptIcon" class="ri-list-check text-lg"></i>
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- === CATEGORY 4: PUBLIC FACILITIES === -->
+<!-- === PUBLIC FACILITIES === -->
+<section id="facilities" class="py-12 md:py-20 bg-slate-50 scroll-mt-20">
+    <div class="max-w-7xl mx-auto px-6">
+
+        <div class="flex items-center gap-4 mb-8 md:mb-12 border-b border-blue-200 pb-4" data-aos="fade-up">
+            <div
+                class="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-xl md:text-2xl shrink-0">
+                <i class="ri-building-fill"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-800 serif-head leading-tight">{{
+                    content.comm_fac_title }}</h2>
+                <p class="text-slate-500 font-serif italic">{{ content.comm_fac_sub }}</p>
+            </div>
+        </div>
+        <p class="text-slate-600 mb-8 md:mb-12 max-w-3xl leading-relaxed text-sm md:text-base" data-aos="fade-up">{{
+            content.comm_fac_desc }}</p>
+
+        <!-- GIS-STYLE MAP BOARD FOR FACILITIES -->
+        <div class="map-board mt-8 relative" data-aos="zoom-in">
+
+            <!-- FLOATING SIDE LIST (Directory for Facilities) -->
+            <div class="map-side-list hidden md:block" style="border-color: #2563eb; box-shadow: 4px 4px 0px #2563eb;">
+                <h3
+                    class="font-bold border-b border-blue-900 pb-1 mb-2 text-blue-900 uppercase text-[10px] tracking-widest">
+                    Facilities Directory
+                </h3>
+                <ul class="space-y-1">
+                    {% for fac in facilities %}
+                    {% if fac.lat and fac.lng %}
+                    <li class="text-[10px] font-bold flex gap-2 items-start">
+                        <span class="text-blue-600">{{ loop.index }}.</span>
+                        <button onclick="zoomToFac({{ fac.lat }}, {{ fac.lng }})"
+                            class="hover:underline text-left leading-tight text-slate-800 uppercase">
+                            {{ fac.name }}
+                        </button>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Map Container -->
+            <div id="facilities-map" style="height: 450px; width: 100%;" data-aos="zoom-in"></div>
+
+            <!-- THE GIS FOOTER -->
+            <div class="gis-footer" style="background-color: #eff6ff;">
+                <!-- 1. LEGEND -->
+                <div class="gis-legend" style="background-color: #bfdbfe;">
+                    <h3>LEGEND</h3>
+                    <div class="legend-item">
+                        <div class="box-mun"></div> <span>Town Boundary</span>
+                    </div>
+                    <div class="legend-item">
+                        <i class="ri-map-pin-2-fill" style="color: #2563eb; font-size: 18px;"></i> <span>Public
+                            Facilities</span>
+                    </div>
+                </div>
+
+                <!-- 2. TITLE & LOGOS -->
+                <div class="gis-title">
+                    <div>
+                        <h1 class="uppercase">{{ content.comm_fac_map_title }}</h1>
+                        <h2>{{ content.comm_fac_map_subtitle }}</h2>
+                    </div>
+                    <div class="gis-logos">
+                        {% for i in range(1, 5) %}
+                        {% set logo_key = 'attr_map_logo' ~ i %}
+                        <img
+                            src="{{ url_for('static', filename=content[logo_key].replace('static/', '')) if 'static/uploads' in content[logo_key] else content[logo_key] }}">
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 3. TECHNICAL NOTES -->
+                <div class="gis-notes">
+                    <strong>Technical Note:</strong>
+                    <p class="mb-2">{{ content.comm_fac_map_note }}</p>
+
+                    <strong>Data Source:</strong>
+                    <p class="mb-2 whitespace-pre-wrap">{{ content.comm_fac_map_source }}</p>
+
+                    <strong>Disclaimer:</strong>
+                    <p>{{ content.comm_fac_map_disclaimer }}</p>
+                </div>
+
+                <!-- 4. INSET MAPS -->
+                <div class="gis-insets">
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset1.replace('static/', '')) if 'static/uploads' in content.attr_map_inset1 else content.attr_map_inset1 }}">
+                    </div>
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset2.replace('static/', '')) if 'static/uploads' in content.attr_map_inset2 else content.attr_map_inset2 }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <br>
+
+        <!-- Dynamic Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8" id="facilitiesGrid">
+            {% if facilities %}
+            {% for fac in facilities %}
+            <!-- Logic: Initially show 6 (2 rows of 3), hide others with 'extra-facility' class -->
+            <div class="biz-card facility-card bg-white border border-slate-100 p-5 md:p-6 rounded-xl shadow-sm flex flex-col h-full hidden {% if loop.index > 6 %}facility-extra{% endif %}"
+                data-aos="fade-up">
+
+                <div class="h-48 md:h-56 rounded-lg bg-slate-200 mb-4 overflow-hidden relative shrink-0">
+                    {% if fac.image_url %}
+                    <img src="{{ url_for('static', filename=fac.image_url.replace('static/', '')) if 'static/uploads' in fac.image_url else fac.image_url }}"
+                        class="w-full h-full object-cover" alt="{{ fac.name }}">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center text-slate-400"><i
+                            class="ri-hospital-line text-4xl"></i></div>
+                    {% endif %}
+                </div>
+
+                <h3 class="font-bold text-lg md:text-xl text-slate-800 mb-1">{{ fac.name }}</h3>
+                <p class="text-[10px] text-blue-600 font-bold uppercase tracking-widest mb-2">{{ fac.category }}</p>
+                <p class="text-slate-500 text-sm leading-relaxed flex-grow">{{ fac.description }}</p>
+
+                <div class="mt-5 border-t border-slate-100 pt-4 flex flex-col gap-2">
+                    <button
+                        onclick="triggerInfoModal('{{ fac.name|escape }}', '{{ fac.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=fac.image_url.replace('static/', '')) if fac.image_url else '' }}', '{{ fac.map_url }}')"
+                        class="w-full bg-blue-50 text-blue-600 font-bold py-2 rounded-lg text-sm hover:bg-blue-600 hover:text-white transition">
+                        View Details
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="col-span-full text-center py-10 text-slate-400 italic">No public facilities listed yet.</div>
+            {% endif %}
+        </div>
+
+        <div class="mt-12 text-center">
+            <button
+                onclick="toggleCategory('facilities', '.facility-card', '.facility-extra', 'toggleFacilitiesText', 'toggleFacilitiesIcon')"
+                class="inline-flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 text-blue-600 font-bold text-sm rounded-full hover:bg-blue-50 transition shadow-sm">
+                <span id="toggleFacilitiesText">Show List</span>
+                <i id="toggleFacilitiesIcon" class="ri-list-check text-lg"></i>
+            </button>
+        </div>
+
+    </div>
+</section>
+
+<!-- === CULTURAL PROPERTIES === -->
+<section id="cultural-properties" class="py-12 md:py-20 bg-amber-50 scroll-mt-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <div class="flex items-center gap-4 mb-4 border-b border-amber-200 pb-4" data-aos="fade-up">
+            <div
+                class="w-10 h-10 md:w-12 md:h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-xl md:text-2xl">
+                <i class="ri-bank-line"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-800 serif-head">{{ content.comm_cult_title }}</h2>
+                <p class="text-slate-500 font-serif italic">{{ content.comm_cult_sub }}</p>
+            </div>
+        </div>
+
+        <!-- GIS MAP BOARD -->
+        <div class="map-board mt-8 relative" data-aos="zoom-in">
+            <div class="map-side-list hidden md:block" style="border-color: #b45309; box-shadow: 4px 4px 0px #b45309;">
+                <h3
+                    class="font-bold border-b border-amber-900 pb-1 mb-2 text-amber-900 uppercase text-[10px] tracking-widest">
+                    Property Directory</h3>
+                <ul class="space-y-1">
+                    {% for cp in cultural_props %}
+                    <li class="text-[10px] font-bold flex gap-2 items-start">
+                        <span class="text-amber-600">{{ loop.index }}.</span>
+                        <button onclick="zoomToCult({{ cp.lat }}, {{ cp.lng }})"
+                            class="hover:underline text-left leading-tight text-slate-800 uppercase">{{ cp.name
+                            }}</button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div id="cult-map" style="height: 450px; width: 100%;"></div>
+
+            <div class="gis-footer" style="background-color: #fffbeb;">
+                <div class="gis-legend" style="background-color: #fde68a;">
+                    <h3>LEGEND</h3>
+                    <div class="legend-item">
+                        <div class="box-mun"></div> <span>Town Boundary</span>
+                    </div>
+                    <div class="legend-item">
+                        <i class="ri-map-pin-2-fill" style="color: #b45309; font-size: 18px;"></i> <span>Cultural
+                            Assets</span>
+                    </div>
+                </div>
+
+                <!-- 2. TITLE & LOGOS -->
+                <div class="gis-title">
+                    <div>
+                        <h1 class="uppercase">{{ content.comm_cult_map_title }}</h1>
+                        <h2>{{ content.comm_cult_map_subtitle }}</h2>
+                    </div>
+                    <div class="gis-logos">
+                        {% for i in range(1, 5) %}
+                        {% set logo_key = 'attr_map_logo' ~ i %}
+                        <img
+                            src="{{ url_for('static', filename=content[logo_key].replace('static/', '')) if 'static/uploads' in content[logo_key] else content[logo_key] }}">
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 3. TECHNICAL NOTES -->
+                <div class="gis-notes">
+                    <strong>Technical Note:</strong>
+                    <p class="mb-2">{{ content.comm_cult_map_note }}</p>
+
+                    <strong>Data Source:</strong>
+                    <p class="mb-2 whitespace-pre-wrap">{{ content.comm_cult_map_source }}</p>
+
+                    <strong>Disclaimer:</strong>
+                    <p>{{ content.comm_cult_map_disclaimer }}</p>
+                </div>
+
+                <!-- 4. INSET MAPS -->
+                <div class="gis-insets">
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset1.replace('static/', '')) if 'static/uploads' in content.attr_map_inset1 else content.attr_map_inset1 }}">
+                    </div>
+                    <div class="inset-box">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_inset2.replace('static/', '')) if 'static/uploads' in content.attr_map_inset2 else content.attr_map_inset2 }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-12" id="cultGrid">
+            {% for cp in cultural_props %}
+            <div class="biz-card cult-card bg-white border border-amber-100 p-5 rounded-xl shadow-sm flex flex-col h-full hidden {% if loop.index > 6 %}cult-extra{% endif %}"
+                data-aos="fade-up">
+                <img src="{{ url_for('static', filename=cp.image_url.replace('static/', '')) }}"
+                    class="w-full h-full object-cover">
+                <h3 class="font-bold text-lg text-slate-800">{{ cp.name }}</h3>
+                <p class="text-slate-500 text-sm flex-grow mt-2">{{ cp.description }}</p>
+                <button
+                    onclick="triggerInfoModal('{{ cp.name|escape }}', '{{ cp.description|escape }}', '{{ url_for('static', filename=cp.image_url.replace('static/', '')) }}', '{{ cp.map_url }}')"
+                    class="mt-4 w-full bg-amber-50 text-amber-700 font-bold py-2 rounded-lg text-sm hover:bg-amber-600 hover:text-white transition">View
+                    Details</button>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="mt-12 text-center">
+            <button
+                onclick="toggleCategory('cultural-properties', '.cult-card', '.cult-extra', 'toggleCultText', 'toggleCultIcon')"
+                class="inline-flex items-center gap-2 px-8 py-3 bg-white border border-amber-200 text-amber-700 font-bold text-sm rounded-full hover:bg-amber-50 transition shadow-sm">
+                <span id="toggleCultText">Show List</span>
+                <i id="toggleCultIcon" class="ri-list-check text-lg"></i>
+            </button>
+        </div>
+    </div>
+</section>
+
+
+<!-- === FINANCIAL INSTITUTIONS STRIP === -->
+<section class="py-12 md:py-16 bg-slate-900 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="inline-block p-3 rounded-full bg-yellow-500/10 mb-4">
+            <i class="ri-bank-card-fill text-4xl md:text-5xl text-yellow-500"></i>
+        </div>
+        <h2 class="text-2xl md:text-3xl font-bold mb-4">{{ content.comm_fin_title }}</h2>
+        <p class="text-slate-400 max-w-2xl mx-auto mb-8 text-sm md:text-base px-4">
+            {{ content.comm_fin_text }}
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-3 md:gap-6 opacity-80">
+            {% if banks %}
+            {% for bank in banks %}
+            {% if bank.url %}
+            <a href="{{ bank.url }}" target="_blank"
+                class="border border-white/20 bg-white/5 px-4 py-1.5 md:px-6 md:py-2 rounded-full text-xs md:text-sm whitespace-nowrap hover:bg-white/20 hover:border-white/40 transition group flex items-center gap-2">
+                {{ bank.name }}
+                <i class="ri-external-link-line text-[10px] opacity-50 group-hover:opacity-100 transition"></i>
+            </a>
+            {% else %}
+            <span
+                class="border border-white/20 px-4 py-1.5 md:px-6 md:py-2 rounded-full text-xs md:text-sm whitespace-nowrap">
+                {{ bank.name }}
+            </span>
+            {% endif %}
+            {% endfor %}
+            {% else %}
+            <span class="text-slate-500 italic text-sm">No institutions listed currently.</span>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- === ESTABLISHMENT DETAIL MODAL (Pop-out) === -->
+<div id="mapInfoModal"
+    class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity duration-300">
+    <div
+        class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-300">
+
+        <!-- Close Button -->
+        <button onclick="closeMapInfoModal()"
+            class="absolute top-3 right-3 z-10 bg-black/20 hover:bg-black/40 text-white w-10 h-10 rounded-full flex items-center justify-center transition">
+            <i class="ri-close-line text-2xl"></i>
+        </button>
+
+        <!-- Image Header -->
+        <div class="h-56 sm:h-64 shrink-0 bg-slate-200">
+            <img id="modalInfoImg" src="" class="w-full h-full object-cover">
+        </div>
+
+        <!-- Content -->
+        <div class="p-6 md:p-8 overflow-y-auto custom-scroll">
+            <h2 id="modalInfoTitle" class="text-2xl md:text-3xl font-bold text-slate-800 mb-2 serif-head"></h2>
+            <div class="flex items-center gap-2 mb-4">
+                <span
+                    class="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest">Local
+                    Cuisine</span>
+            </div>
+
+            <p id="modalInfoDesc" class="text-slate-600 leading-relaxed text-sm md:text-base mb-8 whitespace-pre-wrap">
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-3 mt-auto">
+                <a id="modalInfoMapBtn" href="#" target="_blank"
+                    class="flex-1 inline-flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-lg">
+                    <i class="ri-map-pin-line"></i> Open in Google Maps
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block footer %}
+{{ super() }}
+<script>
+    // 1. GLOBAL MAP VARIABLES
+    var cuisineMap, stayMap, deptMap, facMap, cultMap;
+
+    document.addEventListener("DOMContentLoaded", function () {
+
+        // --- SETTINGS FOR ALL MAPS ---
+        // Disables dragging and scroll zoom by default to allow smooth page scrolling
+        const mapSettings = {
+            dragging: false,        // Locked initially
+            scrollWheelZoom: false, // Prevents scroll trap
+            doubleClickZoom: true,  // Keeps double click zoom
+            touchZoom: 'center',    // Helps mobile users
+            tap: false
+        };
+
+        // Function to toggle map movement on double-click
+        function enableMapInteraction(map) {
+            map.on('dblclick', function () {
+                if (map.dragging.enabled()) {
+                    map.dragging.disable();
+                    map.getContainer().style.cursor = 'grab';
+                } else {
+                    map.dragging.enable();
+                    map.getContainer().style.cursor = 'move';
+                    // Optional: show a small toast or tooltip saying "Map Unlocked"
+                }
+            });
+        }
+
+        // --- COMMON MARKER ICONS ---
+        const orangeIcon = L.icon({
+            iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+        const violetIcon = L.icon({
+            iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+        const redIcon = L.icon({
+            iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+        const blueIcon = L.icon({
+            iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+        const goldIcon = L.icon({
+            iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        // --- INITIALIZE MAPS ---
+
+        // 1. CUISINE
+        cuisineMap = L.map('cuisine-map', mapSettings).setView([13.8785, 121.2120], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(cuisineMap);
+        enableMapInteraction(cuisineMap);
+        {% for est in establishments %} {% if est.lat and est.lng %}
+        L.marker([{{ est.lat }}, {{ est.lng }}], { icon: orangeIcon }).addTo(cuisineMap).bindPopup(`
+            <div style="text-align:center; min-width:150px;">
+                <h4 style="margin:0 0 8px 0; font-family:'Cinzel',serif; color:#c2410c;">{{ est.name }}</h4>
+                <button onclick="triggerInfoModal('{{ est.name|escape }}', '{{ est.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=est.image_url.replace('static/', '')) if est.image_url else '' }}', '{{ est.map_url }}')" 
+                        style="background:#f97316; color:white; border:none; padding:6px 12px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%;">View Details</button>
+            </div>`);
+    {% endif %} {% endfor %}
+
+    // 2. STAY
+    stayMap = L.map('stay-map', mapSettings).setView([13.8785, 121.2120], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(stayMap);
+    enableMapInteraction(stayMap);
+    {% for acc in accommodations %} {% if acc.lat and acc.lng %}
+    L.marker([{{ acc.lat }}, {{ acc.lng }}], { icon: violetIcon }).addTo(stayMap).bindPopup(`
+            <div style="text-align:center; min-width:150px;">
+                <h4 style="margin:0 0 8px 0; font-family:'Cinzel',serif; color:#4338ca;">{{ acc.name }}</h4>
+                <button onclick="triggerInfoModal('{{ acc.name|escape }}', '{{ acc.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=acc.image_url.replace('static/', '')) if acc.image_url else '' }}', '{{ acc.map_url }}')" 
+                        style="background:#6366f1; color:white; border:none; padding:6px 12px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%;">View Details</button>
+            </div>`);
+    {% endif %} {% endfor %}
+
+    // 3. DEPT STORES
+    deptMap = L.map('dept-map', mapSettings).setView([13.8785, 121.2120], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(deptMap);
+    enableMapInteraction(deptMap);
+    {% for dept in department_stores %} {% if dept.lat and dept.lng %}
+    L.marker([{{ dept.lat }}, {{ dept.lng }}], { icon: redIcon }).addTo(deptMap).bindPopup(`
+            <div style="text-align:center; min-width:150px;">
+                <h4 style="margin:0 0 8px 0; font-family:'Cinzel',serif; color:#991b1b;">{{ dept.name }}</h4>
+                <button onclick="triggerInfoModal('{{ dept.name|escape }}', '{{ dept.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=dept.image_url.replace('static/', '')) if dept.image_url else '' }}', '{{ dept.map_url }}')" 
+                        style="background:#dc2626; color:white; border:none; padding:6px 12px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%;">View Details</button>
+            </div>`);
+    {% endif %} {% endfor %}
+
+    // 4. FACILITIES
+    facMap = L.map('facilities-map', mapSettings).setView([13.8785, 121.2120], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(facMap);
+    enableMapInteraction(facMap);
+    {% for fac in facilities %} {% if fac.lat and fac.lng %}
+    L.marker([{{ fac.lat }}, {{ fac.lng }}], { icon: blueIcon }).addTo(facMap).bindPopup(`
+            <div style="text-align:center; min-width:150px;">
+                <h4 style="margin:0 0 2px 0; font-family:'Cinzel',serif; color:#1e40af;">{{ fac.name }}</h4>
+                <p style="margin:0 0 8px 0; font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase;">{{ fac.category }}</p>
+                <button onclick="triggerInfoModal('{{ fac.name|escape }}', '{{ fac.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=fac.image_url.replace('static/', '')) if fac.image_url else '' }}', '{{ fac.map_url }}')" 
+                        style="background:#2563eb; color:white; border:none; padding:6px 12px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%;">View Details</button>
+            </div>`);
+    {% endif %} {% endfor %}
+
+    // 5. CULTURAL PROPERTIES
+    cultMap = L.map('cult-map', mapSettings).setView([13.8785, 121.2120], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(cultMap);
+    enableMapInteraction(cultMap);
+    {% for cp in cultural_props %} {% if cp.lat and cp.lng %}
+    L.marker([{{ cp.lat }}, {{ cp.lng }}], { icon: goldIcon }).addTo(cultMap).bindPopup(`
+            <div style="text-align:center; min-width:150px;">
+                <h4 style="margin:0 0 8px 0; font-family:'Cinzel',serif; color:#b45309;">{{ cp.name }}</h4>
+                <button onclick="triggerInfoModal('{{ cp.name|escape }}', '{{ cp.description|replace('\n', ' ')|escape }}', '{{ url_for('static', filename=cp.image_url.replace('static/', '')) if cp.image_url else '' }}', '{{ cp.map_url }}')" 
+                        style="background:#d97706; color:white; border:none; padding:6px 12px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%;">View Details</button>
+            </div>`);
+    {% endif %} {% endfor %}
+    });
+
+    // 2. DIRECTORY ZOOM FUNCTIONS (These should NOT disable the map, they fly to the point)
+    function zoomToCult(lat, lng) { if (cultMap) { cultMap.dragging.enable(); cultMap.flyTo([lat, lng], 18, { duration: 1.5 }); } }
+    function zoomToAttr(lat, lng) { if (cuisineMap) { cuisineMap.dragging.enable(); cuisineMap.flyTo([lat, lng], 18, { duration: 1.5 }); } }
+    function zoomToStay(lat, lng) { if (stayMap) { stayMap.dragging.enable(); stayMap.flyTo([lat, lng], 18, { duration: 1.5 }); } }
+    function zoomToDept(lat, lng) { if (deptMap) { deptMap.dragging.enable(); deptMap.flyTo([lat, lng], 18, { duration: 1.5 }); } }
+    function zoomToFac(lat, lng) { if (facMap) { facMap.dragging.enable(); facMap.flyTo([lat, lng], 18, { duration: 1.5 }); } }
+
+
+
+    // Trigger wrappers for the Accordions
+    function toggleCategory(sectionId, cardClass, extraClass, textId, iconId) {
+        const section = document.getElementById(sectionId);
+        const allCards = document.querySelectorAll(cardClass);
+        const extraCards = document.querySelectorAll(extraClass);
+        const btnText = document.getElementById(textId);
+        const btnIcon = document.getElementById(iconId);
+
+        const status = btnText.textContent.trim();
+
+        // 1. If currently CLOSED -> Show first 6
+        if (status === "Show List") {
+            allCards.forEach((card, index) => {
+                if (index < 6) card.classList.remove('hidden');
+            });
+
+            if (allCards.length > 6) {
+                btnText.textContent = "See More";
+                btnIcon.className = "ri-arrow-down-s-line text-lg";
+            } else {
+                btnText.textContent = "Close List";
+                btnIcon.className = "ri-close-line text-lg";
+            }
+        }
+
+        // 2. If 6 are visible -> Show ALL remaining
+        else if (status === "See More") {
+            allCards.forEach(card => card.classList.remove('hidden'));
+            btnText.textContent = "See Less";
+            btnIcon.className = "ri-arrow-up-s-line text-lg";
+        }
+
+        // 3. If ALL are visible -> Hide extras (Return to 6)
+        else if (status === "See Less") {
+            extraCards.forEach(card => card.classList.add('hidden'));
+            btnText.textContent = "Close List";
+            btnIcon.className = "ri-close-line text-lg";
+        }
+
+        // 4. If 6 are visible -> Hide everything (Return to 0)
+        else if (status === "Close List") {
+            allCards.forEach(card => card.classList.add('hidden'));
+            btnText.textContent = "Show List";
+            btnIcon.className = "ri-list-check text-lg";
+
+            // Smooth scroll back to start of section
+            section.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    function toggleStay() { cycleAccordion('accommodations', '.stay-card', '.stay-extra', 'toggleStayText', 'toggleStayIcon'); }
+    function toggleDept() { cycleAccordion('department-stores', '.dept-card', '.dept-extra', 'toggleDeptText', 'toggleDeptIcon'); }
+    function toggleFacilities() { cycleAccordion('facilities', '.facility-card', '.extra-facility', 'toggleFacilitiesText', 'toggleFacilitiesIcon'); }
+    function toggleCult() { cycleAccordion('cultural-properties', '.cult-card', '.extra-cult', 'toggleCultText', 'toggleCultIcon'); }
+
+    // 4. MODAL LOGIC
+    function triggerInfoModal(name, desc, img, mapUrl) {
+        document.getElementById('modalInfoTitle').innerText = name;
+        document.getElementById('modalInfoDesc').innerText = desc;
+        document.getElementById('modalInfoImg').src = img;
+        const mapBtn = document.getElementById('modalInfoMapBtn');
+        if (mapUrl && mapUrl !== 'None' && mapUrl !== '') { mapBtn.href = mapUrl; mapBtn.classList.remove('hidden'); }
+        else { mapBtn.classList.add('hidden'); }
+        document.getElementById('mapInfoModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeMapInfoModal() {
+        document.getElementById('mapInfoModal').classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+    window.onclick = function (event) { if (event.target === document.getElementById('mapInfoModal')) closeMapInfoModal(); }
+</script>
+{% endblock %}

@@ -1,0 +1,438 @@
+
+
+{% extends "base.html" %}
+
+{% block title %}About Us | Tourism Padre Garcia{% endblock %}
+
+{% block head %}
+<!-- TAILWIND CSS -->
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#1e3a8a',    /* Royal Blue */
+                    secondary: '#ca8a04',  /* Gold/Bronze */
+                    dark: '#0f172a',
+                    light: '#f8fafc'
+                },
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                    serif: ['Playfair Display', 'serif'],
+                }
+            }
+        }
+    }
+</script>
+
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f8fafc;
+    }
+
+    h1, h2, h3 {
+        font-family: 'Playfair Display', serif;
+    }
+
+    .hero-small {
+        background: linear-gradient(to right, rgba(15, 23, 42, 0.9), rgba(30, 58, 138, 0.8)),
+        url("{{ url_for('static', filename=content.about_image.replace('static/', '')) if content.about_image and 'static/uploads' in content.about_image else content.about_image }}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+
+    .stat-card:hover i {
+        transform: scale(1.2);
+    }
+
+    .pattern-bg {
+        background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+        background-size: 20px 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HERO HEADER -->
+<header class="hero-small h-[50vh] flex items-center justify-center relative pt-20">
+    <div class="text-center text-white z-10 px-4" data-aos="fade-up">
+        <span class="text-yellow-400 uppercase tracking-[0.2em] text-sm font-semibold mb-3 block">{{ content.about_hero_badge }}</span>
+        <h1 class="text-5xl md:text-6xl font-bold mb-4">{{ content.about_hero_h1 }}</h1>
+        <p class="text-blue-100 max-w-xl mx-auto text-lg font-light">{{ content.about_hero_sub }}</p>
+    </div>
+    <!-- Decorative curve -->
+    <div class="absolute bottom-0 left-0 w-full overflow-hidden leading-none rotate-180">
+        <svg class="relative block w-[calc(100%+1.3px)] h-[50px]" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path
+                d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
+                class="fill-slate-50"></path>
+        </svg>
+    </div>
+</header>
+
+<!-- MAIN INTRODUCTION -->
+<section class="py-20 bg-slate-50 relative">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+            <!-- Text Side -->
+            <div data-aos="fade-right">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="h-[2px] w-10 bg-secondary"></span>
+                    <span class="text-secondary font-bold uppercase text-sm tracking-widest">{{ content.about_intro_badge }}</span>
+                </div>
+                <h2 class="text-4xl lg:text-5xl font-bold text-slate-900 mb-6 leading-tight">{{ content.about_title }}
+                </h2>
+
+                <div class="prose prose-lg text-slate-600 mb-8">
+                    <!-- Displaying the dynamic text from database/views -->
+                    <p class="whitespace-pre-wrap leading-relaxed">{{ content.about_text }}</p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-primary text-xl">
+                            <i class="ri-history-line"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800">{{ content.about_feat1_title }}</h4>
+                            <p class="text-xs text-slate-500">{{ content.about_feat1_desc }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-secondary text-xl">
+                            <i class="ri-shake-hands-line"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800">{{ content.about_feat2_title }}</h4>
+                            <p class="text-xs text-slate-500">{{ content.about_feat2_desc }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image Side -->
+            <div class="relative" data-aos="fade-left">
+                <div class="absolute -top-4 -right-4 w-2/3 h-full border-4 border-secondary/20 rounded-2xl z-0"></div>
+                <div class="relative z-10 rounded-2xl overflow-hidden shadow-2xl">
+                    <img src="{{ url_for('static', filename=content.about_image.replace('static/', '')) if 'static/uploads' in content.about_image else content.about_image }}"
+                        alt="About Padre Garcia"
+                        class="w-full h-auto object-cover transform hover:scale-105 transition duration-700">
+                </div>
+                <div
+                    class="absolute -bottom-6 -left-6 bg-white p-6 rounded-lg shadow-xl z-20 max-w-xs border-l-4 border-primary hidden md:block">
+                    <p class="text-sm font-serif italic text-slate-600">{{ content.about_img_caption }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- MISSION & VISION -->
+<section class="py-20 bg-white pattern-bg relative">
+    <div class="max-w-7xl mx-auto px-6 relative z-10">
+        <div class="text-center mb-16" data-aos="fade-up">
+            <h2 class="text-3xl font-bold text-slate-800">{{ content.about_dir_title }}</h2>
+            <p class="text-slate-500 mt-2">{{ content.about_dir_sub }}</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Mission -->
+            <div class="bg-white p-10 rounded-2xl shadow-lg border-t-4 border-primary hover:shadow-2xl transition group"
+                data-aos="fade-up" data-aos-delay="100">
+                <div
+                    class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-primary text-3xl mb-6 group-hover:bg-primary group-hover:text-white transition duration-300">
+                    <i class="ri-flag-2-line"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-slate-800 mb-4">Our Mission</h3>
+                <p class="text-slate-600 leading-relaxed">
+                    {{ content.mission_text }}
+                </p>
+            </div>
+
+            <!-- Vision -->
+            <div class="bg-white p-10 rounded-2xl shadow-lg border-t-4 border-secondary hover:shadow-2xl transition group"
+                data-aos="fade-up" data-aos-delay="200">
+                <div
+                    class="w-16 h-16 bg-yellow-50 rounded-2xl flex items-center justify-center text-secondary text-3xl mb-6 group-hover:bg-secondary group-hover:text-white transition duration-300">
+                    <i class="ri-eye-2-line"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-slate-800 mb-4">Our Vision</h3>
+                <p class="text-slate-600 leading-relaxed">
+                    {{ content.vision_text }}
+                </p>
+            </div>
+            
+        </div>
+    </div>
+</section>
+
+{% if categories %}
+<section class="py-20 bg-slate-50 relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-6">
+        
+        {% for cat in categories %}
+        {% if cat.members %}
+        <div class="mb-20 last:mb-0 relative" data-aos="fade-up">
+            
+            <!-- Category Header -->
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-slate-800 tracking-tight">{{ cat.name }}</h2>
+                <div class="h-1 w-16 bg-primary mx-auto mt-3 rounded-full"></div>
+            </div>
+
+            <!-- Carousel Wrapper for Category Members -->
+            <div class="relative w-full overflow-hidden px-4 md:px-12">
+                
+                <div id="carousel-wrapper-{{ cat.id }}" class="flex transition-transform duration-500 ease-out gap-6 py-4 overflow-x-auto no-scrollbar scroll-smooth">
+                    {% for mem in cat.members|sort(attribute='order') %}
+                    <!-- Updated with cursor pointer, transition properties, and interactive parameters -->
+                    <div onclick="openMemberDetailModal(this)" 
+                         data-name="{{ mem.name | escape }}" 
+                         data-title="{{ mem.title | escape }}" 
+                         data-img="{% if mem.image_url %}{{ url_for('static', filename=mem.image_url.replace('static/', '')) }}{% else %}{% endif %}"
+                         class="min-w-[260px] max-w-[280px] bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col items-center justify-center text-center shrink-0 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
+                        
+                        <!-- Profile Image Frame -->
+                        <div class="w-32 h-32 rounded-full border-4 border-slate-100 p-1 mb-4 bg-slate-50 overflow-hidden shadow-inner shrink-0 group-hover:border-indigo-100 transition duration-300">
+                            {% if mem.image_url %}
+                                <img src="{{ url_for('static', filename=mem.image_url.replace('static/', '')) }}" class="w-full h-full rounded-full object-cover" alt="{{ mem.name }}">
+                            {% else %}
+                                <div class="w-full h-full rounded-full bg-slate-200 flex items-center justify-center text-slate-400 text-3xl">
+                                    <i class="ri-user-line"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Info -->
+                        <h4 class="font-bold text-slate-800 text-base mb-2 uppercase leading-snug group-hover:text-primary transition duration-300">{{ mem.name }}</h4>
+                        <p class="text-xs text-blue-800 font-semibold tracking-wide uppercase leading-relaxed max-w-[220px]">{{ mem.title }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Slider Actions -->
+                <button onclick="scrollContainer('carousel-wrapper-{{ cat.id }}', -1)" class="absolute left-0 top-1/2 -translate-y-1/2 bg-white/90 text-slate-800 w-10 h-10 rounded-full shadow-lg border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition z-20">
+                    <i class="ri-arrow-left-s-line text-2xl"></i>
+                </button>
+                <button onclick="scrollContainer('carousel-wrapper-{{ cat.id }}', 1)" class="absolute right-0 top-1/2 -translate-y-1/2 bg-white/90 text-slate-800 w-10 h-10 rounded-full shadow-lg border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition z-20">
+                    <i class="ri-arrow-right-s-line text-2xl"></i>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+    </div>
+</section>
+
+<!-- ==============================================
+     MEMBER DETAIL POP-OUT MODAL
+=============================================== -->
+<div id="memberDetailModal" class="fixed inset-0 z-[9999] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity duration-300 opacity-0" onclick="closeMemberDetailModal()">
+    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-slate-200 relative text-slate-800 flex flex-col transform scale-95 transition-transform duration-300" onclick="event.stopPropagation()">
+        
+        <!-- Close Action Button -->
+        <button onclick="closeMemberDetailModal()" class="absolute top-4 right-4 z-50 text-slate-400 hover:text-slate-600 transition bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center focus:outline-none">
+            <i class="ri-close-line text-2xl"></i>
+        </button>
+
+        <div class="p-8 text-center flex flex-col items-center relative overflow-hidden bg-gradient-to-b from-slate-50 to-white">
+            <!-- Dynamic Profile Frame -->
+            <div class="w-40 h-40 rounded-full border-4 border-indigo-500 p-1 mb-6 shadow-xl bg-slate-100 overflow-hidden shrink-0">
+                <img id="detailModalImg" src="" class="w-full h-full rounded-full object-cover bg-slate-200" alt="Profile headshot">
+                <div id="detailModalPlaceholder" class="w-full h-full rounded-full bg-slate-200 flex items-center justify-center text-slate-400 text-5xl hidden">
+                    <i class="ri-user-line"></i>
+                </div>
+            </div>
+
+            <!-- Member Information Details -->
+            <h3 id="detailModalName" class="text-2xl font-bold font-sans text-slate-900 uppercase leading-snug mb-3"></h3>
+            <div class="h-1 w-12 bg-indigo-500 rounded-full mb-4"></div>
+            <p id="detailModalTitle" class="text-xs text-blue-800 font-bold uppercase tracking-wider leading-relaxed max-w-[280px]"></p>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+    // Smooth scrolling mechanism for the directory carousels
+    function scrollContainer(containerId, direction) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            const scrollOffset = 300; 
+            container.scrollBy({
+                left: direction * scrollOffset,
+                behavior: 'smooth'
+            });
+        }
+    }
+
+    // Modal Control Operations
+    function openMemberDetailModal(element) {
+        const name = element.getAttribute('data-name');
+        const title = element.getAttribute('data-title');
+        const img = element.getAttribute('data-img');
+
+        document.getElementById('detailModalName').innerText = name;
+        document.getElementById('detailModalTitle').innerText = title;
+
+        const modalImg = document.getElementById('detailModalImg');
+        const placeholder = document.getElementById('detailModalPlaceholder');
+
+        if (img && img.trim() !== '') {
+            modalImg.src = img;
+            modalImg.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        } else {
+            modalImg.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+        }
+
+        const modal = document.getElementById('memberDetailModal');
+        const modalContent = modal.querySelector('div');
+
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modalContent.classList.remove('scale-95');
+        }, 10);
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeMemberDetailModal() {
+        const modal = document.getElementById('memberDetailModal');
+        const modalContent = modal.querySelector('div');
+
+        modal.classList.add('opacity-0');
+        modalContent.classList.add('scale-95');
+
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }, 300);
+    }
+
+    // Global Key Listener for modal close on ESC press
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const modal = document.getElementById('memberDetailModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                closeMemberDetailModal();
+            }
+        }
+    });
+</script>
+
+<style>
+    /* Hide scrollbar utility for Webkit/Firefox */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+{% endif %}
+
+<!-- TOURISM GROWTH CHART SECTION -->
+{% if content.about_chart_path %}
+<section class="py-20 bg-slate-50">
+    <div class="max-w-5xl mx-auto px-6">
+        <div class="text-center mb-12" data-aos="fade-up">
+            <h2 class="text-3xl md:text-4xl font-bold text-slate-800">Our Growing Tourism</h2>
+            <div class="h-1 w-20 bg-primary mx-auto mt-4 rounded"></div>
+            <p class="text-slate-500 mt-4">A visual representation of annual tourist arrivals from 2022 to 2026.</p>
+        </div>
+        
+        <div class="bg-white p-4 md:p-10 rounded-3xl shadow-2xl border border-slate-200" data-aos="zoom-in">
+            <img src="{{ url_for('static', filename=content.about_chart_path.replace('static/', '')) if 'static/uploads' in content.about_chart_path else content.about_chart_path }}" 
+                 alt="Tourism Arrivals Statistics" class="w-full h-auto rounded-xl">
+            
+            <div class="mt-6 flex items-center justify-center gap-2 text-slate-400 text-xs italic">
+                <i class="ri-information-line"></i>
+                <span>Data based on official municipal records.</span>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- FAST FACTS STRIP -->
+<section class="py-16 bg-primary text-white">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-white/20">
+            
+            <!-- Fact 1 -->
+            {% if content.fact_year_link %}
+            <a href="{{ content.fact_year_link }}" {% if content.fact_year_link.startswith('http') %}target="_blank"{% endif %} class="stat-card p-4 block hover:bg-white/10 rounded-xl transition cursor-pointer" data-aos="zoom-in" data-aos-delay="100">
+            {% else %}
+            <div class="stat-card p-4" data-aos="zoom-in" data-aos-delay="100">
+            {% endif %}
+                <i class="ri-calendar-check-line text-4xl text-yellow-400 mb-2 block transition duration-300 group-hover:scale-110"></i>
+                <span class="text-3xl font-bold font-serif">{{ content.fact_year }}</span>
+                <p class="text-xs uppercase tracking-wider opacity-80 mt-1">Year Founded</p>
+            {% if content.fact_year_link %}</a>{% else %}</div>{% endif %}
+
+            <!-- Fact 2 -->
+            {% if content.fact_barangays_link %}
+            <a href="{{ content.fact_barangays_link }}" {% if content.fact_barangays_link.startswith('http') %}target="_blank"{% endif %} class="stat-card p-4 block hover:bg-white/10 rounded-xl transition cursor-pointer" data-aos="zoom-in" data-aos-delay="200">
+            {% else %}
+            <div class="stat-card p-4" data-aos="zoom-in" data-aos-delay="200">
+            {% endif %}
+                <i class="ri-map-2-line text-4xl text-yellow-400 mb-2 block transition duration-300 group-hover:scale-110"></i>
+                <span class="text-3xl font-bold font-serif">{{ content.fact_barangays }}</span>
+                <p class="text-xs uppercase tracking-wider opacity-80 mt-1">Barangays</p>
+            {% if content.fact_barangays_link %}</a>{% else %}</div>{% endif %}
+
+            <!-- Fact 3 -->
+            {% if content.fact_population_link %}
+            <a href="{{ content.fact_population_link }}" {% if content.fact_population_link.startswith('http') %}target="_blank"{% endif %} class="stat-card p-4 block hover:bg-white/10 rounded-xl transition cursor-pointer" data-aos="zoom-in" data-aos-delay="300">
+            {% else %}
+            <div class="stat-card p-4" data-aos="zoom-in" data-aos-delay="300">
+            {% endif %}
+                <i class="ri-group-line text-4xl text-yellow-400 mb-2 block transition duration-300 group-hover:scale-110"></i>
+                <span class="text-3xl font-bold font-serif">{{ content.fact_population }}</span>
+                <p class="text-xs uppercase tracking-wider opacity-80 mt-1">Population</p>
+            {% if content.fact_population_link %}</a>{% else %}</div>{% endif %}
+
+            <!-- Fact 4 -->
+            {% if content.fact_festival_link %}
+            <a href="{{ content.fact_festival_link }}" {% if content.fact_festival_link.startswith('http') %}target="_blank"{% endif %} class="stat-card p-4 block hover:bg-white/10 rounded-xl transition cursor-pointer" data-aos="zoom-in" data-aos-delay="400">
+            {% else %}
+            <div class="stat-card p-4" data-aos="zoom-in" data-aos-delay="400">
+            {% endif %}
+                <i class="ri-goblet-line text-4xl text-yellow-400 mb-2 block transition duration-300 group-hover:scale-110"></i>
+                <span class="text-3xl font-bold font-serif">{{ content.fact_festival }}</span>
+                <p class="text-xs uppercase tracking-wider opacity-80 mt-1">Kabakahan Festival</p>
+            {% if content.fact_festival_link %}</a>{% else %}</div>{% endif %}
+
+        </div>
+    </div>
+</section>
+
+<!-- CALL TO ACTION -->
+<section class="py-20 bg-white text-center">
+    <div class="max-w-4xl mx-auto px-6" data-aos="fade-up">
+        <h2 class="text-3xl font-bold text-slate-900 mb-6">{{ content.about_cta_title }}</h2>
+        <p class="text-slate-600 mb-8 text-lg">{{ content.about_cta_text }}</p>
+        <div class="flex justify-center gap-4">
+            <a href="{{ url_for('views.home') }}#spots"
+                class="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-blue-800 transition">See
+                Tourist Spots</a>
+            <a href="{{ url_for('views.contacts') }}"
+                class="bg-white text-primary border border-primary px-8 py-3 rounded-full font-bold shadow hover:bg-slate-50 transition">Contact
+                Us</a>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Citizen's Charter | Tourism Padre Garcia{% endblock %}
+
+{% block head %}
+<style>
+    .charter-hero {
+        background: linear-gradient(to right, rgba(15, 23, 42, 0.9), rgba(30, 58, 138, 0.85)),
+        url("{{ url_for('static', filename=content.charter_hero_bg.replace('static/', '')) if 'static/uploads' in content.charter_hero_bg else content.charter_hero_bg }}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    
+    .serif-title {
+        font-family: 'Cinzel', serif;
+    }
+
+    .service-nav-link.active {
+        background-color: #f1f5f9;
+        color: #1e3a8a;
+        border-left-color: #ca8a04;
+    }
+    
+    .charter-table th {
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+    }
+    
+    .charter-table td {
+        font-size: 0.875rem;
+        color: #334155;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HERO HEADER -->
+<header class="charter-hero h-[45vh] flex items-center justify-center relative pt-20">
+    <div class="text-center text-white z-10 px-4" data-aos="fade-up">
+        <div class="inline-block border border-yellow-500 px-4 py-1 rounded-full mb-4 bg-black/40 backdrop-blur-md">
+            <span class="text-yellow-400 uppercase tracking-[0.2em] text-xs font-bold">Public Service Standard</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold serif-title mb-2">{{ content.charter_hero_title }}</h1>
+        <p class="text-slate-300 text-sm md:text-base max-w-xl mx-auto font-light leading-relaxed">
+            {{ content.charter_hero_sub }}
+        </p>
+    </div>
+</header>
+
+<!-- MAIN SERVICE CHARTER CONTAINER -->
+<section class="py-16 bg-slate-50 min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- LEFT NAVIGATION COLUMN (Desktop Sticky Menu) -->
+            <aside class="hidden lg:block lg:col-span-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm sticky top-24">
+                <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b">External Services</h3>
+                <nav class="space-y-1">
+                    {% for service in services %}
+                    <button onclick="scrollToService('service-{{ service.id }}')" class="service-nav-link w-full text-left px-4 py-3 rounded-lg text-sm font-semibold border-l-4 border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition flex items-center gap-3">
+                        <span class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold shrink-0">{{ loop.index }}</span>
+                        <span class="truncate">{{ service.title }}</span>
+                    </button>
+                    {% endfor %}
+                </nav>
+            </aside>
+            
+            <!-- RIGHT INFORMATION COLUMN (Dynamic Details) -->
+            <div class="lg:col-span-8 space-y-12">
+                
+                {% for service in services %}
+                <div id="service-{{ service.id }}" class="scroll-mt-24 bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8" data-aos="fade-up">
+                    <span class="text-xs font-extrabold text-blue-600 uppercase tracking-widest">Service No. {{ loop.index }}</span>
+                    <h2 class="text-2xl font-bold text-slate-900 serif-title mt-1 mb-4">{{ service.title }}</h2>
+                    <p class="text-slate-600 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{{ service.description }}</p>
+                    
+                    <!-- Metadata block -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg text-xs mb-6 border border-slate-100">
+                        <div><strong>Office or Division:</strong> {{ service.office_division or 'N/A' }}</div>
+                        <div><strong>Classification:</strong> {{ service.classification or 'N/A' }}</div>
+                        <div><strong>Type of Transaction:</strong> {{ service.transaction_type or 'N/A' }}</div>
+                        <div><strong>Who may avail:</strong> {{ service.who_may_avail or 'N/A' }}</div>
+                    </div>
+                    
+                    <!-- Checklist Requirements Table -->
+                    <h3 class="font-bold text-sm text-slate-700 uppercase tracking-wide mb-3"><i class="ri-checkbox-circle-line"></i> Checklist of Requirements</h3>
+                    <div class="overflow-x-auto border rounded-lg mb-6">
+                        <table class="w-full text-left border-collapse charter-table">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="px-4 py-2.5">Checklist of Requirements</th>
+                                    <th class="px-4 py-2.5">Where to Secure</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y">
+                                {% for req in service.requirements %}
+                                <tr>
+                                    <td class="px-4 py-3 whitespace-pre-wrap">{{ req.requirement }}</td>
+                                    <td class="px-4 py-3 whitespace-pre-wrap">{{ req.where_to_secure or 'N/A' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="2" class="px-4 py-3 text-center text-slate-400 italic">No requirement entries recorded.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Steps and Processing Table -->
+                    <h3 class="font-bold text-sm text-slate-700 uppercase tracking-wide mb-3"><i class="ri-list-check-3"></i> Step-by-Step Procedure</h3>
+                    <div class="overflow-x-auto border rounded-lg">
+                        <table class="w-full text-left border-collapse charter-table">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="px-4 py-2.5">Client Steps</th>
+                                    <th class="px-4 py-2.5">Agency Action</th>
+                                    <th class="px-4 py-2.5">Fees to Pay</th>
+                                    <th class="px-4 py-2.5">Processing Time</th>
+                                    <th class="px-4 py-2.5">Person Responsible</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y">
+                                {% for step in service.steps|sort(attribute='step_number') %}
+                                <tr>
+                                    <td class="px-4 py-3 font-semibold whitespace-pre-wrap">{{ step.step_number }}. {{ step.client_step }}</td>
+                                    <td class="px-4 py-3 whitespace-pre-wrap">{{ step.agency_action }}</td>
+                                    <td class="px-4 py-3">{{ step.fees_to_pay }}</td>
+                                    <td class="px-4 py-3">{{ step.processing_time }}</td>
+                                    <td class="px-4 py-3 font-medium">{{ step.person_responsible }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="px-4 py-3 text-center text-slate-400 italic">No procedure rows recorded.</td>
+                                </tr>
+                                {% endfor %}
+                                
+                                <!-- DYNAMIC TOTAL HOURS ROW -->
+                                {% if service.total_processing_time %}
+                                <tr class="bg-slate-100/70 font-bold border-t border-slate-300">
+                                    <td colspan="3" class="px-4 py-3.5 text-right text-slate-700 uppercase tracking-wider text-xs">Total Processing Time:</td>
+                                    <td colspan="2" class="px-4 py-3.5 text-blue-800 text-sm font-extrabold">{{ service.total_processing_time }}</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>6
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+
+            </div>
+            
+        </div>
+    </div>
+</section>
+
+<!-- NAVIGATION LOGIC FOR DESKTOP STICKY SIDEBAR -->
+<script>
+    function scrollToService(id) {
+        const target = document.getElementById(id);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // Active state highlighting on scroll
+    window.addEventListener('scroll', () => {
+        const services = [{% for s in services %}'service-{{ s.id }}',{% endfor %}];
+        const scrollPosition = window.scrollY + 120; // Offsets for nav-bar heights
+
+        services.forEach((id, index) => {
+            const el = document.getElementById(id);
+            if (el) {
+                const top = el.offsetTop;
+                const bottom = top + el.offsetHeight;
+
+                if (scrollPosition >= top && scrollPosition < bottom) {
+                    document.querySelectorAll('.service-nav-link').forEach((link, idx) => {
+                        if (idx === index) {
+                            link.classList.add('active');
+                        } else {
+                            link.classList.remove('active');
+                        }
+                    });
+                }
+            }
+        });
+    });
+
+    // Set initial active state
+    document.addEventListener('DOMContentLoaded', () => {
+        const firstLink = document.querySelector('.service-nav-link');
+        if (firstLink) firstLink.classList.add('active');
+    });
+</script>
+
+{% endblock %}

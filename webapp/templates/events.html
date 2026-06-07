@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Events Calendar | Padre Garcia{% endblock %}
+
+{% block content %}
+<div class="pt-32 pb-20 px-6 max-w-6xl mx-auto">
+    <div class="text-center mb-16">
+        <h1 class="text-4xl md:text-5xl font-bold font-cinzel text-slate-900">Events</h1>
+        <p class="text-slate-600 mt-4">Stay updated with the latest happenings in our town.</p>
+    </div>
+
+    {% if events %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {% for event in events %}
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden hover:shadow-2xl transition">
+            {% if event.image_url %}
+            <img src="{{ url_for('static', filename=event.image_url.replace('static/', '')) }}"
+                class="w-full h-48 object-cover">
+            {% endif %}
+            <div class="p-6">
+                <div class="text-primary font-bold text-sm mb-2">
+                    {% if event.show_date and event.date %}
+                    {{ event.date.strftime('%B %d, %Y') }}
+                    {% else %}
+                    Schedule: TBD
+                    {% endif %}
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">{{ event.title }}</h3>
+                <p class="text-slate-600 text-sm mb-4">{{ event.description }}</p>
+                <div class="text-xs text-slate-400"><i class="ri-map-pin-line"></i> {{ event.location }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-20 text-slate-400 italic">No upcoming events scheduled.</div>
+    {% endif %}
+</div>
+{% endblock %}

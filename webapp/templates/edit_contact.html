@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Editor: Contact Us | Admin Panel{% endblock %}
+
+{% block head %}
+<style>
+    /* Hide the default public navigation */
+    .default-nav { display: none !important; }
+    
+    /* Custom Scrollbar */
+    textarea::-webkit-scrollbar { width: 8px; }
+    textarea::-webkit-scrollbar-track { background: #f1f5f9; }
+    textarea::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    textarea::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Image Preview Container */
+    .img-preview-box {
+        position: relative;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        border: 1px solid #e2e8f0;
+        background-color: #f8fafc;
+    }
+    .img-preview-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .file-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.2s;
+        color: white;
+        cursor: pointer;
+    }
+    .img-preview-box:hover .file-overlay {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{# --- EDITOR TOOLBAR --- #}
+{% block navbar %}
+<nav class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('views.dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition" title="Back to Dashboard">
+            <i class="ri-arrow-left-line text-xl"></i>
+        </a>
+        <div class="h-8 w-[1px] bg-slate-200 mx-2 hidden md:block"></div>
+        <div>
+            <h1 class="text-lg font-bold text-slate-800 leading-tight">Edit Contact Page</h1>
+            <p class="text-xs text-slate-400 hidden md:block">Managing Info, Map, and Layout</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('views.contacts') }}" target="_blank" class="hidden md:flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition px-3 py-2">
+            <i class="ri-eye-line"></i> Preview
+        </a>
+        <button type="submit" form="editForm" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg hover:shadow-blue-500/30 transition flex items-center gap-2">
+            <i class="ri-save-3-fill"></i> Save Changes
+        </button>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50 pt-24 pb-20 px-4 md:px-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <form id="editForm" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <!-- ========================== -->
+            <!-- LEFT COLUMN (Main Info)    -->
+            <!-- ========================== -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- CARD 1: Contact Information Cards -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-id-card-line text-blue-500"></i>
+                        <h2 class="font-bold text-slate-700">Information Cards</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        
+                        <!-- Address -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-1">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5 tracking-wider">Address Title</label>
+                                <input type="text" name="contact_card_addr_title" value="{{ content.contact_card_addr_title }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5 tracking-wider">Address Text</label>
+                                <textarea name="contact_card_addr_text" rows="2" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none">{{ content.contact_card_addr_text }}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="border-t border-slate-100 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-1">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5 tracking-wider">Phone Title</label>
+                                <input type="text" name="contact_card_phone_title" value="{{ content.contact_card_phone_title }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div class="md:col-span-2 space-y-2">
+                                <label class="block text-xs font-bold uppercase text-slate-500 tracking-wider">Numbers</label>
+                                <input type="text" name="contact_phone_main" value="{{ content.contact_phone_main }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Primary Phone">
+                                <input type="text" name="contact_phone_alt" value="{{ content.contact_phone_alt }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Secondary Phone">
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="border-t border-slate-100 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-1">
+                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5 tracking-wider">Email Title</label>
+                                <input type="text" name="contact_card_email_title" value="{{ content.contact_card_email_title }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div class="md:col-span-2 space-y-2">
+                                <label class="block text-xs font-bold uppercase text-slate-500 tracking-wider">Email Addresses</label>
+                                <input type="text" name="contact_email_main" value="{{ content.contact_email_main }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Primary Email">
+                                <input type="text" name="contact_email_alt" value="{{ content.contact_email_alt }}" class="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Secondary Email">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- CARD 2: Map & Form -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-map-pin-line text-red-500"></i>
+                        <h2 class="font-bold text-slate-700">Map & Form Settings</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5 tracking-wider">Contact Form Headline</label>
+                            <input type="text" name="contact_form_title" value="{{ content.contact_form_title }}" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 font-bold focus:ring-2 focus:ring-red-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5 tracking-wider">Google Maps Embed URL (src)</label>
+                            <textarea name="contact_map_url" rows="4" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-xs font-mono text-slate-600 focus:bg-white focus:ring-2 focus:ring-red-500 outline-none">{{ content.contact_map_url }}</textarea>
+                            <p class="text-[10px] text-slate-400 mt-1">Paste the <code>src="..."</code> URL from Google Maps Embed feature here.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ========================== -->
+            <!-- RIGHT COLUMN (Visuals) -->
+            <!-- ========================== -->
+            <div class="lg:col-span-1 space-y-8">
+                
+                <!-- CARD 3: Hero Section -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-image-2-line text-green-500"></i>
+                        <h2 class="font-bold text-slate-700">Hero Section</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5 tracking-wider">Hero Title</label>
+                            <input type="text" name="contact_hero_title" value="{{ content.contact_hero_title }}" 
+                                class="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 font-bold focus:ring-2 focus:ring-green-500 outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5 tracking-wider">Hero Subtitle</label>
+                            <input type="text" name="contact_hero_sub" value="{{ content.contact_hero_sub }}" 
+                                class="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-green-500 outline-none transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-2 tracking-wider">Background Image</label>
+                            <div class="img-preview-box h-32 w-full">
+                                {% if content.contact_hero_bg %}
+                                <img src="{{ url_for('static', filename=content.contact_hero_bg.replace('static/', '')) if 'static/uploads' in content.contact_hero_bg else content.contact_hero_bg }}">
+                                {% endif %}
+                                <label class="file-overlay">
+                                    <i class="ri-upload-cloud-2-line text-2xl mb-1"></i>
+                                    <span class="text-[10px] uppercase font-bold">Update Banner</span>
+                                    <input type="file" name="contact_hero_bg_file" class="hidden" accept="image/*">
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer %}{% endblock %}

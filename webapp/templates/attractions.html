@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}Major Attractions | Padre Garcia{% endblock %}
+
+{% block head %}
+<style>
+    .serif-head {
+        font-family: 'Cinzel', serif;
+    }
+
+    /* GIS Style Container - Made slightly smaller */
+    .map-board {
+        background-color: white;
+        border: 8px solid #0f172a;
+        /* Reduced from 12px */
+        position: relative;
+        box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.3);
+        margin-top: 2rem;
+    }
+
+    #attractions-map {
+        width: 100%;
+        height: 450px;
+        /* Reduced height for a more compact look */
+        z-index: 1;
+    }
+
+    /* Top Right Floating List */
+    .map-side-list {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 240px;
+        background: rgba(255, 252, 232, 0.95);
+        border: 2px solid #854d0e;
+        z-index: 1000;
+        padding: 12px;
+        box-shadow: 4px 4px 0px #854d0e;
+    }
+
+    /* Bottom Info Bar - Responsive Grid */
+    .map-footer-bar {
+        background: white;
+        border-top: 3px solid #0f172a;
+        display: grid;
+        grid-template-columns: 200px 1fr 250px;
+        min-height: 150px;
+    }
+
+    @media (max-width: 768px) {
+        .map-footer-bar {
+            grid-template-columns: 1fr;
+        }
+
+        .legend-box,
+        .meta-box {
+            border: none !important;
+        }
+    }
+
+    .legend-box {
+        border-right: 1px solid #0f172a;
+        padding: 10px;
+        background: #f8fafc;
+    }
+
+    .title-box {
+        padding: 15px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .meta-box {
+        border-left: 1px solid #0f172a;
+        padding: 10px;
+        font-size: 9px;
+        background: white;
+    }
+
+    .star-marker {
+        font-size: 24px;
+        color: #eab308;
+        text-shadow: 2px 2px 0px #854d0e, -1px -1px 0px #854d0e;
+    }
+
+    /* Card styling for the loop below */
+    .media-container img,
+    .media-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 1.5s ease;
+    }
+
+    .media-container:hover img {
+        transform: scale(1.05);
+    }
+
+    .gis-footer {
+        background-color: #fdf6d3;
+        /* Pale Yellow/Cream */
+        border: 2px solid #000;
+        display: grid;
+        grid-template-columns: 220px 1fr 280px 300px;
+        min-height: 180px;
+        color: #000;
+        font-family: Arial, sans-serif;
+    }
+
+    .gis-footer>div {
+        border-right: 2px solid #000;
+        padding: 12px;
+    }
+
+    .gis-footer>div:last-child {
+        border-right: none;
+    }
+
+    /* Legend Section */
+    .gis-legend {
+        background-color: #9dc3e6;
+        /* Sky Blue */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .gis-legend h3 {
+        text-align: center;
+        font-weight: 900;
+        font-size: 1.25rem;
+        border-bottom: 2px solid #000;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        font-weight: bold;
+        font-size: 13px;
+    }
+
+    .box-mun {
+        width: 30px;
+        height: 18px;
+        border: 2px solid #000;
+        background: transparent;
+    }
+
+    .box-brgy {
+        width: 30px;
+        height: 18px;
+        border: 1px solid #1e3a8a;
+        background: transparent;
+    }
+
+    .star-icon {
+        color: #854d0e;
+        font-size: 18px;
+    }
+
+    /* Title Section */
+    .gis-title {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        text-align: center;
+    }
+
+    .gis-title h1 {
+        font-size: 1.8rem;
+        font-weight: 900;
+        letter-spacing: -0.5px;
+    }
+
+    .gis-title h2 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-top: 5px;
+    }
+
+    .gis-logos {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 10px;
+    }
+
+    .gis-logos img {
+        height: 45px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    /* Notes Section */
+    .gis-notes {
+        font-size: 10px;
+        line-height: 1.2;
+    }
+
+    .gis-notes strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 11px;
+        text-decoration: underline;
+    }
+
+    /* Inset Maps */
+    .gis-insets {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        background-color: #fff;
+        padding: 5px !important;
+    }
+
+    .inset-box {
+        border: 1px solid #000;
+        height: 100%;
+        background-color: #e0f2fe;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .inset-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    @media (max-width: 1024px) {
+        .gis-footer {
+            grid-template-columns: 1fr;
+        }
+
+        .gis-footer>div {
+            border-right: none;
+            border-bottom: 2px solid #000;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- 1. HEADER SECTION (Standard Title) -->
+<div class="pt-28 pb-10 bg-white">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="text-center" data-aos="fade-up">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-800 serif-head">Interactive Tourism Map</h1>
+            <p class="text-slate-500 mt-2 italic">Locate our major destinations across the municipality</p>
+        </div>
+
+        <div class="map-board mt-8" data-aos="zoom-in">
+            <!-- THE MAP -->
+            <div id="attractions-map"></div>
+
+            <!-- THE NEW FOOTER -->
+            <div class="gis-footer">
+                <!-- 1. LEGEND -->
+                <div class="gis-legend">
+                    <h3>LEGEND</h3>
+                    <div class="legend-item">
+                        <div class="box-mun"></div> <span>Municipal Boundary</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="box-brgy"></div> <span>Barangay Boundary</span>
+                    </div>
+                    <div class="legend-item">
+                        <i class="ri-star-fill star-icon"></i> <span>Tourist Attractions</span>
+                    </div>
+                </div>
+                <!-- FLOATING SIDE LIST -->
+                <div class="map-side-list hidden md:block">
+                    <h3
+                        class="font-bold border-b border-amber-900 pb-1 mb-2 text-amber-900 uppercase text-[10px] tracking-widest">
+                        Directory</h3>
+                    <ul class="space-y-1">
+                        {% for attr in attractions %}
+                        <li class="text-[10px] font-bold flex gap-2 items-start">
+                            <span class="text-amber-600">{{ loop.index }}.</span>
+                            <button onclick="zoomToAttr({{ attr.lat }}, {{ attr.lng }})"
+                                class="hover:underline text-left leading-tight text-slate-800 uppercase">
+                                {{ attr.name }}
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+
+                <!-- 2. TITLE & LOGOS -->
+                <div class="gis-title">
+                    <div>
+                        <h1>{{ content.attr_map_title }}</h1>
+                        <h2>{{ content.attr_map_municipality }}<br>{{ content.attr_map_province }}</h2>
+                    </div>
+                    <div class="gis-logos">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_logo1.replace('static/', '')) if 'static/uploads' in content.attr_map_logo1 else content.attr_map_logo1 }}">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_logo2.replace('static/', '')) if 'static/uploads' in content.attr_map_logo2 else content.attr_map_logo2 }}">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_logo3.replace('static/', '')) if 'static/uploads' in content.attr_map_logo3 else content.attr_map_logo3 }}">
+                        <img
+                            src="{{ url_for('static', filename=content.attr_map_logo4.replace('static/', '')) if 'static/uploads' in content.attr_map_logo4 else content.attr_map_logo4 }}">
+                    </div>
+                </div>
+
+                <!-- 3. TECHNICAL NOTES -->
+                <div class="gis-notes">
+                    <strong>Technical Note:</strong>
+                    <p>{{ content.attr_map_note }}</p>
+
+                    <strong>Data Source:</strong>
+                    <p class="whitespace-pre-wrap">{{ content.attr_map_source }}</p>
+
+                    <strong>Disclaimer:</strong>
+                    <p>{{ content.attr_map_disclaimer }}</p>
+                </div>
+
+                <!-- 4. INSET MAPS -->
+                <div class="gis-insets">
+                    <div class="inset-box">
+                        <!-- Use the dynamic key attr_map_inset1 -->
+                        <img src="{{ url_for('static', filename=content.attr_map_inset1.replace('static/', '')) if 'static/uploads' in content.attr_map_inset1 else content.attr_map_inset1 }}"
+                            alt="Province Map">
+                    </div>
+                    <div class="inset-box">
+                        <!-- Use the dynamic key attr_map_inset2 -->
+                        <img src="{{ url_for('static', filename=content.attr_map_inset2.replace('static/', '')) if 'static/uploads' in content.attr_map_inset2 else content.attr_map_inset2 }}"
+                            alt="Region Map">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. DYNAMIC ATTRACTIONS LOOP (THE CARDS) -->
+<div class="bg-white">
+    {% if attractions %}
+    {% for attr in attractions %}
+    <section
+        class="py-20 md:py-28 {{ 'bg-white' if loop.index0 % 2 == 0 else 'bg-slate-50' }} overflow-hidden scroll-mt-20"
+        id="attr-card-{{ attr.id }}">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+
+                <!-- Image Side -->
+                <div class="relative {{ 'order-1' if loop.index0 % 2 == 0 else 'order-1 lg:order-2' }} media-container"
+                    data-aos="{{ 'fade-right' if loop.index0 % 2 == 0 else 'fade-left' }}">
+                    <div
+                        class="absolute -inset-4 {{ 'bg-yellow-100' if loop.index0 % 2 == 0 else 'bg-blue-100' }} rounded-xl transform {{ '-rotate-2' if loop.index0 % 2 == 0 else 'rotate-2' }} hidden md:block">
+                    </div>
+                    <div
+                        class="relative rounded-xl overflow-hidden shadow-2xl border-4 border-white aspect-video md:aspect-[4/3]">
+                        {% if attr.media_url %}
+                        {% if attr.media_url.endswith('.mp4') or attr.media_url.endswith('.webm') %}
+                        <video src="{{ url_for('static', filename=attr.media_url.replace('static/', '')) }}" autoplay
+                            muted loop playsinline class="w-full h-full object-cover"></video>
+                        {% else %}
+                        <img src="{{ url_for('static', filename=attr.media_url.replace('static/', '')) }}"
+                            alt="{{ attr.name }}" class="w-full h-full object-cover">
+                        {% endif %}
+                        {% else %}
+                        <div class="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400"><i
+                                class="ri-image-line text-5xl"></i></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Text Side -->
+                <div class="{{ 'order-2' if loop.index0 % 2 == 0 else 'order-2 lg:order-1' }}"
+                    data-aos="{{ 'fade-left' if loop.index0 % 2 == 0 else 'fade-right' }}">
+                    {% if attr.tag %}
+                    <div class="mb-4">
+                        <span
+                            class="bg-blue-900 text-white text-xs font-bold px-4 py-1.5 rounded-md uppercase tracking-wider shadow-sm">{{
+                            attr.tag }}</span>
+                    </div>
+                    {% endif %}
+
+                    <h2 class="text-3xl md:text-5xl font-bold text-slate-800 serif-head mb-6">{{ attr.name }}</h2>
+                    <p class="text-slate-600 leading-relaxed mb-8 text-justify whitespace-pre-wrap line-clamp-4">{{
+                        attr.description }}</p>
+
+                    <div
+                        class="flex flex-col sm:flex-row gap-4 border-t border-slate-200 pt-6 items-start sm:items-center">
+                        <div class="flex-grow space-y-2">
+                            {% if attr.location %}
+                            <div class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-red-100 text-red-500 flex items-center justify-center shrink-0">
+                                    <i class="ri-map-pin-fill"></i>
+                                </div>
+                                {{ attr.location }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="shrink-0 w-full sm:w-auto">
+                            <a href="{{ url_for('views.attraction_detail', id=attr.id) }}"
+                                class="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition w-full sm:w-auto">
+                                Learn More <i class="ri-arrow-right-line"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+    {% endfor %}
+    {% else %}
+    <section class="py-32 text-center bg-slate-50">
+        <h2 class="text-2xl font-bold text-slate-700">No Attractions Found</h2>
+    </section>
+    {% endif %}
+</div>
+
+<!-- LEAFLET SCRIPTS -->
+<script>
+    var map;
+    var markers = {};
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // 1. Initialize Map with interaction enabled
+        // Coordinates [13.8791, 121.2117] are centered more broadly for the municipality
+        // Zoom level 13 captures the "Full" Padre Garcia area better than 14
+        map = L.map('attractions-map', {
+            dragging: true,            // Allows moving the map
+            scrollWheelZoom: false,    // Set to false so page scrolling isn't interrupted, or 'true' to allow wheel zoom
+            doubleClickZoom: true,     // Explicitly allow zoom on double click
+            touchZoom: true            // Allow pinch-zoom on mobile
+        }).setView([13.8791, 121.2117], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        var starIcon = L.divIcon({
+            className: 'custom-star-pin',
+            html: `<div class="star-marker"><i class="ri-star-fill"></i></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+            popupAnchor: [0, -15]
+        });
+
+        // 2. Add Markers
+        {% for attr in attractions %}
+        {% if attr.lat and attr.lng %}
+        var marker = L.marker([{{ attr.lat }}, {{ attr.lng }}], { icon: starIcon })
+        .addTo(map)
+        .bindPopup(`
+                <div style="text-align:center; font-family:'Inter', sans-serif; width:160px;">
+                    <h4 style="margin:0; font-weight:bold; color:#1e3a8a;">{{ attr.name }}</h4>
+                    <a href="#attr-card-{{ attr.id }}" 
+                       style="display:inline-block; margin-top:8px; background:#eab308; color:#451a03; padding:4px 10px; border-radius:4px; font-weight:bold; text-decoration:none; font-size:10px;">
+                       Scroll to Card
+                    </a>
+                </div>
+            `);
+    markers[{{ attr.id }}] = marker;
+    {% endif %}
+    {% endfor %}
+
+    // Optional: Add a "Home" button to the map to reset view to full town
+    var homeButton = L.control({ position: 'topleft' });
+    homeButton.onAdd = function (map) {
+        var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+        div.innerHTML = '<button title="Reset to Full Town" style="background:white; width:30px; height:30px; border:none; cursor:pointer;"><i class="ri-home-4-fill" style="font-size:18px; color:#333;"></i></button>';
+        div.onclick = function () {
+            map.flyTo([13.8791, 121.2117], 13);
+        };
+        return div;
+    };
+    homeButton.addTo(map);
+    });
+
+    function zoomToAttr(lat, lng) {
+        // When clicking the directory, it zooms in closer (16)
+        map.flyTo([lat, lng], 16, { duration: 1.5 });
+    }
+</script>
+{% endblock %}

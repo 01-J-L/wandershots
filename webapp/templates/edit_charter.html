@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block title %}Editor: Citizen's Charter | Admin Panel{% endblock %}
+
+{% block head %}
+<style>
+    .default-nav { display: none !important; }
+    
+    textarea::-webkit-scrollbar {
+        width: 8px;
+    }
+    textarea::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+    textarea::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    textarea::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('views.dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition" title="Back to Dashboard">
+            <i class="ri-arrow-left-line text-xl"></i>
+        </a>
+        <div class="h-8 w-[1px] bg-slate-200 mx-2 hidden md:block"></div>
+        <div>
+            <h1 class="text-lg font-bold text-slate-800 leading-tight">Edit Citizen's Charter</h1>
+            <p class="text-xs text-slate-400 hidden md:block">Managing Government Service Protocols</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('views.charter') }}" target="_blank" class="hidden md:flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition px-3 py-2">
+            <i class="ri-eye-line"></i> Preview Page
+        </a>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50 pt-24 pb-20 px-4 md:px-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- SIDEBAR / WORKSPACE DIVISION -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            
+            <!-- 1. LEFT SIDEBAR: SERVICES SELECTOR -->
+            <div class="lg:col-span-1 space-y-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 pb-2 border-b">Select Service</h3>
+                    <div class="space-y-1">
+                        {% for service in services %}
+                        <a href="{{ url_for('views.edit_charter', active_service=service.id) }}" 
+                           class="block w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold transition flex items-center gap-2
+                           {{ 'bg-blue-500 text-white shadow-md' if selected_service.id == service.id else 'text-slate-600 hover:bg-slate-50' }}">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0
+                            {{ 'bg-white/20 text-white' if selected_service.id == service.id else 'bg-slate-100 text-slate-500' }}">
+                                {{ loop.index }}
+                            </span>
+                            <span class="truncate">{{ service.title }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. RIGHT WORKSPACE: ACTIVE EDITING PANELS -->
+            <div class="lg:col-span-3 space-y-8">
+                
+                <!-- WORKSPACE HEADER -->
+                <div class="bg-slate-900 text-white p-6 rounded-xl shadow-sm border border-slate-800 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                    <div>
+                        <span class="text-xs font-bold text-yellow-400 uppercase tracking-widest">Active Workspace</span>
+                        <h2 class="text-xl font-bold serif-title mt-1">{{ selected_service.title }}</h2>
+                    </div>
+                </div>
+
+                <!-- PANEL 1: UPDATE META FIELDS -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-article-line text-blue-500 text-lg"></i>
+                        <h3 class="font-bold text-slate-700">General Service Settings</h3>
+                    </div>
+                    <form method="POST" class="p-6 space-y-4">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="update_service_meta" value="true">
+                        <input type="hidden" name="service_id" value="{{ selected_service.id }}">
+                        
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Service Title</label>
+                            <input type="text" name="title" value="{{ selected_service.title }}" required 
+                                   class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Service Description</label>
+                            <textarea name="description" rows="4" required 
+                                      class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none leading-relaxed">{{ selected_service.description }}</textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Office or Division</label>
+                                <input type="text" name="office_division" value="{{ selected_service.office_division }}" 
+                                       class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Classification (e.g., Simple)</label>
+                                <input type="text" name="classification" value="{{ selected_service.classification }}" 
+                                       class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Type of Transaction</label>
+                                <input type="text" name="transaction_type" value="{{ selected_service.transaction_type }}" 
+                                       class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Who May Avail</label>
+                                <input type="text" name="who_may_avail" value="{{ selected_service.who_may_avail }}" 
+                                       class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                            </div>
+                            <!-- ADDED DYNAMIC TOTAL FIELD IN WORKSPACE -->
+                            <div class="md:col-span-2 bg-blue-50/50 p-3 rounded border border-blue-100/50">
+                                <label class="block text-[10px] font-bold text-blue-700 uppercase tracking-wide mb-1">Official Total Processing Time</label>
+                                <input type="text" name="total_processing_time" value="{{ selected_service.total_processing_time }}" placeholder="e.g., 13 hours and 30 mins"
+                                       class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none font-bold text-blue-900 bg-white">
+                            </div>
+                        </div>
+
+                        <div class="text-right border-t border-slate-100 pt-4">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-4 py-2 rounded shadow transition">
+                                Update Core Meta Fields
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- PANEL 2: REQUIREMENTS CHECKLIST -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-checkbox-circle-line text-emerald-500 text-lg"></i>
+                        <h3 class="font-bold text-slate-700">Checklist of Requirements</h3>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        
+                        <!-- Existing requirements list -->
+                        <div class="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scroll">
+                            {% for req in selected_service.requirements %}
+                            <div class="flex items-center justify-between border bg-slate-50 p-3 rounded-lg text-xs hover:shadow-sm transition">
+                                <div class="min-w-0 pr-4">
+                                    <p class="font-semibold text-slate-800 whitespace-pre-wrap">{{ req.requirement }}</p>
+                                    <p class="text-slate-400 mt-0.5">Where to secure: <span class="font-medium text-slate-600">{{ req.where_to_secure or 'N/A' }}</span></p>
+                                </div>
+                                <form method="POST" onsubmit="return confirm('Remove requirement from this service checklist?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="delete_requirement" value="true">
+                                    <input type="hidden" name="req_id" value="{{ req.id }}">
+                                    <input type="hidden" name="service_id" value="{{ selected_service.id }}">
+                                    <button type="submit" class="w-7 h-7 rounded bg-red-100 text-red-600 hover:bg-red-500 hover:text-white flex items-center justify-center transition" title="Delete">
+                                        <i class="ri-close-line text-lg"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <p class="text-center italic text-xs text-slate-400 py-4 border border-dashed rounded-lg bg-slate-50/50">No requirements mapped to this checklist yet.</p>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Add requirement form -->
+                        <div class="bg-emerald-50/50 p-4 border border-emerald-100 rounded-lg">
+                            <h4 class="text-[10px] font-bold uppercase text-emerald-700 mb-3 tracking-wider">Add Requirement to Checklist</h4>
+                            <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="add_requirement" value="true">
+                                <input type="hidden" name="service_id" value="{{ selected_service.id }}">
+                                <div>
+                                    <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Requirement Description</label>
+                                    <input type="text" name="requirement" required placeholder="e.g., Letter of Intent"
+                                           class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Where to Secure</label>
+                                    <input type="text" name="where_to_secure" placeholder="e.g., Tourism Office"
+                                           class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white">
+                                </div>
+                                <button type="submit" class="md:col-span-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase py-2 rounded shadow transition">
+                                    Add to Checklist
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 3: STEP-BY-STEP PROCEDURE -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center gap-2">
+                        <i class="ri-list-check-3 text-orange-500 text-lg"></i>
+                        <h3 class="font-bold text-slate-700">Step-by-Step Procedure</h3>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        
+                        <!-- Step List -->
+                        <div class="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scroll">
+                            {% for step in selected_service.steps|sort(attribute='step_number') %}
+                            <div class="border rounded-lg p-4 bg-slate-50 relative group">
+                                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-200 pb-2 mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="bg-orange-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                                            {{ step.step_number }}
+                                        </span>
+                                        <h4 class="font-bold text-sm text-slate-800">{{ step.client_step }}</h4>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button onclick="openEditStepModal('{{ step.id }}', '{{ step.step_number }}', '{{ step.client_step|replace("'", "\\'") }}', '{{ step.agency_action|replace("'", "\\'") }}', '{{ step.fees_to_pay|replace("'", "\\'") }}', '{{ step.processing_time|replace("'", "\\'") }}', '{{ step.person_responsible|replace("'", "\\'") }}')" 
+                                                class="w-6 h-6 rounded bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-500 hover:text-white transition">
+                                            <i class="ri-pencil-line text-xs"></i>
+                                        </button>
+                                        <form method="POST" onsubmit="return confirm('Delete this step? Sub-sequent steps will be reordered.');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="delete_step" value="true">
+                                            <input type="hidden" name="step_id" value="{{ step.id }}">
+                                            <button type="submit" class="w-6 h-6 rounded bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-500 hover:text-white transition">
+                                                <i class="ri-delete-bin-line text-xs"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-slate-500 leading-normal">
+                                    <div class="col-span-2"><strong>Action:</strong> {{ step.agency_action or 'N/A' }}</div>
+                                    <div><strong>Fees:</strong> {{ step.fees_to_pay or 'None' }}</div>
+                                    <div><strong>Time:</strong> {{ step.processing_time }}</div>
+                                    <div class="col-span-2 md:col-span-4 border-t pt-1 mt-1"><strong>Responsible:</strong> {{ step.person_responsible or 'N/A' }}</div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <p class="text-center italic text-xs text-slate-400 py-4 border border-dashed rounded-lg bg-slate-50/50">No step items recorded.</p>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Add step form -->
+                        <div class="bg-orange-50/50 p-4 border border-orange-100 rounded-lg">
+                            <h4 class="text-[10px] font-bold uppercase text-orange-700 mb-3 tracking-wider">Add Step to Procedure</h4>
+                            <form method="POST" class="space-y-3">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="add_step" value="true">
+                                <input type="hidden" name="service_id" value="{{ selected_service.id }}">
+                                
+                                <div>
+                                    <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Client Step/Action</label>
+                                    <input type="text" name="client_step" required placeholder="e.g., Submit request letter"
+                                           class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white">
+                                </div>
+
+                                <div>
+                                    <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Agency Action</label>
+                                    <input type="text" name="agency_action" placeholder="e.g., Receive and review requirements"
+                                           class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white">
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Fees to Pay</label>
+                                        <input type="text" name="fees_to_pay" value="None"
+                                               class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Processing Time</label>
+                                        <input type="text" name="processing_time" placeholder="e.g., 30 mins"
+                                               class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Person Responsible</label>
+                                        <input type="text" name="person_responsible" placeholder="e.g., Tourism Officer"
+                                               class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs uppercase py-2 rounded shadow transition">
+                                    Append Procedure Step
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     MODAL: EDIT PROCEDURE STEP
+=========================================== -->
+<div id="stepEditModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4 border-b pb-3">
+            <h3 class="font-bold text-orange-600 flex items-center gap-2 text-sm uppercase tracking-wider"><i class="ri-edit-box-line"></i> Edit Step Row</h3>
+            <button onclick="closeModal('stepEditModal')" class="text-slate-400 hover:text-red-500 transition"><i class="ri-close-line text-xl"></i></button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="edit_step" value="true">
+            <input type="hidden" id="editStepId" name="step_id" value="">
+            
+            <div class="space-y-3">
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="col-span-1">
+                        <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Step Number</label>
+                        <input type="number" id="editStepNum" name="step_number" required min="1"
+                               class="w-full border rounded px-3 py-1.5 text-xs focus:border-orange-500 outline-none">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Fees to Pay</label>
+                        <input type="text" id="editStepFees" name="fees_to_pay"
+                               class="w-full border rounded px-3 py-1.5 text-xs focus:border-orange-500 outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Client Step</label>
+                    <input type="text" id="editStepClient" name="client_step" required
+                           class="w-full border rounded px-3 py-2 text-xs focus:border-orange-500 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Agency Action</label>
+                    <input type="text" id="editStepAction" name="agency_action"
+                           class="w-full border rounded px-3 py-2 text-xs focus:border-orange-500 outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Processing Time</label>
+                        <input type="text" id="editStepTime" name="processing_time"
+                               class="w-full border rounded px-3 py-2 text-xs focus:border-orange-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold uppercase text-slate-500 mb-1">Person Responsible</label>
+                        <input type="text" id="editStepResponsible" name="person_responsible"
+                               class="w-full border rounded px-3 py-2 text-xs focus:border-orange-500 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-5 pt-3 border-t">
+                <button type="button" onclick="closeModal('stepEditModal')" class="px-4 py-2 border rounded-lg text-xs font-bold text-slate-600">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold shadow-md transition">Update Step</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditStepModal(id, num, client, action, fees, time, resp) {
+        document.getElementById('editStepId').value = id;
+        document.getElementById('editStepNum').value = num;
+        document.getElementById('editStepClient').value = client;
+        document.getElementById('editStepAction').value = action === 'None' ? '' : action;
+        document.getElementById('editStepFees').value = fees;
+        document.getElementById('editStepTime').value = time;
+        document.getElementById('editStepResponsible').value = resp === 'None' ? '' : resp;
+        
+        document.getElementById('stepEditModal').classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+    }
+
+    window.onclick = function(event) {
+        if (event.target.id === 'stepEditModal') closeModal('stepEditModal');
+    }
+</script>
+{% endblock %}
+
+{% block footer %}{% endblock %}

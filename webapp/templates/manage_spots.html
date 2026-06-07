@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Tourist Spots{% endblock %}
+
+{% block navbar %}
+<nav class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 h-16 flex items-center px-8 justify-between">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('views.dashboard') }}" class="text-slate-500 hover:text-slate-800"><i class="ri-arrow-left-line text-xl"></i></a>
+        <h1 class="font-bold text-slate-800">Manage Tourist Spots</h1>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="pt-24 pb-20 px-8 max-w-6xl mx-auto">
+    
+    <!-- Add New Spot Form -->
+    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-10">
+        <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <i class="ri-add-circle-line text-green-600"></i> Add New Spot
+        </h3>
+        <form method="POST" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="add_spot" value="true">
+            <div>
+                <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Name</label>
+                <input type="text" name="spot_name" placeholder="E.g. The Old Church" required class="w-full border rounded p-2 text-sm focus:border-green-500 outline-none">
+            </div>
+            <div>
+                <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">External Link (Optional)</label>
+                <!-- ADDED: Input field for the link -->
+                <input type="url" name="spot_link" placeholder="https://..." class="w-full border rounded p-2 text-sm focus:border-green-500 outline-none">
+            </div>
+            <div class="md:col-span-2">
+                <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Description</label>
+                <textarea name="spot_desc" placeholder="Short description..." rows="2" class="w-full border rounded p-2 text-sm focus:border-green-500 outline-none"></textarea>
+            </div>
+            <div class="md:col-span-2">
+                <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Image</label>
+                <input type="file" name="spot_image_file" required class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 cursor-pointer">
+            </div>
+            <div class="md:col-span-2">
+                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-bold text-sm transition shadow-md">Add Spot</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Existing Spots Grid -->
+    <h3 class="font-bold text-slate-700 mb-4 text-lg">Existing Spots</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% for spot in spots %}
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden relative group hover:shadow-md transition">
+            
+            <!-- Image -->
+            <div class="h-48 overflow-hidden relative">
+                <img src="{{ url_for('static', filename=spot.image_url.replace('static/', '')) if 'static/uploads' in spot.image_url else spot.image_url }}" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-3">
+                    
+                    <!-- EDIT BUTTON -->
+                    <!-- UPDATED: Pass spot.link_url to the modal -->
+                    <button onclick="openEditModal('{{ spot.id }}', '{{ spot.name|replace("'", "\\'") }}', `{{ spot.description|replace("`", "\\`") }}`, '{{ spot.link_url }}')" 
+                            class="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-blue-700 transition" title="Edit">
+                        <i class="ri-pencil-line"></i>
+                    </button>
+
+                    <!-- DELETE BUTTON -->
+                    <form method="POST" onsubmit="return confirm('Delete this spot?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="delete_spot" value="true">
+                        <input type="hidden" name="spot_id" value="{{ spot.id }}">
+                        <button class="bg-red-500 text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-red-600 transition" title="Delete">
+                            <i class="ri-delete-bin-line"></i>
+                        </button>
+                    </form>
+
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-4">
+                <h4 class="font-bold text-slate-800 text-lg mb-1">{{ spot.name }}</h4>
+                <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">{{ spot.description | striptags }}</p>
+                {% if spot.link_url %}
+                <a href="{{ spot.link_url }}" target="_blank" class="text-xs text-blue-500 hover:underline mt-2 block truncate">{{ spot.link_url }}</a>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="col-span-full text-center py-10 text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-300">
+            No tourist spots added yet.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- =========================
+     EDIT MODAL
+========================== -->
+<div id="editModal" class="fixed inset-0 z-[99] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all scale-100">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="ri-edit-box-line text-blue-600"></i> Edit Tourist Spot
+            </h3>
+            <button onclick="closeEditModal()" class="text-slate-400 hover:text-red-500 transition"><i class="ri-close-circle-fill text-2xl"></i></button>
+        </div>
+        
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="edit_spot" value="true">
+            <input type="hidden" id="edit_spot_id" name="spot_id" value="">
+            
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Name</label>
+                <input type="text" id="edit_spot_name" name="spot_name" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">External Link (Optional)</label>
+                <!-- ADDED: Input field for the link in the edit modal -->
+                <input type="url" id="edit_spot_link" name="spot_link" placeholder="https://..." class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Description</label>
+                <textarea id="edit_spot_desc" name="spot_desc" rows="4" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none"></textarea>
+            </div>
+
+            <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <label class="block text-xs font-bold uppercase text-blue-600 mb-1">Replace Image (Optional)</label>
+                <input type="file" name="spot_image_file" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer">
+            </div>
+            
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 font-bold text-sm transition">Cancel</button>
+                <button type="submit" class="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition shadow-lg">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // UPDATED: Added 'link' parameter
+    function openEditModal(id, name, desc, link) {
+        // Populate fields
+        document.getElementById('edit_spot_id').value = id;
+        document.getElementById('edit_spot_name').value = name;
+        document.getElementById('edit_spot_desc').value = desc;
+        
+        // Handle potentially None/Null link
+        if(link === 'None' || link === null) link = '';
+        document.getElementById('edit_spot_link').value = link; // UPDATED: Set the link value
+
+        // Show Modal
+        document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
+
+    // Close on outside click
+    window.onclick = function(event) {
+        const modal = document.getElementById('editModal');
+        if (event.target == modal) {
+            closeEditModal();
+        }
+    }
+</script>
+{% endblock %}
+
+{% block footer %}{% endblock %}

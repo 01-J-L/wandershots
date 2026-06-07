@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Us | Tourism Padre Garcia{% endblock %}
+
+{% block head %}
+<!-- TAILWIND CSS -->
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#1e3a8a',    /* Royal Blue */
+                    secondary: '#ca8a04',  /* Gold/Bronze */
+                    dark: '#0f172a',
+                    light: '#f8fafc'
+                },
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                    serif: ['Playfair Display', 'serif'],
+                }
+            }
+        }
+    }
+</script>
+
+<style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    h1, h2, h3 { font-family: 'Playfair Display', serif; }
+    .hero-small {
+        background: linear-gradient(to right, rgba(15, 23, 42, 0.95), rgba(30, 58, 138, 0.8)),
+        url("{{ url_for('static', filename=content.contact_hero_bg.replace('static/', '')) if 'static/uploads' in content.contact_hero_bg else content.contact_hero_bg }}");
+        background-size: cover;
+        background-position: center;
+    }
+    .glass-form { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HERO HEADER -->
+<header class="hero-small h-[40vh] flex items-center justify-center relative pt-20">
+    <div class="text-center text-white z-10" data-aos="fade-up">
+        <span class="text-yellow-400 uppercase tracking-[0.2em] text-sm font-semibold mb-2 block">{{ content.contact_hero_sub }}</span>
+        <h1 class="text-5xl md:text-6xl font-bold">{{ content.contact_hero_title }}</h1>
+    </div>
+</header>
+
+<!-- CONTENT SECTION -->
+<section class="py-20 -mt-16 relative z-20 px-4">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
+
+        <!-- CONTACT INFO (Left Side) -->
+        <div class="lg:col-span-1 space-y-6">
+
+            <!-- Info Card 1: Address -->
+            <div class="bg-white p-8 rounded-2xl shadow-xl border-l-4 border-yellow-500" data-aos="fade-right" data-aos-delay="100">
+                <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-primary text-2xl mb-4">
+                    <i class="ri-map-pin-2-line"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">{{ content.contact_card_addr_title }}</h3>
+                <p class="text-slate-500 leading-relaxed text-sm whitespace-pre-line">{{ content.contact_card_addr_text }}</p>
+            </div>
+
+            <!-- Info Card 2: Phone -->
+            <div class="bg-white p-8 rounded-2xl shadow-xl border-l-4 border-primary" data-aos="fade-right" data-aos-delay="200">
+                <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-primary text-2xl mb-4">
+                    <i class="ri-phone-line"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">{{ content.contact_card_phone_title }}</h3>
+                <p class="text-slate-500 text-sm mb-1"><strong class="text-slate-700">Office:</strong> {{ content.contact_phone_main }}</p>
+                <p class="text-slate-500 text-sm"><strong class="text-slate-700">Alt:</strong> {{ content.contact_phone_alt }}</p>
+            </div>
+
+            <!-- Info Card 3: Email -->
+            <div class="bg-white p-8 rounded-2xl shadow-xl border-l-4 border-slate-800" data-aos="fade-right" data-aos-delay="300">
+                <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-primary text-2xl mb-4">
+                    <i class="ri-mail-send-line"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">{{ content.contact_card_email_title }}</h3>
+                <p class="text-slate-500 text-sm">{{ content.contact_email_main }}</p>
+                <p class="text-slate-500 text-sm">{{ content.contact_email_alt }}</p>
+            </div>
+
+        </div>
+
+        <!-- CONTACT FORM (Right Side) -->
+        <div class="lg:col-span-2" data-aos="fade-left">
+            <div class="bg-white p-8 md:p-10 rounded-2xl shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-100 rounded-bl-full opacity-50"></div>
+
+                <h2 class="text-3xl font-bold text-slate-800 mb-6 relative z-10">{{ content.contact_form_title }}</h2>
+                <form action="{{ url_for('views.contacts') }}" method="POST" class="space-y-6 relative z-10">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
+                            <input type="text" name="sender_name" required placeholder="Juan Dela Cruz" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+                            <input type="email" name="sender_email" required placeholder="email@example.com" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Subject</label>
+                        <input type="text" name="subject" required placeholder="Inquiry about..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Message</label>
+                        <textarea rows="5" name="message" required placeholder="How can we help you?" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"></textarea>
+                    </div>
+                    <button type="submit" class="bg-primary hover:bg-blue-800 text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:shadow-xl transition transform hover:-translate-y-1 w-full md:w-auto">
+                        Send Message
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- MAP SECTION -->
+<section id="Map" class="h-[400px] w-full bg-slate-200" data-aos="zoom-in">
+    <iframe src="{{ content.contact_map_url }}" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+</section>
+
+{% endblock %}

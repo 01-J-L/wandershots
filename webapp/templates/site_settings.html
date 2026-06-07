@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Global Site Settings | Super Admin{% endblock %}
+
+{% block head %}
+<style>
+    .default-nav { display: none !important; }
+    /* Toggle Switch CSS */
+    .toggle-checkbox:checked {
+        right: 0;
+        border-color: #ef4444;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+        background-color: #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 h-16 flex items-center px-4 md:px-8 justify-between shadow-sm">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('views.dashboard') }}" class="text-slate-500 hover:text-slate-800"><i class="ri-arrow-left-line text-xl"></i></a>
+        <div>
+            <h1 class="font-bold text-slate-800 text-lg leading-tight">Global Settings</h1>
+            <p class="text-xs text-slate-400">System Configuration & Modes</p>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="pt-24 pb-20 px-4 md:px-8 max-w-3xl mx-auto">
+    
+    <!-- Maintenance Mode Card -->
+    <div class="bg-red-50 border border-red-200 p-8 rounded-xl shadow-sm mb-8">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+                <h3 class="text-xl font-bold text-red-700 flex items-center gap-2 mb-2">
+                    <i class="ri-alarm-warning-fill"></i> Maintenance Mode
+                </h3>
+                <p class="text-sm text-red-700/80 leading-relaxed max-w-lg">
+                    <strong>Warning:</strong> When enabled, the public website will be locked. 
+                    Only <u>Super Admins</u> will be able to access the site content. 
+                    All other users (including regular admins) will see an "Under Maintenance" screen.
+                </p>
+            </div>
+            
+            <form method="POST" class="shrink-0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="toggle_maintenance" value="true">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="maintenance_mode" value="true" class="sr-only peer" onchange="this.form.submit()" 
+                        {{ 'checked' if maintenance_mode == 'true' else '' }}>
+                    <div class="w-16 h-8 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-8 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-red-600 shadow-inner"></div>
+                    <span class="ml-3 text-sm font-bold text-slate-700 uppercase tracking-wide">
+                        {{ 'Active' if maintenance_mode == 'true' else 'Inactive' }}
+                    </span>
+                </label>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contact Form Receiver Card -->
+    <div class="bg-blue-50 border border-blue-200 p-8 rounded-xl shadow-sm">
+        <div class="flex flex-col gap-4">
+            <div>
+                <h3 class="text-xl font-bold text-blue-800 flex items-center gap-2 mb-2">
+                    <i class="ri-mail-send-fill"></i> Contact Form Receiver
+                </h3>
+                <p class="text-sm text-blue-700/80 leading-relaxed max-w-lg mb-4">
+                    Enter the email address that will receive messages submitted through the public "Contact Us" form. 
+                </p>
+            </div>
+            
+            <form method="POST" class="flex flex-col sm:flex-row gap-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="update_receiver_email" value="true">
+                <div class="relative w-full max-w-md">
+                    <i class="ri-mail-line absolute left-3 top-3 text-slate-400"></i>
+                    <input type="email" name="receiver_email" value="{{ receiver_email }}" placeholder="e.g. tourism@padregarcia.gov.ph" required
+                        class="w-full bg-white border border-slate-300 text-slate-700 pl-10 pr-4 py-2.5 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-inner">
+                </div>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-lg shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 shrink-0">
+                    <i class="ri-save-line"></i> Save Email
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

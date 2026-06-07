@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}{{ spot.name }} | Padre Garcia Tourism{% endblock %}
+
+{% block head %}
+<style>
+    /* Formal Typography Adjustments */
+    .font-cinzel { font-family: 'Cinzel', serif; }
+    .font-playfair { font-family: 'Playfair Display', serif; }
+    
+    /* Editorial Text Styling */
+    .editorial-content {
+        color: #334155;
+        font-size: 1.125rem;
+        line-height: 2;
+        text-align: justify;
+    }
+
+    .editorial-content p {
+        margin-bottom: 1.5em;
+    }
+
+    /* Drop Cap for the first letter */
+    .editorial-content::first-letter {
+        font-family: 'Cinzel', serif;
+        font-size: 3.5rem;
+        font-weight: 700;
+        color: #1e3a8a; /* Primary Blue */
+        float: left;
+        line-height: 0.8;
+        margin-right: 0.5rem;
+        margin-top: 0.2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <!-- 1. MINIMALIST EDITORIAL HERO SECTION -->
+    <header class="relative w-full pt-36 pb-28 bg-slate-900 flex items-center justify-center overflow-hidden z-0">
+        
+        <!-- Subtle Vintage/Texture Background -->
+        <div class="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
+        <!-- Soft glow behind the text -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl h-full bg-blue-900/30 blur-[100px]"></div>
+
+        <div class="relative z-10 text-center px-6 max-w-4xl mx-auto" data-aos="fade-down" data-aos-duration="1000">
+            
+            <!-- Decorative Ornaments -->
+            <div class="flex items-center justify-center gap-4 mb-4">
+                <span class="w-12 md:w-24 h-[1px] bg-yellow-600/50"></span>
+                <i class="ri-compass-discover-line text-yellow-500 text-2xl md:text-3xl"></i>
+                <span class="w-12 md:w-24 h-[1px] bg-yellow-600/50"></span>
+            </div>
+            
+            <!-- Main Title -->
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-white font-cinzel leading-tight tracking-wide mb-4">
+                {{ spot.name }}
+            </h1>
+            
+            <!-- Subtitle -->
+            <p class="text-slate-400 font-playfair italic text-lg md:text-xl">
+                A Featured Destination of Padre Garcia
+            </p>
+        </div>
+    </header>
+
+    <!-- 2. EDITORIAL CONTENT SECTION -->
+    <!-- Pulls up over the dark hero background for a layered document effect -->
+    <main class="relative z-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 mb-20">
+        
+        <article class="bg-white rounded-xl shadow-2xl border border-slate-200 p-6 md:p-12 lg:p-16">
+            
+            <!-- Top Action Bar (Back Button) -->
+            <div class="flex justify-between items-center border-b border-slate-200 pb-6 mb-8">
+                <a href="{{ url_for('views.home') }}#spots" class="group flex items-center gap-2 text-slate-500 hover:text-primary transition font-bold text-xs uppercase tracking-widest">
+                    <i class="ri-arrow-left-line group-hover:-translate-x-1 transition-transform"></i> Return to Directory
+                </a>
+                
+                
+            </div>
+
+            <!-- MEDIA CONTAINER (Image or Video) -->
+            <div data-aos="fade-up" data-aos-delay="100" class="relative group mb-10">
+                {% if spot.image_url %}
+                    {% if spot.link_url and spot.link_url != '#' %}
+                        <!-- WRAPPED IN LINK -->
+                        <a href="{{ spot.link_url }}" target="_blank" class="block relative w-full rounded-xl overflow-hidden shadow-lg border border-slate-100 cursor-pointer">
+                            {% if spot.image_url.endswith('.mp4') or spot.image_url.endswith('.webm') %}
+                                <video class="w-full max-h-[500px] object-cover" autoplay muted loop playsinline>
+                                    <source src="{{ url_for('static', filename=spot.image_url.replace('static/', '')) if 'static/uploads' in spot.image_url else spot.image_url }}" type="video/mp4">
+                                </video>
+                            {% else %}
+                                <img src="{{ url_for('static', filename=spot.image_url.replace('static/', '')) if 'static/uploads' in spot.image_url else spot.image_url }}" 
+                                     alt="{{ spot.name }}" 
+                                     class="w-full max-h-[500px] object-cover transition-transform duration-700 group-hover:scale-105">
+                            {% endif %}
+                            
+                            <!-- Hover Overlay -->
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                <span class="bg-white/95 text-slate-900 px-6 py-3 rounded-full font-bold text-sm flex items-center gap-2 shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                    <i class="ri-external-link-line text-lg"></i> Visit External Link
+                                </span>
+                            </div>
+                        </a>
+                    {% else %}
+                        <!-- JUST MEDIA (NO LINK) -->
+                        <div class="w-full rounded-xl overflow-hidden shadow-lg border border-slate-100">
+                            {% if spot.image_url.endswith('.mp4') or spot.image_url.endswith('.webm') %}
+                                <video class="w-full max-h-[500px] object-cover" autoplay muted loop playsinline controls>
+                                    <source src="{{ url_for('static', filename=spot.image_url.replace('static/', '')) if 'static/uploads' in spot.image_url else spot.image_url }}" type="video/mp4">
+                                </video>
+                            {% else %}
+                                <img src="{{ url_for('static', filename=spot.image_url.replace('static/', '')) if 'static/uploads' in spot.image_url else spot.image_url }}" 
+                                     alt="{{ spot.name }}" 
+                                     class="w-full max-h-[500px] object-cover">
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            <!-- Body Text -->
+            <div class="editorial-content font-playfair whitespace-pre-wrap" data-aos="fade-up" data-aos-delay="200">
+                {{- spot.description -}}
+            </div>
+
+            <!-- Bottom Actions -->
+            <div class="mt-16 pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-6" data-aos="fade-up">
+                
+                <div class="text-sm text-slate-500 font-medium italic font-playfair">
+                    Information provided by the Municipal Tourism Office.
+                </div>
+
+                <div class="flex gap-4 w-full sm:w-auto">
+                    {% if spot.link_url and spot.link_url != '#' %}
+                    <a href="{{ spot.link_url }}" target="_blank" class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 bg-primary hover:bg-blue-800 text-white px-8 py-3.5 rounded-lg text-xs font-bold uppercase tracking-widest transition shadow-lg hover:shadow-xl">
+                        Official Link <i class="ri-external-link-line"></i>
+                    </a>
+                    {% endif %}
+                </div>
+
+            </div>
+
+        </article>
+    </main>
+
+{% endblock %}

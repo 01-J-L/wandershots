@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Contact Message - Padre Garcia Tourism</title>
+    <style>
+        /* Basic styles for email clients */
+        body { font-family: -apple-system, BlinkMacMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; margin: 0; padding: 0; background-color: #f4f7f6; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        td, th { padding: 0; }
+        img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+        a { text-decoration: none; color: #1e3a8a; } /* Primary color for links */
+        p { margin: 0; padding: 0; font-size: 16px; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); }
+        .header { background-color: #1e3a8a; padding: 20px 30px; text-align: center; color: #ffffff; }
+        .content { padding: 30px; color: #333333; }
+        .footer { background-color: #e2e8f0; padding: 20px 30px; text-align: center; font-size: 12px; color: #666666; }
+        .button { display: inline-block; padding: 10px 20px; margin-top: 20px; background-color: #ca8a04; color: #ffffff; border-radius: 5px; text-align: center; text-decoration: none; font-weight: bold; }
+        .section-title { font-size: 20px; color: #1e3a8a; margin-bottom: 15px; font-weight: bold; }
+        .detail-label { font-weight: bold; color: #555555; }
+        .detail-value { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f7f6;">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <h1 style="margin:0; font-size: 24px; color:#ffffff;">New Message from Contact Form</h1>
+                            <p style="font-size:14px; color: #c0d9ff;">Padre Garcia Tourism Website</p>
+                        </td>
+                    </tr>
+                    <!-- Content -->
+                    <tr>
+                        <td class="content">
+                            <p style="margin-bottom: 20px;">Hello Administrator,</p>
+                            <p style="margin-bottom: 20px;">You have received a new message through the contact form on your Padre Garcia Tourism website. Here are the details:</p>
+
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="margin-bottom: 10px;"><span class="detail-label">Name:</span> {{ name }}</p>
+                                        <p style="margin-bottom: 10px;"><span class="detail-label">Email:</span> <a href="mailto:{{ email }}" style="color: #1e3a8a;">{{ email }}</a></p>
+                                        <p style="margin-bottom: 10px;"><span class="detail-label">Subject:</span> {{ subject }}</p>
+                                        <p style="margin-top: 20px; margin-bottom: 10px; font-weight: bold;">Message:</p>
+                                        <p style="background-color: #f9f9f9; padding: 15px; border-left: 3px solid #ca8a04; white-space: pre-wrap; word-break: break-word;">{{ message }}</p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="margin-bottom: 10px;">&copy; {{ current_year }} Padre Garcia Tourism. All rights reserved.</p>
+                            <p>Powered by Flask. Visit our website: <a href="{{ url_for('views.home', _external=True) }}" style="color: #1e3a8a; text-decoration: underline;">Padre Garcia Tourism</a></p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

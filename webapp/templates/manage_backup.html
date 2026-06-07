@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}System Backup & Restore | Admin Panel{% endblock %}
+
+{% block head %}
+<style>
+    .default-nav { display: none !important; }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 h-16 flex items-center px-4 md:px-8 justify-between shadow-sm">
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('views.dashboard') }}" class="text-slate-500 hover:text-slate-800"><i class="ri-arrow-left-line text-xl"></i></a>
+        <div>
+            <h1 class="font-bold text-slate-800 text-lg leading-tight">Backup & Restore</h1>
+            <p class="text-xs text-slate-400">System Redundancy Management</p>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="pt-24 pb-20 px-4 md:px-8 max-w-3xl mx-auto space-y-8">
+    
+    <!-- SYSTEM PRE-REQUISITE CHECK -->
+    <div class="bg-blue-50 border border-blue-200 p-6 rounded-xl flex items-start gap-4">
+        <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl shrink-0">
+            <i class="ri-information-line"></i>
+        </div>
+        <div class="text-xs md:text-sm text-blue-700 leading-relaxed">
+            <span class="font-bold block text-blue-800 mb-1">Architecture Details</span>
+            This tool packages both the <strong>database schema files</strong> and all <strong>user uploaded media files</strong> (located in the uploads folder) into a single downloadable ZIP archive file.
+        </div>
+    </div>
+
+    <!-- BACKUP CARD -->
+    <div class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center gap-3 border-b pb-4">
+            <div class="w-10 h-10 bg-green-50 text-green-600 rounded-lg flex items-center justify-center text-xl"><i class="ri-download-cloud-2-line"></i></div>
+            <h3 class="font-bold text-slate-700 text-base">Generate Backup Package</h3>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">Creates a full snapshot copy of current database states and media directories instantly.</p>
+        
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="create_backup" value="true">
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
+                <i class="ri-zip-line"></i> Export System Backup
+            </button>
+        </form>
+    </div>
+
+    <!-- RESTORE CARD -->
+    <div class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+        <div class="flex items-center gap-3 border-b pb-4">
+            <div class="w-10 h-10 bg-red-50 text-red-600 rounded-lg flex items-center justify-center text-xl"><i class="ri-upload-cloud-2-line"></i></div>
+            <h3 class="font-bold text-slate-700 text-base">Restore System snapshot</h3>
+        </div>
+        
+        <!-- WARNING BLOCK -->
+        <div class="bg-red-50 border border-red-200 p-4 rounded-lg flex items-start gap-3">
+            <i class="ri-alert-line text-red-600 text-lg shrink-0 mt-0.5 animate-pulse"></i>
+            <p class="text-xs text-red-700 leading-relaxed">
+                <strong>Attention:</strong> Uploading a backup file will overwrite your active database records and replace existing files. Current settings cannot be recovered once overwritten.
+            </p>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return confirm('Confirming recovery file upload. Proceed with overwriting system states?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="restore_backup" value="true">
+            
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-500 mb-2">Select Backup Archive (.zip)</label>
+                <input type="file" name="backup_file" accept=".zip" required class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer">
+            </div>
+
+            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
+                <i class="ri-history-line"></i> Upload & Recover Snapshot
+            </button>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
+{% block footer %}{% endblock %}
