@@ -1,0 +1,34 @@
+<div id="globalLoadingOverlay" class="fixed inset-0 z-[9999] opacity-0 pointer-events-none transition-opacity duration-200 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm">
+    <!-- Smaller, faster spinner -->
+    <div class="w-10 h-10 border-4 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+    <p class="mt-3 text-xs font-bold text-gray-600 uppercase tracking-widest animate-pulse">Loading...</p>
+</div>
+
+<style>
+    #globalLoadingOverlay.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+</style>
+
+<script>
+    function showLoading() {
+        document.getElementById('globalLoadingOverlay').classList.add('active');
+    }
+
+    // Capture form submissions
+    document.addEventListener('submit', function(e) {
+        // Only trigger for non-ajax forms
+        if (e.target.tagName === 'FORM') {
+            showLoading();
+        }
+    });
+
+    // Capture important navigation clicks
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a');
+        if (link && !link.target && !link.getAttribute('href').startsWith('#')) {
+            showLoading();
+        }
+    });
+</script>

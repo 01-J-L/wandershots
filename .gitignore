@@ -12,23 +12,7 @@ token.json
 credentials.json
 client_secret.json
 service_account.json
-fix_db.py
+fb_test.py
 
 # If you make local database backups:
 *.sql
-*.db
-dev.db
-*.db
-.env
-static/uploads/
-instance/
-
-# 1. Undo your last commit but keep your changes on your disk
-git reset --soft HEAD~1
-
-# 2. Untrack the two large video files
-git rm --cached "webapp/static/uploads/18858a66-7503-41ce-b666-74e115225a77_tourism.mp4.mp4"
-git rm --cached "webapp/static/uploads/9f6ac41b-d032-40e4-800e-86149f64fca_pgpcvideo.mp4"
-
-# 3. Re-commit your remaining changes
-git commit -m "Update home page modules and fix map issues"

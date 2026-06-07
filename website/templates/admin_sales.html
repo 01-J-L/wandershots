@@ -1,0 +1,221 @@
+
+{% extends "base.html" %}
+{% block title %}Sales & Revenue{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50">
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Sales & Revenue Reports</h1>
+                <p class="text-sm text-gray-500">Overview of your earnings. Older records automatically move to Archives to save space.</p>
+            </div>
+            <a href="{{ url_for('views.dashboard') }}" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors">
+                <i class="ri-arrow-left-line mr-2"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <!-- FILTER TOOLBAR -->
+        <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm mb-8">
+            <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                <!-- Filter Form -->
+                <form method="GET" class="flex flex-wrap items-end gap-4 flex-1">
+                    <div class="w-full sm:w-auto">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">From Date (Event)</label>
+                        <input type="date" name="start_date" value="{{ filters.start_date }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 outline-none">
+                    </div>
+                    
+                    <div class="w-full sm:w-auto">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">To Date (Event)</label>
+                        <input type="date" name="end_date" value="{{ filters.end_date }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 outline-none">
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-colors">
+                            <i class="ri-filter-3-line mr-1"></i> Filter
+                        </button>
+                        <a href="{{ url_for('views.admin_sales') }}" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors">
+                            Reset
+                        </a>
+                    </div>
+                </form>
+
+                <!-- Export Button -->
+                <div class="border-t lg:border-t-0 lg:border-l border-gray-100 pt-4 lg:pt-0 lg:pl-6">
+                    <a href="{{ url_for('views.export_sales', start_date=filters.start_date, end_date=filters.end_date) }}" 
+                       class="flex items-center justify-center bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-colors whitespace-nowrap">
+                        <i class="ri-file-excel-2-line mr-2"></i> Export to Excel (CSV)
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. CATEGORY REVENUE CARDS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <!-- Overall Total -->
+            <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+                <div class="flex items-center justify-between mb-4 relative z-10">
+                    <h3 class="font-bold text-indigo-100 uppercase tracking-wider text-[11px]">Total Revenue</h3>
+                    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                        <i class="ri-wallet-3-line text-xl text-white"></i>
+                    </div>
+                </div>
+                <div class="text-3xl font-bold mb-1 relative z-10">₱{{ "{:,.2f}".format(sales_data.total_revenue) }}</div>
+                <div class="text-xs text-indigo-200 relative z-10">Calculated from {{ sales_data.total_count }} bookings (Active & Archived)</div>
+            </div>
+
+            <!-- Photobooth -->
+            <div class="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-gray-500 uppercase tracking-wider text-xs">Photobooth</h3>
+                    <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+                        <i class="ri-printer-line text-xl text-blue-600"></i>
+                    </div>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 mb-1">₱{{ "{:,.2f}".format(sales_data['Photobooth'].revenue) }}</div>
+                <div class="text-sm text-gray-400">{{ sales_data['Photobooth'].count }} confirmed sessions</div>
+            </div>
+
+            <!-- On-site Studio Booth -->
+            <div class="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-gray-500 uppercase tracking-wider text-xs">Studio Booth</h3>
+                    <div class="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
+                        <i class="ri-camera-lens-fill text-xl text-emerald-600"></i>
+                    </div>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 mb-1">₱{{ "{:,.2f}".format(sales_data['On-site Studio Booth'].revenue) }}</div>
+                <div class="text-sm text-gray-400">{{ sales_data['On-site Studio Booth'].count }} confirmed sessions</div>
+            </div>
+
+            <!-- Photoman -->
+            <div class="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-gray-500 uppercase tracking-wider text-xs">Photoman</h3>
+                    <div class="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center">
+                        <i class="ri-user-star-line text-xl text-orange-600"></i>
+                    </div>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 mb-1">₱{{ "{:,.2f}".format(sales_data['Photoman'].revenue) }}</div>
+                <div class="text-sm text-gray-400">{{ sales_data['Photoman'].count }} confirmed sessions</div>
+            </div>
+        </div>
+
+        <!-- 2. REVENUE BY SPECIFIC PACKAGE -->
+        <div class="mb-4 flex items-center justify-between mt-8">
+            <h2 class="text-xl font-bold text-gray-900">Top Service Packages</h2>
+            {% if total_packages_count > 100 %}
+            <span class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold">Showing Top 100</span>
+            {% endif %}
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-12 flex flex-col">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-gray-600 min-w-[800px]">
+                    <thead class="bg-gray-50 text-gray-700 uppercase text-[11px] font-bold tracking-wider border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-4">Package Name</th>
+                            <th class="px-6 py-4">Service Category</th>
+                            <th class="px-6 py-4">Base Price Set</th>
+                            <th class="px-6 py-4 text-center">Times Booked</th>
+                            <th class="px-6 py-4 text-right">Total Revenue Generated</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for pkg in display_packages %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 font-bold text-gray-900 text-sm">
+                                    <i class="ri-box-3-fill text-indigo-300 mr-2"></i> {{ pkg.name }}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="bg-gray-100 text-gray-700 border border-gray-200 px-2.5 py-1 rounded-md text-xs font-bold">{{ pkg.type or 'General' }}</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono">{{ pkg.base_price }}</td>
+                                <td class="px-6 py-4 text-center text-sm font-bold text-gray-800">{{ pkg.count }}</td>
+                                <td class="px-6 py-4 text-right font-bold text-emerald-600 text-base">₱{{ "{:,.2f}".format(pkg.revenue) }}</td>
+                            </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center text-gray-400 italic">No specific packages match the filtered bookings.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if total_packages_count > 100 %}
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 text-center">
+                <p class="text-sm text-gray-600">Showing top 100 out of <span class="font-bold">{{ total_packages_count }}</span> active packages. <br class="sm:hidden">The rest are hidden. Use the <strong>Export to Excel</strong> button above to download the full report.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 3. DETAILED TRANSACTION TABLE -->
+        <div class="mb-4 flex items-center justify-between mt-8">
+            <h2 class="text-xl font-bold text-gray-900">Latest Transactions</h2>
+            {% if total_bookings_count > 100 %}
+            <span class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold">Showing Latest 100</span>
+            {% endif %}
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-12 flex flex-col">
+            <div class="px-6 py-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                <span class="text-xs font-medium text-gray-500 px-3 py-1 bg-white border border-gray-200 rounded-full">Only 'Scheduled' & 'Finished' entries are counted</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-gray-600 min-w-[800px]">
+                    <thead class="bg-white text-gray-400 uppercase text-[11px] font-bold tracking-wider border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-4">Event Date</th>
+                            <th class="px-6 py-4">Customer Name</th>
+                            <th class="px-6 py-4">Matched Package</th>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4 text-right">Extracted Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for item in display_bookings %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ item.date }}</td>
+                            <td class="px-6 py-4 font-bold text-gray-800 text-sm">{{ item.customer_name }}</td>
+                            <td class="px-6 py-4">
+                                {% if item.matched_package != 'Custom / Unmatched' %}
+                                    <span class="text-xs font-bold text-indigo-700"><i class="ri-link-m"></i> {{ item.matched_package }}</span>
+                                {% else %}
+                                    <span class="text-xs text-gray-400">{{ item.package_selected or 'Custom/None' }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if item.status == 'finished' %}
+                                    <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full"><i class="ri-check-line mr-1"></i>Finished</span>
+                                {% else %}
+                                    <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Scheduled</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-right font-bold text-gray-900">
+                                ₱{{ "{:,.2f}".format(item.price) }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center text-gray-400 italic">No revenue data available for this date range.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- OVERFLOW ARCHIVE NOTICE -->
+            {% if total_bookings_count > 100 %}
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 text-center">
+                <p class="text-sm text-gray-600">Showing the latest 100 out of <span class="font-bold">{{ total_bookings_count }}</span> transactions. <br class="sm:hidden">Older records exceeding 100 were automatically moved to the System Archives to save space, but are still counted in your total revenue above. Use the <strong>Export to Excel</strong> button to view the full list.</p>
+            </div>
+            {% endif %}
+        </div>
+
+    </main>
+</div>
+{% endblock %}
