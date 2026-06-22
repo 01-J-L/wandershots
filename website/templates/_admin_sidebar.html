@@ -102,6 +102,10 @@
                     class="flex items-center px-4 py-2 {% if request.endpoint == 'views.admin_cms' %}bg-indigo-50 text-indigo-700{% else %}text-gray-600 hover:bg-gray-50{% endif %} rounded-lg">
                     <i class="ri-layout-masonry-line mr-3 text-blue-500"></i> Content (CMS)
                 </a>
+                <a href="{{ url_for('views.admin_sms_template') }}"
+                    class="flex items-center px-4 py-2 {% if request.endpoint == 'views.admin_sms_template' %}bg-indigo-50 text-indigo-700{% else %}text-gray-600 hover:bg-gray-50{% endif %} rounded-lg">
+                    <i class="ri-message-line mr-3 text-pink-500"></i> SMS Template
+                </a>
                 <a href="{{ url_for('views.admin_backup_restore') }}"
                     class="flex items-center px-4 py-2 {% if request.endpoint == 'views.admin_backup_restore' %}bg-indigo-50 text-indigo-700{% else %}text-gray-600 hover:bg-gray-50{% endif %} rounded-lg">
                     <i class="ri-database-2-line mr-3 text-orange-500"></i> Backup & Restore

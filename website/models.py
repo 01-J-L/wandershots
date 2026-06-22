@@ -124,3 +124,13 @@ class BookingLimit(db.Model):
     date = db.Column(db.String(50), unique=True, nullable=False) # YYYY-MM-DD
     am_limit = db.Column(db.Integer, default=1) # Max bookings before 12:00 PM
     pm_limit = db.Column(db.Integer, default=1) # Max bookings after 12:00 PM
+
+class SmsGateway(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    api_url = db.Column(db.String(255), nullable=False, default="https://api.sms-gate.app")
+    username = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    device_id = db.Column(db.String(100), nullable=True) # Sesuai Device ID di Aplikasi Android
+    is_active = db.Column(db.Boolean, default=False)     # Hanya satu gateway aktif dalam satu waktu
+    created_at = db.Column(db.DateTime(timezone=True), default=func.now())

@@ -10,7 +10,7 @@ import shutil
 import re 
 from flask import Blueprint, render_template, request, flash, redirect, url_for, Response, session, jsonify, current_app, send_from_directory
 from flask_login import login_required, current_user
-from .models import User, ContactMessage, Booking, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem, BlockedDate
+from .models import User, ContactMessage, Booking, BlockedDate, PortfolioItem, ServicePackage, SiteSetting, SocialLink, QuickLink, InventoryItem, SmsGateway
 from . import db, limiter
 from datetime import date, datetime, timedelta
 from calendar import month_abbr
@@ -370,29 +370,54 @@ def allowed_apk_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'apk'
 
 def send_sms(phone, message):
-    """Triggers SMS via TextBee API with corrected recipient format"""
+    """Triggers SMS via SMSGate App API with Basic Authentication and returns status."""
     if not phone:
-        return
+        return False, "No phone number provided."
     
-    url = f"https://api.textbee.dev/api/v1/gateway/devices/{TEXTBEE_DEVICE_ID}/send-sms"
+    # Retrieve dynamic connection values from database settings
+    smsgate_url = get_setting('smsgate_url', 'https://api.sms-gate.app/3rdparty/v1/message')
+    smsgate_username = get_setting('smsgate_username', '')
+    smsgate_password = get_setting('smsgate_password', '')
     
-    # THE FIX: TextBee expects "recipients" as a LIST [number], not "receiver" as a string
+    if not smsgate_username or not smsgate_password:
+        error_msg = "SMSGate username or password is not configured in settings."
+        print(f"❌ SMS Failed: {error_msg}")
+        return False, error_msg
+
+    # Clean and format phone to international standard (e.g., +639123456789)
+    clean_phone = format_phone(phone)
+    if not clean_phone.startswith('+'):
+        clean_phone = '+' + clean_phone
+    
+    # --- UPDATED PAYLOAD FOR 3RDPARTY V1 ENDPOINT ---
     payload = {
-        "recipients": [format_phone(phone)], 
+        "phoneNumbers": [clean_phone],  # Enclosed in a list/array
         "message": f"{message}\n\n- {BRAND_NAME}"
     }
     
-    headers = { "x-api-key": TEXTBEE_API_KEY }
+    headers = {
+        "Content-Type": "application/json"
+    }
     
     try:
-        response = requests.post(url, json=payload, headers=headers)
-        if response.status_code in [200, 201]:
-            print(f"📱 SMS sent to {phone} successfully!")
+        response = requests.post(
+            smsgate_url, 
+            json=payload, 
+            headers=headers, 
+            auth=(smsgate_username, smsgate_password),
+            timeout=10
+        )
+        if response.status_code in [200, 201, 202]:
+            print(f"📱 SMS sent to {clean_phone} successfully via SMSGate App!")
+            return True, "Successfully dispatched to Android gateway."
         else:
-            # This will help us see exactly what's wrong if it fails again
-            print(f"❌ SMS Failed: {response.text} for number {format_phone(phone)}")
+            error_msg = f"Status Code {response.status_code} - {response.text}"
+            print(f"❌ SMS Failed via SMSGate: {error_msg}")
+            return False, f"Gateway rejected request: {response.status_code}"
+            
     except Exception as e:
-        print(f"📱 SMS Exception: {e}")
+        print(f"📱 SMSGate Gateway Exception: {e}")
+        return False, f"Connection timeout or API unreachable: {str(e)}"
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -565,6 +590,58 @@ def trigger_cleanup():
         
     return redirect(request.referrer or url_for('views.admin_settings'))
 
+@views.route('/admin/system/save_smsgate', methods=['POST'])
+@login_required
+def save_smsgate():
+    if current_user.role != 'super_admin':
+        flash('Access denied. Super Admin privileges required.', category='error')
+        return redirect(url_for('views.dashboard'))
+        
+    smsgate_name = request.form.get('smsgate_name', '').strip()
+    smsgate_url = request.form.get('smsgate_url', '').strip()
+    smsgate_username = request.form.get('smsgate_username', '').strip()
+    smsgate_password = request.form.get('smsgate_password', '').strip()
+    
+    # Commit variables to local DB site settings
+    set_setting('smsgate_name', smsgate_name or 'Backup Phone Bridge')
+    set_setting('smsgate_url', smsgate_url or 'https://api.sms-gate.app/3/sms/out')
+    set_setting('smsgate_username', smsgate_username)
+    set_setting('smsgate_password', smsgate_password)
+    
+    db.session.commit()
+    flash('SMSGate connection settings saved successfully!', 'success')
+    return redirect(url_for('views.admin_settings'))
+
+
+@views.route('/admin/system/test_smsgate', methods=['POST'])
+@login_required
+def test_smsgate():
+    if current_user.role != 'super_admin':
+        return jsonify({'success': False, 'message': 'Access denied.'}), 403
+        
+    test_phone = request.form.get('test_phone', '').strip()
+    if not test_phone:
+        return jsonify({'success': False, 'message': 'Please provide a valid test phone number.'}), 400
+        
+    try:
+        # Panggil fungsi send_sms dan tangkap hasil return (boolean, string)
+        is_success, gateway_response = send_sms(test_phone, "This is an automated connection test from your Wandershots SMSGate System!")
+        
+        if is_success:
+            return jsonify({
+                'success': True, 
+                'message': 'Test SMS request successfully dispatched. Please check your Android device.'
+            })
+        else:
+            # Jika gagal, kirimkan respons False ke frontend beserta alasan kegagalannya
+            return jsonify({
+                'success': False, 
+                'message': gateway_response
+            }), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Unexpected Server Error: {str(e)}'}), 500
+
 @views.route('/robots.txt')
 def robots_txt():
     return current_app.send_static_file('robots.txt')
@@ -619,11 +696,34 @@ def send_event_reminder_email(app, booking):
     except Exception as e: 
         print(f"Error sending reminder email: {e}")
 
-    # --- SMS CONTENT (Client) ---
-    send_sms(
-        booking.customer_phone, 
-        f"Hi {booking.customer_name}, just a reminder that your session for {booking.service_type} is scheduled for {formatted_date} at {booking.time}!"
+    # --- NEW: DYNAMIC SMS CONTENT (Client) ---
+    # Default template fallback if not defined in database site settings yet
+    default_sms_template = (
+        "Hi {customer}, just a reminder that your session for {service} is scheduled for {date} at {time}!\n\n"
+        "This is the confirmed details upon booking, kindly verify:\n"
+        "Date: {date}\n"
+        "Time: {time}\n"
+        "Venue: {location}\n"
+        "Service: {service}\n"
+        "Package: {package}\n\n"
+        "Thank you and see you soon!"
     )
+    
+    # Read the custom template set by the admin
+    raw_template = get_setting('sms_reminder_template', default_sms_template)
+    
+    # Safely replace all dynamic placeholders
+    compiled_sms = raw_template \
+        .replace("{customer}", str(booking.customer_name or '')) \
+        .replace("{date}", str(formatted_date or '')) \
+        .replace("{time}", str(booking.time or '')) \
+        .replace("{location}", str(booking.location or 'In Studio')) \
+        .replace("{place}", str(booking.location or 'In Studio')) \
+        .replace("{service}", str(booking.service_type or '')) \
+        .replace("{package}", str(booking.package_selected or 'Custom Setup'))
+
+    # Trigger SMS
+    send_sms(booking.customer_phone, compiled_sms)
 
     # --- SMS CONTENT (Admin) ---
     if admin_phone:
@@ -2886,6 +2986,12 @@ def admin_settings():
         'fb_page_name_3': get_setting('fb_page_name_3', ''),
         'fb_page_id_3': get_setting('fb_page_id_3', ''),
         'fb_access_token_3': get_setting('fb_access_token_3', ''),
+        
+        # --- NEW: SMSGATE CONFIGURATION DATA ---
+        'smsgate_name': get_setting('smsgate_name', 'Backup Phone Bridge'),
+        'smsgate_url': get_setting('smsgate_url', 'https://api.sms-gate.app/3/sms/out'),
+        'smsgate_username': get_setting('smsgate_username', ''),
+        'smsend_smssgate_password': get_setting('smsgate_password', ''),
     }
 
     # Load service-specific limit configurations
@@ -3456,6 +3562,43 @@ def save_fb_settings():
     db.session.commit()
     flash('Facebook settings updated!', 'success')
     return redirect(url_for('views.admin_settings'))
+
+@views.route('/admin/settings/sms_template', methods=['GET', 'POST'])
+@login_required
+def admin_sms_template():
+    # Only allow administrators to view and configure the template
+    if current_user.role not in ['admin', 'super_admin']:
+        flash('Access denied.', 'error')
+        return redirect(url_for('views.dashboard'))
+        
+    default_sms_template = (
+        "Hi {customer}, just a reminder that your session for {service} is scheduled for {date} at {time}!\n\n"
+        "This is the confirmed details upon booking, kindly verify:\n"
+        "Date: {date}\n"
+        "Time: {time}\n"
+        "Venue: {location}\n"
+        "Service: {service}\n"
+        "Package: {package}\n\n"
+        "Thank you and see you soon!"
+    )
+
+    if request.method == 'POST':
+        new_template = request.form.get('sms_template', '').strip()
+        set_setting('sms_reminder_template', new_template)
+        db.session.commit()
+        flash('SMS Reminder Template updated successfully!', 'success')
+        return redirect(url_for('views.admin_sms_template'))
+
+    current_template = get_setting('sms_reminder_template', default_sms_template)
+    counts = get_sidebar_counts()
+    
+    return render_template(
+        "admin_sms_template.html", 
+        user=current_user, 
+        page='dashboard', 
+        sms_template=current_template, 
+        **counts
+    )
 
 # ==========================================
 # ADMIN: INVENTORY MANAGEMENT
