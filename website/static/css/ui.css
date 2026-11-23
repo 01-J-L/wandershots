@@ -1,0 +1,278 @@
+/* WanderShots shared UI: loading, skeletons, connectivity, sync badges. */
+
+:root {
+    --ws-skeleton-base: #e8edf3;
+    --ws-skeleton-highlight: #f7f9fc;
+    --ws-offline-bg: #111827;
+    --ws-offline-text: #f9fafb;
+}
+
+[data-theme="dark"] {
+    --ws-skeleton-base: #263041;
+    --ws-skeleton-highlight: #354155;
+    --ws-offline-bg: #f9fafb;
+    --ws-offline-text: #111827;
+}
+
+/* ---------- Initial loader (markup lives in _loading.html) ---------- */
+#wsInitialLoader.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* ---------- Top navigation progress (section loading, never full-screen) ---------- */
+.ws-top-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 100001;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .15s ease;
+    background: transparent;
+}
+
+.ws-top-progress.is-active {
+    opacity: 1;
+}
+
+.ws-top-progress::before {
+    content: "";
+    display: block;
+    height: 100%;
+    width: 35%;
+    background: linear-gradient(90deg, #4f46e5, #8b5cf6, #ec4899);
+    animation: ws-top-progress-run 1.1s ease-in-out infinite;
+}
+
+@keyframes ws-top-progress-run {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(390%); }
+}
+
+/* ---------- Offline banner ---------- */
+.ws-offline-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    z-index: 100002;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(680px, calc(100vw - 28px));
+    padding: 10px 12px 10px 14px;
+    border-radius: 14px;
+    background: var(--ws-offline-bg);
+    color: var(--ws-offline-text);
+    box-shadow: 0 18px 55px rgba(0, 0, 0, .24);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.ws-offline-banner[hidden] {
+    display: none;
+}
+
+.ws-offline-banner-text {
+    flex: 1;
+}
+
+.ws-offline-retry {
+    border: 1px solid rgba(255, 255, 255, .28);
+    background: rgba(255, 255, 255, .12);
+    color: inherit;
+    border-radius: 9px;
+    padding: 6px 10px;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: .04em;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+[data-theme="dark"] .ws-offline-retry {
+    border-color: rgba(17, 24, 39, .22);
+    background: rgba(17, 24, 39, .08);
+}
+
+.ws-offline-retry:hover {
+    opacity: .86;
+}
+
+/* ---------- Skeletons ---------- */
+.ws-skeleton {
+    position: relative;
+    overflow: hidden;
+    border-radius: 7px;
+    background: var(--ws-skeleton-base);
+}
+
+.ws-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--ws-skeleton-highlight), transparent);
+    animation: ws-skeleton-shimmer 1.45s ease-in-out infinite;
+}
+
+@keyframes ws-skeleton-shimmer {
+    100% { transform: translateX(100%); }
+}
+
+.ws-skeleton-text {
+    height: .78rem;
+    margin: .45rem 0;
+}
+
+.ws-skeleton-text.is-sm { height: .58rem; }
+.ws-skeleton-text.is-lg { height: 1.25rem; }
+.ws-skeleton-text.w-25 { width: 25%; }
+.ws-skeleton-text.w-40 { width: 40%; }
+.ws-skeleton-text.w-60 { width: 60%; }
+.ws-skeleton-text.w-75 { width: 75%; }
+.ws-skeleton-text.w-100 { width: 100%; }
+
+.ws-skeleton-circle {
+    border-radius: 999px;
+}
+
+.ws-skeleton-card {
+    padding: 1.1rem;
+    border: 1px solid rgba(148, 163, 184, .25);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .55);
+}
+
+[data-theme="dark"] .ws-skeleton-card {
+    background: rgba(17, 24, 39, .35);
+}
+
+.ws-skeleton-row {
+    display: grid;
+    grid-template-columns: 1.1fr .8fr 1fr .7fr;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, .18);
+}
+
+.ws-skeleton-table {
+    padding: 4px 16px;
+}
+
+.ws-skeleton-img {
+    width: 100%;
+    height: 100%;
+    min-height: 120px;
+    border-radius: 10px;
+}
+
+.ws-skeleton-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    padding: 16px;
+}
+
+.ws-skeleton-calendar .ws-skeleton {
+    min-height: 82px;
+}
+
+/* Overlay used by the admin calendar while an AJAX range loads. */
+.ws-calendar-skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: rgba(255, 255, 255, .92);
+    border-radius: 14px;
+    padding: 12px;
+    display: none;
+}
+
+.ws-calendar-skeleton.is-visible {
+    display: block;
+}
+
+[data-theme="dark"] .ws-calendar-skeleton {
+    background: rgba(17, 24, 39, .9);
+}
+
+/* Images start with a subtle placeholder until decoded. */
+img.ws-lazy-img {
+    background: var(--ws-skeleton-base);
+}
+
+img.ws-lazy-img.is-loaded {
+    background: transparent;
+}
+
+/* ---------- Sync badges ---------- */
+.ws-sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.ws-sync-synced { background: #dcfce7; color: #166534; }
+.ws-sync-pending { background: #fef3c7; color: #92400e; }
+.ws-sync-processing { background: #dbeafe; color: #1e40af; }
+.ws-sync-failed { background: #fee2e2; color: #991b1b; }
+.ws-sync-cancelled { background: #e5e7eb; color: #374151; }
+.ws-sync-skipped,
+.ws-sync-not_synced,
+.ws-sync-disconnected { background: #f1f5f9; color: #475569; }
+
+[data-theme="dark"] .ws-sync-synced { background: rgba(22, 101, 52, .25); color: #86efac; }
+[data-theme="dark"] .ws-sync-pending { background: rgba(146, 64, 14, .25); color: #fcd34d; }
+[data-theme="dark"] .ws-sync-processing { background: rgba(30, 64, 175, .25); color: #93c5fd; }
+[data-theme="dark"] .ws-sync-failed { background: rgba(153, 27, 27, .25); color: #fca5a5; }
+
+/* ---------- Toasts ---------- */
+.ws-toast {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 100003;
+    max-width: min(380px, calc(100vw - 36px));
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #111827;
+    color: #f9fafb;
+    box-shadow: 0 18px 55px rgba(0, 0, 0, .25);
+    font-size: 13px;
+    line-height: 1.4;
+    animation: ws-toast-in .2s ease-out;
+}
+
+.ws-toast.is-error { background: #991b1b; }
+.ws-toast.is-success { background: #166534; }
+.ws-toast.is-hidden { opacity: 0; transform: translateY(8px); transition: all .25s ease; }
+
+@keyframes ws-toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .ws-skeleton::after,
+    .ws-top-progress::before,
+    .ws-toast {
+        animation: none !important;
+    }
+    .ws-skeleton {
+        background: var(--ws-skeleton-base);
+    }
+}

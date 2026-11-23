@@ -1,0 +1,69 @@
+<div id="wsInitialLoader" class="ws-initial-loader" role="status" aria-live="polite" aria-label="Loading Wandershots">
+    <div class="ws-loader-inner">
+        <div class="ws-loader-mark" aria-hidden="true">
+            <img src="{{ url_for('static', filename='images/wslogo.png') }}" alt="" width="88" height="88" fetchpriority="high" decoding="async">
+        </div>
+        <p class="ws-loader-brand">WANDERSHOTS</p>
+        <div class="ws-loader-track" aria-hidden="true"><span></span></div>
+        <p class="ws-loader-caption" id="wsLoaderCaption">Preparing your experience</p>
+    </div>
+</div>
+<style>
+    html[data-ws-skip-initial-loader="1"] #wsInitialLoader { display: none !important; }
+    #wsInitialLoader {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #ffffff;
+        color: #1f2937;
+        opacity: 1;
+        visibility: visible;
+        transition: opacity .4s ease, visibility .4s ease;
+        animation: ws-loader-safety-hide 0s linear 10s forwards;
+    }
+    #wsInitialLoader.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .ws-loader-inner { width: min(280px, 80vw); text-align: center; }
+    .ws-loader-mark {
+        width: 96px; height: 96px; margin: 0 auto 18px; border-radius: 28px;
+        display: flex; align-items: center; justify-content: center;
+        background: #f8fafc; border: 1px solid #e5e7eb; box-shadow: 0 18px 50px rgba(15, 23, 42, .12);
+        animation: ws-loader-breathe 2.4s ease-in-out infinite;
+    }
+    .ws-loader-mark img { width: 72px; height: 72px; object-fit: contain; }
+    .ws-loader-brand {
+        margin: 0; font-family: 'Cinzel', Georgia, serif; font-size: 1.05rem;
+        letter-spacing: .34em; font-weight: 600; color: #111827;
+    }
+    .ws-loader-track {
+        height: 3px; width: 100%; margin: 18px 0 14px; border-radius: 999px;
+        background: #eef2f7; overflow: hidden;
+    }
+    .ws-loader-track span {
+        display: block; height: 100%; width: 42%; border-radius: inherit;
+        background: linear-gradient(90deg, #4f46e5, #8b5cf6, #4f46e5);
+        animation: ws-loader-slide 1.25s ease-in-out infinite;
+    }
+    .ws-loader-caption {
+        margin: 0; font-family: 'Inter', system-ui, sans-serif; font-size: .7rem;
+        letter-spacing: .2em; text-transform: uppercase; color: #6b7280;
+    }
+    @keyframes ws-loader-slide {
+        0% { transform: translateX(-110%); }
+        100% { transform: translateX(260%); }
+    }
+    @keyframes ws-loader-breathe {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-3px) scale(1.02); }
+    }
+    @keyframes ws-loader-safety-hide {
+        to { opacity: 0; visibility: hidden; pointer-events: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        #wsInitialLoader, .ws-loader-mark, .ws-loader-track span { animation: none !important; }
+        #wsInitialLoader { transition: none; }
+    }
+</style>

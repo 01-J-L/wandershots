@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% block title %}Event Calendar{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 w-full relative">
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-2 md:mt-0">Event Calendar</h1>
+                <p class="text-sm md:text-base text-gray-500">Manage scheduled shoots, blocked dates, and Google Calendar synchronization.</p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <button type="button" data-open-blocked
+                    class="w-full sm:w-auto bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg hover:bg-red-100 font-medium transition-colors text-center shadow-sm">
+                    <i class="ri-calendar-close-line mr-2"></i> Manage Blocked Dates
+                </button>
+                <a href="{{ url_for('views.dashboard') }}"
+                    class="w-full sm:w-auto bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors text-center shadow-sm">
+                    <i class="ri-arrow-left-line mr-2"></i> Back
+                </a>
+            </div>
+        </div>
+
+        <!-- Google Calendar connection panel -->
+        <section class="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+            <div class="p-4 md:p-5 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                        <i class="ri-google-line text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h2 class="text-sm md:text-base font-bold text-gray-900">Google Calendar</h2>
+                            {% if google_connection and google_connection.is_active %}
+                            <span class="ws-sync-badge ws-sync-synced"><i class="ri-checkbox-circle-line"></i> Connected</span>
+                            {% elif google_configured %}
+                            <span class="ws-sync-badge ws-sync-not_synced">Not connected</span>
+                            {% else %}
+                            <span class="ws-sync-badge ws-sync-failed">Configuration required</span>
+                            {% endif %}
+                        </div>
+                        {% if google_connection and google_connection.is_active %}
+                        <p class="text-xs text-gray-500 mt-1">
+                            {{ google_connection.email or 'Google account' }}
+                            {% if google_connection.calendar_id %} · Calendar: {{ google_connection.calendar_id }}{% endif %}
+                        </p>
+                        {% elif google_configured %}
+                        <p class="text-xs text-gray-500 mt-1">Connect an account to mirror confirmed bookings into Google Calendar.</p>
+                        {% else %}
+                        <p class="text-xs text-amber-700 mt-1">Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> on the server first.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    {% if google_configured and not (google_connection and google_connection.is_active) %}
+                    <a href="{{ url_for('views.google_calendar_connect') }}"
+                        class="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">
+                        <i class="ri-link"></i> Connect Google Calendar
+                    </a>
+                    {% endif %}
+                    {% if google_connection and google_connection.is_active %}
+                    <form action="{{ url_for('views.google_calendar_sync_all') }}" method="POST" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit"
+                            class="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">
+                            <i class="ri-refresh-line"></i> Sync confirmed bookings
+                        </button>
+                    </form>
+                    <form action="{{ url_for('views.google_calendar_disconnect') }}" method="POST" class="inline"
+                        onsubmit="return confirm('Disconnect Google Calendar? Existing Google events will not be deleted.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit"
+                            class="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors">
+                            <i class="ri-link-unlink"></i> Disconnect
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if google_connection and google_connection.is_active %}
+            <div class="p-4 md:p-5 grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                <div class="rounded-xl bg-emerald-50 border border-emerald-100 p-3">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Synced</p>
+                    <p class="text-xl font-bold text-emerald-800">{{ google_sync_summary.counts.get('synced', 0) }}</p>
+                </div>
+                <div class="rounded-xl bg-amber-50 border border-amber-100 p-3">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-amber-700">Pending</p>
+                    <p class="text-xl font-bold text-amber-800">{{ google_sync_summary.counts.get('pending', 0) + google_sync_summary.counts.get('processing', 0) }}</p>
+                </div>
+                <div class="rounded-xl bg-red-50 border border-red-100 p-3">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-red-700">Failed</p>
+                    <p class="text-xl font-bold text-red-800">{{ google_sync_summary.counts.get('failed', 0) }}</p>
+                </div>
+                <div class="rounded-xl bg-gray-50 border border-gray-200 p-3">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-600">Last sync</p>
+                    <p class="text-xs font-semibold text-gray-800 mt-2">
+                        {% if google_connection.last_sync_at %}
+                        {{ google_connection.last_sync_at.strftime('%b %d, %I:%M %p') }}
+                        {% else %}
+                        Not yet
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            {% if google_connection.needs_reconnect or google_connection.last_error %}
+            <div class="mx-4 md:mx-5 mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                <p class="font-bold flex items-center gap-2"><i class="ri-alert-line"></i> Google Calendar needs attention</p>
+                {% if google_connection.last_error %}<p class="mt-1 break-words">{{ google_connection.last_error }}</p>{% endif %}
+                {% if google_connection.needs_reconnect %}
+                <a href="{{ url_for('views.google_calendar_connect') }}" class="inline-block mt-2 font-bold underline">Reconnect account</a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if google_sync_summary.failed %}
+            <div class="mx-4 md:mx-5 mb-4 rounded-xl border border-gray-200 overflow-hidden">
+                <p class="px-3 py-2 bg-gray-50 text-[10px] font-bold uppercase tracking-wide text-gray-600">Recent synchronization failures</p>
+                <ul class="divide-y divide-gray-100">
+                    {% for sync in google_sync_summary.failed %}
+                    <li class="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+                        <span class="text-gray-700 break-words">
+                            <strong>Booking #{{ sync.booking_id }}</strong>
+                            {% if sync.last_error %} — {{ sync.last_error }}{% endif %}
+                        </span>
+                        <form action="{{ url_for('views.google_calendar_retry', sync_id=sync.id) }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="text-indigo-600 font-bold hover:text-indigo-800">Retry</button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% endif %}
+        </section>
+
+        <!-- Calendar Container -->
+        <div class="bg-white p-4 md:p-6 rounded-2xl border border-gray-200 shadow-sm overflow-x-auto relative">
+            <div id="calendarSkeleton" class="ws-calendar-skeleton" aria-hidden="true">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="ws-skeleton" style="width:120px;height:20px;"></div>
+                    <div class="ws-skeleton" style="width:180px;height:20px;"></div>
+                </div>
+                <div class="ws-skeleton-calendar">
+                    {% for _ in range(35) %}<div class="ws-skeleton"></div>{% endfor %}
+                </div>
+            </div>
+            <style>
+                .fc .fc-toolbar { flex-wrap: wrap; gap: 10px; }
+                .fc .fc-toolbar-title { font-size: 1.25rem !important; }
+                .fc .fc-event { cursor: pointer; }
+                @media (max-width: 640px) {
+                    .fc .fc-toolbar-title { font-size: 1.1rem !important; }
+                    .fc .fc-button { padding: 0.3rem 0.5rem !important; font-size: 0.85rem !important; }
+                }
+            </style>
+            <div id="calendar" class="w-full min-w-[700px] md:min-w-0" style="min-height: 700px;"></div>
+            <div id="calendarConfig" class="hidden"
+                data-events-url="/admin/api/calendar-events"
+                data-retry-sync-url="{{ url_for('views.google_calendar_retry', sync_id=0) }}"
+                data-retry-booking-url="{{ url_for('views.google_calendar_retry_booking', booking_id=0) }}"
+                data-csrf-token="{{ csrf_token }}"
+                data-login-url="{{ url_for('auth.login') }}"
+                data-google-connected="{{ '1' if google_connection and google_connection.is_active else '0' }}"></div>
+        </div>
+    </main>
+</div>
+
+<!-- EVENT DETAILS MODAL -->
+<div id="eventModal" class="fixed inset-0 bg-gray-900/60 hidden items-center justify-center z-[100] p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <button type="button" data-close-modal
+            class="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors bg-gray-100 hover:bg-red-50 rounded-full p-1.5 flex items-center justify-center"
+            aria-label="Close details">
+            <i class="ri-close-line text-xl"></i>
+        </button>
+
+        <h2 id="modal-title" class="text-xl md:text-2xl font-bold text-gray-900 mb-6 border-b pb-3 pr-8">Booking Details</h2>
+
+        <div id="standard-details" class="space-y-4 md:space-y-5">
+            <div>
+                <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Customer</p>
+                <p id="m-customer" class="text-gray-900 text-base md:text-lg font-medium"></p>
+            </div>
+            <div>
+                <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Email</p>
+                <p id="m-email" class="text-indigo-600 break-all"></p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Service</p>
+                    <p id="m-service" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-sm inline-block font-bold mt-1"></p>
+                </div>
+                <div>
+                    <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Location</p>
+                    <p id="m-location" class="text-gray-800 font-medium mt-1"></p>
+                </div>
+            </div>
+            <div>
+                <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Package Selected</p>
+                <p id="m-package" class="text-gray-800 bg-gray-50 p-2.5 rounded border border-gray-100 mt-1 text-sm md:text-base"></p>
+            </div>
+            <div>
+                <p class="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wide">Notes</p>
+                <p id="m-notes" class="text-gray-600 italic bg-gray-50 p-3 rounded border border-gray-100 mt-1 text-sm md:text-base whitespace-pre-wrap"></p>
+            </div>
+            <div class="rounded-xl border border-gray-200 p-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-xs text-gray-500 font-bold uppercase tracking-wide">Google Calendar</p>
+                    <span id="m-sync-badge" class="ws-sync-badge ws-sync-not_synced">Not synced</span>
+                </div>
+                <p id="m-sync-error" class="hidden text-xs text-red-700 mt-2 break-words"></p>
+                <button type="button" id="m-retry-btn" class="hidden mt-2 text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                    <i class="ri-refresh-line mr-1"></i> Retry synchronization
+                </button>
+            </div>
+        </div>
+
+        <div id="blocked-details" class="hidden space-y-4">
+            <div class="bg-red-50 p-4 rounded-lg border border-red-100">
+                <p class="text-sm text-red-800 font-medium flex items-center">
+                    <i class="ri-information-fill mr-2"></i> This date has been blocked by an Admin. Customers cannot book sessions on this day.
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 font-bold uppercase tracking-wide">Reason / Note</p>
+                <p id="m-blocked-reason" class="text-gray-900 font-medium mt-1 text-lg"></p>
+            </div>
+            <p class="text-xs text-gray-400 italic">To unblock this date, use the "Manage Blocked Dates" button at the top of the calendar.</p>
+        </div>
+
+        <div class="mt-8 pt-4 border-t border-gray-100">
+            <button type="button" data-close-modal
+                class="w-full bg-gray-900 text-white font-bold py-3.5 rounded-lg hover:bg-gray-800 transition-colors text-sm md:text-base shadow-md">Close Window</button>
+        </div>
+    </div>
+</div>
+
+<!-- MANAGE BLOCKED DATES MODAL -->
+<div id="blockedDatesModal" class="fixed inset-0 bg-gray-900/60 hidden items-center justify-center z-[105] p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-4xl shadow-2xl relative max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center mb-6 border-b pb-3">
+            <h2 class="text-xl md:text-2xl font-bold text-gray-900">Manage Blocked Dates</h2>
+            <button type="button" data-close-blocked
+                class="text-gray-400 hover:text-red-500 transition-colors bg-gray-100 hover:bg-red-50 rounded-full p-1.5" aria-label="Close blocked dates">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 pr-2">
+            <form action="{{ url_for('views.admin_block_date') }}" method="POST"
+                class="bg-gray-50 p-4 md:p-6 rounded-xl border border-gray-200 mb-6 shadow-sm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <h3 class="text-sm font-bold text-red-600 mb-3 uppercase tracking-wide">Block a Date or Range</h3>
+                <div class="flex flex-col md:flex-row gap-4 items-end">
+                    <div class="w-full md:w-1/4">
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">From Date</label>
+                        <input type="date" name="start_date" required
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-red-500 outline-none">
+                    </div>
+                    <div class="w-full md:w-1/4">
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">To Date (Optional)</label>
+                        <input type="date" name="end_date"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-red-500 outline-none"
+                            title="Leave blank to block just one day">
+                    </div>
+                    <div class="w-full md:w-2/4">
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Reason (Visible to clients on hover)</label>
+                        <input type="text" name="reason" placeholder="e.g., Personal Holiday, Studio Maintenance" required
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-red-500 outline-none">
+                    </div>
+                    <button type="submit"
+                        class="w-full md:w-auto bg-red-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow hover:bg-red-700 transition-colors shrink-0">
+                        Block Range
+                    </button>
+                </div>
+            </form>
+
+            <form action="{{ url_for('views.save_notification_settings') }}" method="POST"
+                class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <h3 class="text-sm font-bold text-indigo-900 mb-3 uppercase">Global &amp; Service Capacity Limits</h3>
+                <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-indigo-200">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase">Global Max Morning (Before 12 PM)</label>
+                        <input type="number" name="global_am_limit" value="{{ get_setting('global_am_limit', '1') }}"
+                            class="w-full border rounded-lg px-3 py-2 mt-1">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase">Global Max Afternoon (12 PM onwards)</label>
+                        <input type="number" name="global_pm_limit" value="{{ get_setting('global_pm_limit', '1') }}"
+                            class="w-full border rounded-lg px-3 py-2 mt-1">
+                    </div>
+                </div>
+
+                <h4 class="text-xs font-bold text-indigo-950 mb-2 uppercase">Service-Specific Overrides</h4>
+                <p class="text-[10px] text-gray-500 mb-3">Leave blank to use the global defaults specified above.</p>
+
+                <div class="space-y-3">
+                    {% for service in ["On-site Studio Booth", "Photobooth", "Photoman", "Events Photography", "Studio Photoshoot"] %}
+                    {% set safe_key = service.lower().replace(' ', '_').replace('-', '_') %}
+                    <div class="bg-white p-3 rounded-lg border border-indigo-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <span class="text-xs font-semibold text-gray-700 min-w-[150px]">{{ service }}</span>
+                        <div class="flex gap-2">
+                            <div>
+                                <span class="text-[9px] text-gray-400 font-bold uppercase">AM Limit</span>
+                                <input type="number" name="limit_am_{{ safe_key }}" value="{{ get_setting('limit_am_' ~ safe_key, '') }}" placeholder="Default"
+                                    class="w-20 border border-gray-300 rounded px-2 py-1 text-xs">
+                            </div>
+                            <div>
+                                <span class="text-[9px] text-gray-400 font-bold uppercase">PM Limit</span>
+                                <input type="number" name="limit_pm_{{ safe_key }}" value="{{ get_setting('limit_pm_' ~ safe_key, '') }}" placeholder="Default"
+                                    class="w-20 border border-gray-300 rounded px-2 py-1 text-xs">
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <button type="submit" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold">Save All Capacity Limits</button>
+            </form>
+
+            <h3 class="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wide">Currently Blocked Dates</h3>
+            <div class="space-y-3">
+                {% for block in blocked_dates %}
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-white border border-gray-200 p-3.5 rounded-lg shadow-sm gap-3">
+                    <div>
+                        <span class="font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded border border-gray-200">{{ block.date }}</span>
+                        <span class="text-sm text-gray-600 ml-2 block sm:inline mt-1 sm:mt-0"><i class="ri-arrow-right-s-line text-gray-400 hidden sm:inline"></i> {{ block.reason }}</span>
+                    </div>
+                    <form action="{{ url_for('views.admin_unblock_date', block_id=block.id) }}" method="POST"
+                        onsubmit="return confirm('Unblock {{ block.date }}? Customers will be able to book it again.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit"
+                            class="w-full sm:w-auto text-gray-500 hover:text-green-700 bg-gray-100 hover:bg-green-100 px-4 py-1.5 rounded-md text-xs font-bold transition-colors border border-gray-200 hover:border-green-300 shrink-0">
+                            Unblock Date
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="bg-gray-50 rounded-lg border border-gray-200 border-dashed p-6 text-center">
+                    <p class="text-sm text-gray-500 font-medium">No dates are currently blocked.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
+{% endblock %}

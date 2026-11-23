@@ -1,0 +1,114 @@
+<!-- website/templates/_booking_detail_modal.html -->
+<div id="detailModal" class="fixed inset-0 bg-gray-900/60 hidden flex items-center justify-center z-[110] p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl relative animate-fade-in-down max-h-[90vh] overflow-hidden flex flex-col">
+        
+        <!-- Header -->
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h2 class="text-xl font-bold text-gray-900">Full Booking Details</h2>
+            <button onclick="closeDetailModal()" class="text-gray-400 hover:text-red-500 transition-colors">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        
+        <!-- Scrollable Content -->
+        <div class="p-6 overflow-y-auto space-y-6">
+            <!-- Customer Info Group -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Customer Name</label>
+                    <p id="det-name" class="text-gray-900 font-bold text-lg"></p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Phone Number</label>
+                    <p id="det-phone" class="text-indigo-600 font-bold text-lg"></p>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Email Address</label>
+                    <p id="det-email" class="text-gray-900 font-medium"></p>
+                </div>
+            </div>
+
+            <hr class="border-gray-100">
+
+            <!-- Event Info Group -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Service Type</label>
+                    <span id="det-service" class="inline-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs font-bold"></span>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Package</label>
+                    <p id="det-package" class="text-gray-900 font-medium"></p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Date & Time</label>
+                    <p id="det-datetime" class="text-gray-900 font-bold"></p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Status</label>
+                    <div id="det-status-pill" class="inline-block px-3 py-1 rounded-full text-[10px] font-bold border"></div>
+                </div>
+            </div>
+
+            <hr class="border-gray-100">
+
+            <!-- Location & Notes -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Venue Location</label>
+                <p id="det-location" class="text-gray-800 font-medium mb-2"></p>
+                <a id="det-map-link" href="#" target="_blank" class="inline-flex items-center text-indigo-600 text-sm font-bold hover:underline">
+                    <i class="ri-map-pin-2-line mr-1"></i> View on Google Maps
+                </a>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Client Notes</label>
+                <div class="bg-gray-50 p-4 rounded-lg border italic text-gray-600 text-sm whitespace-pre-wrap" id="det-notes"></div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+            <button onclick="closeDetailModal()" class="bg-gray-900 text-white px-8 py-2.5 rounded-lg font-bold shadow-md">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openDetailModal(data) {
+        document.getElementById('det-name').textContent = data.name;
+        document.getElementById('det-phone').textContent = data.phone || 'N/A';
+        document.getElementById('det-email').textContent = data.email;
+        document.getElementById('det-service').textContent = data.service;
+        document.getElementById('det-package').textContent = data.package || 'Custom/None';
+        document.getElementById('det-datetime').textContent = data.date + ' @ ' + data.time;
+        document.getElementById('det-location').textContent = data.location || 'In Studio';
+        document.getElementById('det-notes').textContent = data.notes || 'No notes provided.';
+        
+        const statusPill = document.getElementById('det-status-pill');
+        statusPill.textContent = data.status.toUpperCase();
+        
+        // Dynamic Status Colors
+        statusPill.className = "inline-block px-3 py-1 rounded-full text-[10px] font-bold border ";
+        if(data.status === 'pending') statusPill.className += "bg-yellow-50 text-yellow-700 border-yellow-200";
+        else if(data.status === 'scheduled') statusPill.className += "bg-blue-50 text-blue-700 border-blue-200";
+        else if(data.status === 'finished') statusPill.className += "bg-green-50 text-green-700 border-green-200";
+        else if(data.status === 'cancelled') statusPill.className += "bg-red-50 text-red-700 border-red-200";
+
+        const mapLink = document.getElementById('det-map-link');
+        if (data.map_url && data.map_url !== 'None' && data.map_url.trim() !== '') {
+            mapLink.href = data.map_url;
+            mapLink.classList.remove('hidden');
+        } else {
+            mapLink.classList.add('hidden');
+        }
+
+        document.getElementById('detailModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeDetailModal() {
+        document.getElementById('detailModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+</script>

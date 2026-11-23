@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% block title %}System Settings{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 w-full relative">
+        <div class="mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-2 md:mt-0">System Settings</h1>
+            <p class="text-sm md:text-base text-gray-500">Manage integrations, notifications, API gateways, and other system-wide configurations.</p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-8 max-w-6xl pb-24">
+
+            <!-- Combined Settings Container -->
+            <div class="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm space-y-8">
+                
+                <!-- Facebook Integration Section -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-600">
+                            <i class="ri-facebook-box-fill text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Facebook Integration</h2>
+                            <p class="text-sm text-gray-500">Enable automatic posting to your registered Facebook Pages.</p>
+                        </div>
+                    </div>
+                    <form action="{{ url_for('views.save_fb_settings') }}" method="POST" class="space-y-4">
+                        <!-- Page 1 -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+                            <h3 class="text-sm font-bold text-gray-700">Facebook Page 1 (Primary)</h3>
+                            <input type="text" name="fb_page_name" value="{{ settings.fb_page_name }}"
+                                placeholder="Page Name (e.g., Main Page)"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                            <input type="text" name="fb_page_id" value="{{ settings.fb_page_id }}"
+                                placeholder="Facebook Page ID"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                            <input type="password" name="fb_access_token" value="{{ settings.fb_access_token }}"
+                                placeholder="Page Access Token"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <!-- Page 2 -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+                            <h3 class="text-sm font-bold text-gray-700">Facebook Page 2</h3>
+                            <input type="text" name="fb_page_name_2" value="{{ settings.fb_page_name_2 }}"
+                                placeholder="Page Name (e.g., Photobooth Page)"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                            <input type="text" name="fb_page_id_2" value="{{ settings.fb_page_id_2 }}"
+                                placeholder="Facebook Page ID"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                            <input type="password" name="fb_access_token_2" value="{{ settings.fb_access_token_2 }}"
+                                placeholder="Page Access Token"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <!-- Page 3 -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+                            <h3 class="text-sm font-bold text-gray-700">Facebook Page 3</h3>
+                            <input type="text" name="fb_page_name_3" value="{{ settings.fb_page_name_3 }}"
+                                placeholder="Page Name (e.g., Events Page)"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                            <input type="text" name="fb_page_id_3" value="{{ settings.fb_page_id_3 }}"
+                                placeholder="Facebook Page ID"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                            <input type="password" name="fb_access_token_3" value="{{ settings.fb_access_token_3 }}"
+                                placeholder="Page Access Token"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div class="mt-4">
+                            <button type="submit"
+                                class="w-full md:w-auto bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm">
+                                Save Facebook Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- Google Calendar Integration Section -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center bg-indigo-50 text-indigo-600">
+                            <i class="ri-google-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Google Calendar</h2>
+                            <p class="text-sm text-gray-500">Mirror confirmed bookings into Google Calendar without slowing down the booking flow.</p>
+                        </div>
+                    </div>
+
+                    {% if google_configured %}
+                    <div class="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    {% if google_connection and google_connection.is_active %}
+                                    <span class="ws-sync-badge ws-sync-synced"><i class="ri-checkbox-circle-line"></i> Connected</span>
+                                    {% else %}
+                                    <span class="ws-sync-badge ws-sync-not_synced">Not connected</span>
+                                    {% endif %}
+                                    {% if google_connection and google_connection.needs_reconnect %}
+                                    <span class="ws-sync-badge ws-sync-failed">Reconnect required</span>
+                                    {% endif %}
+                                </div>
+                                {% if google_connection and google_connection.is_active %}
+                                <p class="mt-2 text-sm font-bold text-gray-900">{{ google_connection.email or 'Google account' }}</p>
+                                <p class="text-xs text-gray-500">
+                                    Calendar: {{ google_connection.calendar_id or 'primary' }}
+                                    {% if google_connection.last_sync_at %} · Last sync {{ google_connection.last_sync_at.strftime('%b %d, %Y %I:%M %p') }}{% endif %}
+                                </p>
+                                {% else %}
+                                <p class="mt-2 text-sm text-gray-600">Connect an administrator Google account to begin syncing.</p>
+                                {% endif %}
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                {% if google_connection and google_connection.is_active %}
+                                <a href="{{ url_for('views.calendar') }}" class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors">
+                                    <i class="ri-calendar-2-line"></i> Open calendar
+                                </a>
+                                <form action="{{ url_for('views.google_calendar_sync_all') }}" method="POST">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">
+                                        <i class="ri-refresh-line"></i> Sync now
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('views.google_calendar_disconnect') }}" method="POST"
+                                    onsubmit="return confirm('Disconnect Google Calendar? Existing events will remain in Google Calendar.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors">
+                                        <i class="ri-link-unlink"></i> Disconnect
+                                    </button>
+                                </form>
+                                {% else %}
+                                <a href="{{ url_for('views.google_calendar_connect') }}" class="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">
+                                    <i class="ri-link"></i> Connect Google Calendar
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if google_connection and google_connection.is_active %}
+                        <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+                            <div class="bg-white border border-gray-200 rounded-xl p-3">
+                                <p class="text-[10px] font-bold uppercase text-emerald-700">Synced</p>
+                                <p class="text-lg font-bold text-gray-900">{{ google_sync_summary.counts.get('synced', 0) }}</p>
+                            </div>
+                            <div class="bg-white border border-gray-200 rounded-xl p-3">
+                                <p class="text-[10px] font-bold uppercase text-amber-700">Pending</p>
+                                <p class="text-lg font-bold text-gray-900">{{ google_sync_summary.counts.get('pending', 0) + google_sync_summary.counts.get('processing', 0) }}</p>
+                            </div>
+                            <div class="bg-white border border-gray-200 rounded-xl p-3">
+                                <p class="text-[10px] font-bold uppercase text-red-700">Failed</p>
+                                <p class="text-lg font-bold text-gray-900">{{ google_sync_summary.counts.get('failed', 0) }}</p>
+                            </div>
+                            <div class="bg-white border border-gray-200 rounded-xl p-3">
+                                <p class="text-[10px] font-bold uppercase text-gray-500">Total queued</p>
+                                <p class="text-lg font-bold text-gray-900">{{ google_sync_summary.total }}</p>
+                            </div>
+                        </div>
+                        {% if google_connection.last_error %}
+                        <p class="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 break-words">{{ google_connection.last_error }}</p>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                        <p class="text-sm font-bold text-amber-900 flex items-center gap-2"><i class="ri-alert-line"></i> Google Calendar is not configured</p>
+                        <p class="mt-2 text-xs text-amber-800 leading-relaxed">
+                            Add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> to the server environment, then restart the application.
+                            Register the callback URL <code>{{ request.url_root.rstrip('/') }}/admin/google-calendar/callback</code> in Google Cloud Console.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- Notification & Automation Section -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center bg-indigo-50 text-indigo-600">
+                            <i class="ri-mail-settings-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Notification & Automation</h2>
+                            <p class="text-sm text-gray-500">Configure business contact parameters and automated event reminder timing.</p>
+                        </div>
+                    </div>
+                    
+                    <form action="{{ url_for('views.save_notification_settings') }}" method="POST" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Business Notification Email</label>
+                                <input type="email" name="notification_email" value="{{ settings.notification_email }}"
+                                    class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Send Reminder (Hours Before Event)</label>
+                                <div class="relative">
+                                    <input type="number" name="reminder_hours" value="{{ settings.reminder_hours }}"
+                                        min="1" max="168"
+                                        class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                                    <span class="absolute right-4 top-3.5 text-gray-400 text-sm">Hours</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Admin Notification Phone Number</label>
+                            <input type="text" name="admin_phone" value="{{ settings.admin_phone }}"
+                                placeholder="e.g., 09123456789"
+                                class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                            <p class="text-[11px] text-gray-400 mt-1">Recipient number for admin notifications on new bookings and contact submissions.</p>
+                        </div>
+
+                        <div class="pt-2">
+                            <button type="submit" class="w-full md:w-auto bg-indigo-600 text-white px-8 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-sm">
+                                Save Notification Settings
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="mt-6 pt-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div class="text-xs text-gray-500">
+                            <p class="font-bold text-gray-700">Manual System Operations</p>
+                            <p>Immediately run the system database and Google Drive folder cleanup cycle.</p>
+                        </div>
+                        <form action="{{ url_for('views.trigger_cleanup') }}" method="POST" class="w-full sm:w-auto">
+                            <button type="submit" class="w-full sm:w-auto bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-5 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center">
+                                <i class="ri-delete-bin-line mr-1.5 text-sm"></i> Force Run Gallery Cleanup Now
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- SMSGate App Connection Section -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600">
+                            <i class="ri-smartphone-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">SMSGate App Connection</h2>
+                            <p class="text-sm text-gray-500">Android hardware bridge endpoints for local SMS dispatch.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                        <!-- Form Configuration -->
+                        <form action="{{ url_for('views.save_smsgate') }}" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Gateway Name</label>
+                                <input type="text" name="smsgate_name" value="{{ settings.smsgate_name }}" placeholder="e.g., Backup Phone Bridge" required
+                                    class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">API Dispatch Gateway URL</label>
+                                <input type="url" name="smsgate_url" value="{{ settings.smsgate_url }}" placeholder="https://api.sms-gate.app/3/sms/out" required
+                                    class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Authorized Username</label>
+                                <input type="text" name="smsgate_username" value="{{ settings.smsgate_username }}" placeholder="Enter Device Username" required
+                                    class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Gateway Password / Key</label>
+                                <input type="password" name="smsgate_password" value="{{ settings.smsgate_password }}" placeholder="••••••••" required
+                                    class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none bg-gray-50 font-medium">
+                            </div>
+
+                            <div class="pt-2 flex flex-col sm:flex-row gap-3">
+                                <button type="submit" class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-sm">
+                                    Save Gateway Configuration
+                                </button>
+                                <button type="button" onclick="openTestModal()" class="bg-white border border-gray-300 text-gray-700 px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-gray-50 transition-colors">
+                                    Test Connection
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Connection Instructions -->
+                        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200 space-y-4">
+                            <span class="block text-xs font-bold text-gray-400 uppercase">Configuration Instructions</span>
+                            <p class="text-xs text-gray-600 leading-relaxed">
+                                Link this management system directly to your SMSGate-enabled Android device to dispatch notification SMS messages using local SIM capabilities.
+                            </p>
+                            <ol class="list-decimal list-inside text-xs text-gray-600 space-y-2 pl-1">
+                                <li>Launch the <strong>SMSGate</strong> application on your Android hardware device.</li>
+                                <li>Ensure the <strong>Cloud server</strong> toggle is enabled.</li>
+                                <li>Retrieve the <strong>Username</strong> and <strong>Password</strong> generated by the app, and paste them into the corresponding inputs.</li>
+                                <li>Save the gateway settings first, then click <strong>Test Connection</strong> to run an automated transmission verification.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- Android APK Management Card -->
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center bg-teal-50 text-teal-600">
+                            <i class="ri-android-line text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Admin Android App (APK)</h2>
+                            <p class="text-sm text-gray-500">Provide an Android application package (.apk) for administrators to download from the login screen.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <!-- Status & Current File Info -->
+                        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200 h-full flex flex-col justify-between">
+                            <div>
+                                <span class="block text-xs font-bold text-gray-400 uppercase mb-2">Current App Status</span>
+                                {% if get_setting('admin_apk_filename') %}
+                                <p class="text-emerald-600 font-bold text-sm flex items-center mb-1">
+                                    <i class="ri-checkbox-circle-fill mr-1.5"></i> APK Available for Download
+                                </p>
+                                <p class="text-xs text-gray-600 break-all font-mono mt-1 bg-white p-2 rounded border border-gray-100">
+                                    {{ get_setting('admin_apk_filename') }}
+                                </p>
+                                {% else %}
+                                <p class="text-gray-500 font-bold text-sm flex items-center">
+                                    <i class="ri-information-line mr-1.5"></i> No APK Uploaded
+                                </p>
+                                <p class="text-xs text-gray-400 mt-1">Users will not see an app download option on the gateway login screen until a valid APK file is uploaded.</p>
+                                {% endif %}
+                            </div>
+
+                            {% if get_setting('admin_apk_filename') %}
+                            <form action="{{ url_for('views.admin_delete_apk') }}" method="POST" class="mt-4" onsubmit="return confirm('Delete this binary package from server storage permanently?');">
+                                <button type="submit" class="text-xs font-bold text-red-600 hover:text-red-800 transition-colors flex items-center">
+                                    <i class="ri-delete-bin-line mr-1"></i> Delete Current APK
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+
+                        <!-- Upload New APK Form -->
+                        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                            <span class="block text-xs font-bold text-gray-400 uppercase mb-3">Upload / Replace App File</span>
+                            <form action="{{ url_for('views.admin_upload_apk') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                                <div>
+                                    <input type="file" name="apk_file" accept=".apk" required
+                                        class="block w-full text-xs text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-gray-200 rounded-xl p-1 bg-white">
+                                </div>
+                                <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-indigo-700 transition-colors shadow-sm">
+                                    <i class="ri-upload-cloud-2-line mr-1"></i> Upload APK File
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- MODAL: SMSGATE CONNECTION TEST -->
+<div id="testSmsModal" class="fixed inset-0 bg-gray-900/60 hidden flex items-center justify-center z-[150] p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
+        <div class="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <h2 class="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center">
+                <i class="ri-pulse-line mr-2 text-indigo-500"></i> Dispatch Test Gateway
+            </h2>
+            <button onclick="closeTestModal()" class="text-gray-400 hover:text-red-500 transition-colors">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <p class="text-xs text-gray-500 leading-relaxed">Enter a target phone number to verify whether your SMSGate App integration and cloud servers are communicating properly.</p>
+            <div>
+                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Target Phone Number</label>
+                <input type="tel" id="test_phone_input" placeholder="e.g., +639123456789" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500">
+            </div>
+            <div id="test_feedback_message" class="hidden text-xs p-3 rounded-lg font-medium"></div>
+        </div>
+        <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+            <button type="button" onclick="closeTestModal()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50">Cancel</button>
+            <button type="button" id="execute_test_btn" onclick="executeSmsTest()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-sm flex items-center justify-center">
+                Trigger Test SMS
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openTestModal() {
+        document.getElementById('test_feedback_message').className = 'hidden';
+        document.getElementById('test_phone_input').value = '';
+        document.getElementById('testSmsModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeTestModal() {
+        document.getElementById('testSmsModal').classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    async function executeSmsTest() {
+        const phone = document.getElementById('test_phone_input').value.trim();
+        const feedback = document.getElementById('test_feedback_message');
+        const btn = document.getElementById('execute_test_btn');
+
+        if (!phone) {
+            alert('Please enter a target phone number.');
+            return;
+        }
+
+        // Apply loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i> Transmitting...';
+        feedback.className = 'hidden';
+
+        try {
+            const response = await fetch('/admin/system/test_smsgate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `test_phone=${encodeURIComponent(phone)}`
+            });
+
+            const data = await response.json();
+            
+            feedback.classList.remove('hidden');
+            if (data.success) {
+                feedback.className = 'bg-green-50 border border-green-200 text-green-700 text-xs p-3 rounded-lg font-medium';
+                feedback.innerHTML = `<i class="ri-checkbox-circle-line mr-1"></i> ${data.message}`;
+            } else {
+                feedback.className = 'bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg font-medium';
+                feedback.innerHTML = `<i class="ri-error-warning-line mr-1"></i> Failed: ${data.message}`;
+            }
+        } catch (err) {
+            feedback.classList.remove('hidden');
+            feedback.className = 'bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg font-medium';
+            feedback.innerHTML = `<i class="ri-error-warning-line mr-1"></i> Connection error. Please verify server endpoints.`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Trigger Test SMS';
+        }
+    }
+</script>
+{% endblock %}

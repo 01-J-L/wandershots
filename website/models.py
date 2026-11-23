@@ -1,0 +1,192 @@
+from . import db
+from flask_login import UserMixin
+from sqlalchemy.sql import func
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=True) 
+    email = db.Column(db.String(150), unique=True, nullable=True)    
+    password = db.Column(db.String(255))
+    first_name = db.Column(db.String(150))
+    phone = db.Column(db.String(50), nullable=True)                  
+    role = db.Column(db.String(50), default='customer')              
+    
+    # OTP VERIFICATION
+    otp_code = db.Column(db.String(10), nullable=True)
+    otp_expiry = db.Column(db.DateTime(timezone=True), nullable=True)
+    
+    # NEW FIELDS FOR ADMIN SECURITY
+    last_verified = db.Column(db.DateTime(timezone=True), default=func.now())
+    login_attempts = db.Column(db.Integer, default=0)
+    
+    bookings = db.relationship('Booking', backref='user', lazy=True)
+
+class ContactMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150))
+    email = db.Column(db.String(150))
+    message = db.Column(db.String(10000))
+    date = db.Column(db.DateTime(timezone=True), default=func.now())
+    is_archived = db.Column(db.Boolean, default=False)
+
+class Booking(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Link to User
+    
+    customer_name = db.Column(db.String(150))
+    customer_email = db.Column(db.String(150))
+    customer_phone = db.Column(db.String(50)) 
+    reminder_sent = db.Column(db.Boolean, default=False)
+    
+    location = db.Column(db.String(200)) 
+    map_url = db.Column(db.String(500))
+    
+    service_type = db.Column(db.String(50)) 
+    package_selected = db.Column(db.String(150)) 
+    cancellation_reason = db.Column(db.String(500), nullable=True)
+    
+    date = db.Column(db.String(50))
+    time = db.Column(db.String(50))
+    notes = db.Column(db.String(1000))
+    created_at = db.Column(db.DateTime(timezone=True), default=func.now())
+    status = db.Column(db.String(50), default='pending') 
+    is_archived = db.Column(db.Boolean, default=False)
+
+    gallery_link = db.Column(db.String(500), nullable=True)
+    gallery_folder_id = db.Column(db.String(100), nullable=True) # NEW
+    gallery_updated_at = db.Column(db.DateTime(timezone=True), nullable=True) # NEW
+
+
+class PortfolioItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.String(500))
+    category = db.Column(db.String(50)) 
+    link = db.Column(db.String(500)) 
+    
+    image_filename = db.Column(db.String(200), nullable=False) 
+    image_filename_2 = db.Column(db.String(200))
+    image_filename_3 = db.Column(db.String(200))
+    image_filename_4 = db.Column(db.String(200))
+    extra_count = db.Column(db.String(50)) 
+    extra_media = db.Column(db.Text)
+    
+    # CHANGE: Increased length to accommodate a comma-separated list of multiple post IDs from different pages.
+    fb_post_id = db.Column(db.String(500)) 
+    
+    created_at = db.Column(db.DateTime(timezone=True), default=func.now())
+
+class ServicePackage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.String(500))
+    price = db.Column(db.String(50)) 
+    package_type = db.Column(db.String(50)) 
+    image_filename = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime(timezone=True), default=func.now())
+    order = db.Column(db.Integer, default=0)
+
+class SiteSetting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    setting_key = db.Column(db.String(100), unique=True, nullable=False)
+    setting_value = db.Column(db.Text)
+
+class SocialLink(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    platform = db.Column(db.String(100), nullable=False) 
+    url = db.Column(db.String(500), nullable=False)
+    icon_class = db.Column(db.String(100)) 
+    order = db.Column(db.Integer, default=0)
+
+class QuickLink(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False) 
+    url = db.Column(db.String(500), nullable=False) 
+    order = db.Column(db.Integer, default=0) 
+
+class InventoryItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    category = db.Column(db.String(100)) 
+    quantity = db.Column(db.Integer, default=0)
+    min_stock = db.Column(db.Integer, default=5) 
+    unit = db.Column(db.String(50), default="pcs") 
+    last_updated = db.Column(db.DateTime(timezone=True), default=func.now(), onupdate=func.now())
+
+class BlockedDate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.String(50), unique=True, nullable=False) 
+    reason = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime(timezone=True), default=func.now())
+
+class BookingLimit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.String(50), unique=True, nullable=False) # YYYY-MM-DD
+    am_limit = db.Column(db.Integer, default=1) # Max bookings before 12:00 PM
+    pm_limit = db.Column(db.Integer, default=1) # Max bookings after 12:00 PM
+
+class SmsGateway(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    api_url = db.Column(db.String(255), nullable=False, default="https://api.sms-gate.app")
+    username = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    device_id = db.Column(db.String(100), nullable=True) # Sesuai Device ID di Aplikasi Android
+    is_active = db.Column(db.Boolean, default=False)     # Hanya satu gateway aktif dalam satu waktu
+    created_at = db.Column(db.DateTime(timezone=True), default=func.now())
+
+
+class GoogleCalendarConnection(db.Model):
+    """A single administrator's Google Calendar OAuth connection.
+
+    Tokens are never stored in plain text. ``encrypted_credentials`` contains a
+    Fernet-encrypted JSON document produced by google-auth.
+    """
+    __tablename__ = 'google_calendar_connection'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=True, index=True)
+    display_name = db.Column(db.String(255), nullable=True)
+    encrypted_credentials = db.Column(db.Text, nullable=True)
+    scopes = db.Column(db.Text, nullable=True)
+    calendar_id = db.Column(db.String(255), nullable=False, default='primary')
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    needs_reconnect = db.Column(db.Boolean, nullable=False, default=False)
+    last_error = db.Column(db.Text, nullable=True)
+    connected_at = db.Column(db.DateTime(timezone=True), default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), default=func.now(), onupdate=func.now())
+    disconnected_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    last_sync_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+
+class BookingCalendarSync(db.Model):
+    """Persistent, idempotent mapping between a booking and a Google event.
+
+    The row doubles as the durable synchronization queue. A unique constraint on
+    (booking_id, connection_id) guarantees a booking can only ever own one event
+    per Google Calendar connection.
+    """
+    __tablename__ = 'booking_calendar_sync'
+    __table_args__ = (
+        db.UniqueConstraint('booking_id', 'connection_id', name='uq_booking_calendar_connection'),
+        db.Index('ix_booking_calendar_sync_status_due', 'sync_status', 'next_retry_at'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('booking.id'), nullable=False, index=True)
+    connection_id = db.Column(db.Integer, db.ForeignKey('google_calendar_connection.id'), nullable=False, index=True)
+    google_event_id = db.Column(db.String(1024), nullable=True)
+    google_event_link = db.Column(db.String(2048), nullable=True)
+    event_generation = db.Column(db.Integer, nullable=False, default=0)
+    desired_action = db.Column(db.String(20), nullable=False, default='upsert')
+    sync_status = db.Column(db.String(32), nullable=False, default='pending', index=True)
+    last_synced_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    last_attempt_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    last_error = db.Column(db.Text, nullable=True)
+    retry_count = db.Column(db.Integer, nullable=False, default=0)
+    next_retry_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), default=func.now(), onupdate=func.now())
+
+    booking = db.relationship('Booking', backref=db.backref('calendar_syncs', lazy='dynamic'))
+    connection = db.relationship('GoogleCalendarConnection', backref=db.backref('booking_syncs', lazy='dynamic'))

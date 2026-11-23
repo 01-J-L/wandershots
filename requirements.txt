@@ -1,0 +1,17 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Flask-APScheduler
+Flask-Limiter
+Authlib
+Werkzeug
+requests
+python-dotenv
+cryptography
+groq
+google-auth
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+mysql-connector-python
+pymysql

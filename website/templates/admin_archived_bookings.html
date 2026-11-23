@@ -1,0 +1,163 @@
+
+{% extends "base.html" %}
+{% block title %}Archived Records{% endblock %}
+
+{% block content %}
+<div class="h-screen bg-gray-50 flex text-gray-800 font-sans overflow-hidden w-full absolute top-0 left-0 z-50">
+    
+    {% include '_admin_sidebar.html' %}
+
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50">
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Archived Records</h1>
+                <p class="text-sm text-gray-500">History of old bookings, sales, and inquiries moved to the archive.</p>
+            </div>
+            <a href="{{ url_for('views.dashboard') }}" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors">
+                <i class="ri-arrow-left-line mr-2"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <!-- TABS WITH NEW "FINISHED (SALES)" ADDED -->
+        <div class="flex border-b border-gray-300 mb-6 space-x-6 overflow-x-auto pb-1">
+            {% for t in [('records', 'All Bookings'), ('booked', 'Scheduled'), ('finished', 'Finished (Sales)'), ('cancelled', 'Cancelled'), ('inquiries', 'Messages')] %}
+            <a href="{{ url_for('views.archived_bookings', tab=t[0]) }}" class="pb-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap {% if tab == t[0] %}border-indigo-600 text-indigo-600 font-bold{% else %}border-transparent text-gray-500 hover:text-gray-700{% endif %}">
+                {{ t[1] }}
+            </a>
+            {% endfor %}
+        </div>
+
+        <!-- BULK RESTORE AND DELETE TOOLBAR -->
+        <div id="bulkActions" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 hidden flex-col sm:flex-row items-center justify-between gap-4">
+            <span class="text-gray-700 text-sm font-medium"><span id="selectedCount">0</span> item(s) selected</span>
+            <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"> {# New container for buttons #}
+                {# Restore Form #}
+                <form action="{{ url_for('views.unarchive_selected_messages') if tab == 'inquiries' else url_for('views.unarchive_selected_bookings') }}" method="POST" onsubmit="return confirm('Restore selected items to active list?');" class="w-full sm:w-auto">
+                    <input type="hidden" name="{{ 'selected_messages' if tab == 'inquiries' else 'selected_bookings' }}" id="bulkSelectedItemsRestore">
+                    <button type="submit" class="bg-yellow-50 text-yellow-800 px-6 py-2 rounded-lg text-sm font-bold border border-yellow-200 hover:bg-yellow-100 transition-colors w-full">
+                        <i class="ri-refresh-line mr-1"></i> Restore Selected
+                    </button>
+                </form>
+
+                {# PERMANENT DELETE Form (NEW) #}
+                <form action="{{ url_for('views.delete_selected_archived_items', tab=tab) }}" method="POST" onsubmit="return confirm('WARNING: This will PERMANENTLY DELETE the selected items from the database. This action cannot be undone. Are you absolutely sure?');" class="w-full sm:w-auto">
+                    <input type="hidden" name="{{ 'selected_messages' if tab == 'inquiries' else 'selected_bookings' }}" id="bulkSelectedItemsDelete">
+                    <button type="submit" class="bg-red-50 text-red-800 px-6 py-2 rounded-lg text-sm font-bold border border-red-200 hover:bg-red-100 transition-colors w-full">
+                        <i class="ri-delete-bin-line mr-1"></i> Permanently Delete Selected
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if tab == 'inquiries' %}
+            <!-- Inquiry List Logic -->
+            <div class="space-y-4">
+                {% for msg in messages %}
+                <div class="bg-white p-5 rounded-xl border shadow-sm flex gap-4">
+                    <input type="checkbox" value="{{ msg.id }}" class="rowCheckbox mt-1 rounded text-indigo-600 focus:ring-indigo-500">
+                    <div>
+                        <h3 class="font-bold text-gray-900">{{ msg.name }} <span class="text-xs font-normal text-gray-400 ml-2">{{ msg.date.strftime('%B %d, %Y') }}</span></h3>
+                        <p class="text-sm text-gray-600 mt-2 italic">"{{ msg.message }}"</p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-white p-10 rounded-xl border text-center text-gray-500 italic">No archived messages found.</div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- BOOKING ARCHIVE TABLE -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-gray-600 min-w-[800px]">
+                        <thead class="bg-gray-50 text-[11px] font-bold uppercase">
+                            <tr>
+                                <th class="px-6 py-4 w-10"><input type="checkbox" id="selectAllCheckbox" class="rounded text-indigo-600 focus:ring-indigo-500"></th>
+                                <th class="px-6 py-4">Event Date</th>
+                                <th class="px-6 py-4">Customer</th>
+                                <th class="px-6 py-4">Service & Package</th>
+                                <th class="px-6 py-4">Archived Status</th>
+                                <th class="px-6 py-4 text-center">Inspect</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for b in bookings %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4"><input type="checkbox" value="{{ b.id }}" class="rowCheckbox rounded text-indigo-600 focus:ring-indigo-500"></td>
+                                <td class="px-6 py-4 text-sm font-medium text-gray-700">{{ b.date }}</td>
+                                <td class="px-6 py-4">
+                                    <div class="font-bold text-gray-900 text-sm">{{ b.customer_name }}</div>
+                                    <div class="text-[11px] text-indigo-600">{{ b.customer_phone }}</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="text-xs font-bold text-gray-800">{{ b.service_type }}</div>
+                                    <div class="text-[10px] text-gray-500 mt-0.5 truncate max-w-[200px]" title="{{ b.package_selected }}">{{ b.package_selected or 'Custom/None' }}</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="px-3 py-1 rounded-full text-[10px] font-bold border 
+                                        {% if b.status == 'pending' %}bg-yellow-50 text-yellow-700 border-yellow-200
+                                        {% elif b.status == 'scheduled' %}bg-blue-50 text-blue-700 border-blue-200
+                                        {% elif b.status == 'finished' %}bg-green-50 text-green-700 border-green-200
+                                        {% elif b.status == 'cancelled' %}bg-red-50 text-red-700 border-red-200
+                                        {% else %}bg-gray-50 text-gray-700 border-gray-200{% endif %}">
+                                        {{ b.status.upper() }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <button onclick='openDetailModal({
+                                        name: "{{ b.customer_name|e }}",
+                                        phone: "{{ b.customer_phone|e }}",
+                                        email: "{{ b.customer_email|e }}",
+                                        service: "{{ b.service_type|e }}",
+                                        package: "{{ b.package_selected|e }}",
+                                        date: "{{ b.date|e }}",
+                                        time: "{{ b.time|e }}",
+                                        location: "{{ b.location|e }}",
+                                        map_url: "{{ b.map_url|e }}",
+                                        notes: {{ b.notes|tojson|safe if b.notes else '""' }},
+                                        status: "{{ b.status|e }}"
+                                    })' class="bg-gray-100 text-gray-600 px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors">
+                                        View Info
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="px-6 py-12 text-center text-gray-400 italic">No archived records in this category.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </main>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAll = document.getElementById('selectAllCheckbox');
+        const rows = document.querySelectorAll('.rowCheckbox');
+        const bulkBar = document.getElementById('bulkActions');
+        const countSpan = document.getElementById('selectedCount');
+        const inputHiddenRestore = document.getElementById('bulkSelectedItemsRestore'); // Changed ID
+        const inputHiddenDelete = document.getElementById('bulkSelectedItemsDelete');   // New ID
+
+        function update() {
+            const checked = document.querySelectorAll('.rowCheckbox:checked');
+            countSpan.textContent = checked.length;
+            bulkBar.classList.toggle('hidden', checked.length === 0);
+            bulkBar.classList.toggle('flex', checked.length > 0);
+            const ids = Array.from(checked).map(c => c.value);
+            inputHiddenRestore.value = JSON.stringify(ids); // Update for restore
+            inputHiddenDelete.value = JSON.stringify(ids);  // Update for delete
+        }
+
+        if(selectAll) {
+            selectAll.addEventListener('change', () => { rows.forEach(r => r.checked = selectAll.checked); update(); });
+            rows.forEach(r => r.addEventListener('change', update));
+        }
+    });
+</script>
+
+{% include '_booking_detail_modal.html' %}
+{% endblock %}
